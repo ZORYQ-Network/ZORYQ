@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'kyvo-src.tgz'
+      - 'overrides/**'
       - '.github/workflows/android-apk.yml'
 
 permissions:
@@ -31,6 +32,15 @@ jobs:
           tar -xzf kyvo-src.tgz -C appsrc
           test -f appsrc/package.json
           test -f appsrc/app.json
+
+      - name: Apply platform overrides
+        run: |
+          if [ -d overrides ]; then
+            cp -R overrides/. appsrc/
+          fi
+          test -f appsrc/app/guard.tsx
+          test -f appsrc/app/one.tsx
+          test -f appsrc/src/services/guard.ts
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
