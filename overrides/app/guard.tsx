@@ -1,0 +1,15 @@
+import {useState} from 'react';
+import {router} from 'expo-router';
+import {Pressable,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {KyvoLogo} from '@/components/KyvoLogo';
+import {Card,GlowButton,Pill,SectionTitle} from '@/components/Ui';
+import {analyzeTarget,GuardReport} from '@/services/guard';
+import {colors} from '@/theme/colors';
+
+export default function GuardScreen(){
+ const [target,setTarget]=useState(''); const [report,setReport]=useState<GuardReport|null>(null); const [loading,setLoading]=useState(false);
+ const run=async()=>{setLoading(true);try{setReport(await analyzeTarget(target));}finally{setLoading(false)}};
+ return <SafeAreaView style={s.safe}><ScrollView contentContainerStyle={s.content}><View style={s.head}><KyvoLogo/><Pressable onPress={()=>router.back()}><Text style={s.close}>×</Text></Pressable></View><Text style={s.title}>KYVO GUARD</Text><Text style={s.sub}>Pré-check de endereço, contrato e intenção antes da assinatura. O APK atual usa análise local demonstrativa; dinheiro real exigirá simulação on-chain e provedores de risco.</Text><Card><Text style={s.label}>ENDEREÇO, CONTRATO OU KYVO ID</Text><TextInput value={target} onChangeText={setTarget} autoCapitalize="none" autoCorrect={false} placeholder="0x… ou @usuario" placeholderTextColor="#55596A" style={s.input}/><GlowButton title={loading?'Analisando…':'Analisar com KYVO Guard'} onPress={run}/></Card>{report?<Card style={s.report}><View style={s.scoreRow}><View><Text style={s.label}>KYVO SAFE SCORE</Text><Text style={s.score}>{report.score}/100</Text></View><Pill tone={report.risk==='low'?'green':'purple'}>{report.risk.toUpperCase()}</Pill></View><Text style={s.headline}>{report.headline}</Text><SectionTitle title="FINDINGS"/>{report.findings.map(f=><View key={f.code} style={s.finding}><Text style={s.findingTitle}>{f.title}</Text><Text style={s.findingText}>{f.detail}</Text></View>)}</Card>:null}<View style={{height:20}}/></ScrollView></SafeAreaView>
+}
+const s=StyleSheet.create({safe:{flex:1,backgroundColor:colors.bg},content:{padding:16,gap:14},head:{flexDirection:'row',alignItems:'center',justifyContent:'space-between'},close:{color:colors.text,fontSize:34},title:{color:colors.text,fontSize:30,fontWeight:'900'},sub:{color:colors.muted,fontSize:11,lineHeight:17},label:{color:'#9A9CAD',fontSize:10,fontWeight:'900',letterSpacing:1.4},input:{height:54,borderRadius:14,borderWidth:1,borderColor:'#313446',backgroundColor:'#0B0D14',color:colors.text,paddingHorizontal:14,fontSize:13,marginVertical:12},report:{borderColor:'#4D3467'},scoreRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},score:{color:colors.lime,fontSize:38,fontWeight:'900',marginTop:7},headline:{color:colors.text,fontSize:13,lineHeight:19,fontWeight:'700',marginVertical:14},finding:{paddingVertical:10,borderBottomWidth:1,borderBottomColor:'#202230'},findingTitle:{color:colors.text,fontSize:12,fontWeight:'800'},findingText:{color:colors.muted,fontSize:10,lineHeight:16,marginTop:4}})
