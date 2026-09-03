@@ -5,13 +5,13 @@ on:
   push:
     branches: [main]
     paths:
-      - 'kyvo-src.tgz'
+      - 'source/chunks/**'
       - 'overrides/**'
       - '.github/workflows/android-apk.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'kyvo-src.tgz'
+      - 'source/chunks/**'
       - 'overrides/**'
       - '.github/workflows/android-apk.yml'
 
@@ -32,10 +32,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Extract KYVO source
+      - name: Reconstruct and verify KYVO source
         run: |
+          set -euo pipefail
+          cat source/chunks/part-*.b64 | base64 --decode > /tmp/kyvo-src.tgz
+          echo '9e5be2b700ce1ba583f98a6b52643d04800d0774935f3493284335a486dab340  /tmp/kyvo-src.tgz' | sha256sum -c -
           mkdir -p appsrc
-          tar -xzf kyvo-src.tgz -C appsrc
+          tar -xzf /tmp/kyvo-src.tgz -C appsrc
           test -f appsrc/package.json
           test -f appsrc/app.json
 
