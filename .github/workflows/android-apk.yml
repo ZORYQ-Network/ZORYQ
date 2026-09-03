@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'kyvo-source.zip'
+      - 'kyvo-src.tgz'
       - '.github/workflows/android-apk.yml'
 
 permissions:
@@ -28,7 +28,9 @@ jobs:
       - name: Extract KYVO source
         run: |
           mkdir -p appsrc
-          unzip -q kyvo-source.zip -d appsrc
+          tar -xzf kyvo-src.tgz -C appsrc
+          test -f appsrc/package.json
+          test -f appsrc/app.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
