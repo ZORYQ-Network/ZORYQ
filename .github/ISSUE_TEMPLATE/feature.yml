@@ -1,0 +1,20 @@
+name: Feature request
+description: Proponha uma melhoria para a KYVO
+title: "feat: "
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema do usuário
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+    validations:
+      required: true
+  - type: textarea
+    id: risk
+    attributes:
+      label: Riscos / impacto em wallet, taxas, XP ou privacidade

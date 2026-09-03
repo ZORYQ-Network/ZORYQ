@@ -1,0 +1,33 @@
+name: Bug report
+description: Reporte um problema funcional da KYVO
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: "Não publique seed phrase, private key, tokens OAuth ou dados financeiros sensíveis."
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema
+      description: O que aconteceu?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Esperado
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Versão/build
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Plataforma
+      options: [Android, iOS]
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passos para reproduzir
