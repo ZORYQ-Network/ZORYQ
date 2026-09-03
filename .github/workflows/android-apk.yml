@@ -8,6 +8,12 @@ on:
       - 'kyvo-src.tgz'
       - 'overrides/**'
       - '.github/workflows/android-apk.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'kyvo-src.tgz'
+      - 'overrides/**'
+      - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: read
