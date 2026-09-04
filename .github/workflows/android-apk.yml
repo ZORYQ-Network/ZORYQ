@@ -35,8 +35,8 @@ jobs:
     timeout-minutes: 60
     env:
       CI: '1'
-      NODE_OPTIONS: --max-old-space-size=4096
-      GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=-Xmx4g\ -XX:MaxMetaspaceSize=1024m
+      NODE_OPTIONS: --max-old-space-size=3072
+      GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1 -Dorg.gradle.parallel=false
 
     steps:
       - name: Checkout
@@ -107,9 +107,10 @@ jobs:
           cat >> gradle.properties <<'EOF'
           org.gradle.daemon=false
           org.gradle.parallel=false
-          org.gradle.workers.max=2
-          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
-          kotlin.daemon.jvmargs=-Xmx2g
+          org.gradle.workers.max=1
+          org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx768m
+          kotlin.compiler.execution.strategy=in-process
           EOF
           grep -q '^expo.inlineModules.watchedDirectories=\[\]$' gradle.properties
           grep -q '^org.gradle.daemon=false$' gradle.properties
@@ -119,14 +120,25 @@ jobs:
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Runner capacity before build
+        run: |
+          echo '=== MEMORY ==='
+          free -h
+          echo '=== DISK ==='
+          df -h
+
       - name: Build installable APK
         id: gradle_build
         working-directory: appsrc/android
         shell: bash
         run: |
           set +e
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --info 2>&1 | tee ../../gradle-build.log
+          (while true; do date -u; free -h; df -h .; sleep 30; done) > ../../runner-resources.log 2>&1 &
+          monitor_pid=$!
+          ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain 2>&1 | tee ../../gradle-build.log
           status=${PIPESTATUS[0]}
+          kill "$monitor_pid" 2>/dev/null || true
+          wait "$monitor_pid" 2>/dev/null || true
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
@@ -136,6 +148,7 @@ jobs:
           set -euo pipefail
           mkdir -p diagnostics
           cp gradle-build.log diagnostics/gradle-build.log || true
+          cp runner-resources.log diagnostics/runner-resources.log || true
           cp appsrc/package.json diagnostics/package.json || true
           cp appsrc/android/gradle.properties diagnostics/android-gradle.properties || true
           cp appsrc/android/build.gradle diagnostics/android-build.gradle || true
