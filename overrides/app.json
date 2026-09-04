@@ -6,6 +6,7 @@
     "orientation": "portrait",
     "scheme": "zoryq-login",
     "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.zoryq.mobile",
