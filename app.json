@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "ZORYQ",
+    "slug": "zoryq-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "zoryq-login",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {"resizeMode": "contain", "backgroundColor": "#07070B"},
+    "ios": {"supportsTablet": false, "bundleIdentifier": "app.zoryq.mobile", "infoPlist": {"NSFaceIDUsageDescription": "ZORYQ usa Face ID para proteger o acesso à sua wallet."}},
+    "android": {"package": "app.zoryq.mobile", "adaptiveIcon": {"backgroundColor": "#07070B"}, "edgeToEdgeEnabled": true},
+    "web": {"bundler": "metro"},
+    "plugins": ["expo-router", "expo-localization", "expo-secure-store", ["expo-local-authentication", {"faceIDPermission": "Permita que o ZORYQ use Face ID para proteger sua wallet."}]],
+    "experiments": {"typedRoutes": true},
+    "extra": {"walletArchitecture": "embedded-self-custody", "airdropStatus": "coming-soon", "supportedLanguages": ["system","pt","en","es","fr","de","it","tr","ru","ja","ko","zh"]}
+  }
+}
