@@ -1,0 +1,19 @@
+{
+  "name": "zoryq-wallet-extension",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.0.0",
+    "@noble/post-quantum": "^0.7.1",
+    "@scure/base": "^2.0.0",
+    "@scure/bip39": "^2.0.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "~6.0.3"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "ZORYQ Wallet Testnet",
+  "version": "0.3.0",
+  "description": "Self-custody ZORYQ Testnet wallet with BIP-39 recovery, ML-DSA-65 signing and official Testnet connection.",
+  "permissions": ["storage", "clipboardWrite"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "ZORYQ Wallet",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://zoryq-testnet.vercel.app/*",
+        "https://juordakzclqefpuauzjq.supabase.co/functions/v1/zoryq-testnet*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inpage.js"],
+      "matches": [
+        "https://zoryq-testnet.vercel.app/*",
+        "https://juordakzclqefpuauzjq.supabase.co/*"
+      ]
+    }
+  ]
+}
