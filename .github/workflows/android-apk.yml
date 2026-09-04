@@ -94,6 +94,7 @@ jobs:
       - name: Harden Gradle for GitHub runner
         working-directory: appsrc/android
         run: |
+          printf '\n' >> gradle.properties
           cat >> gradle.properties <<'EOF'
           org.gradle.daemon=false
           org.gradle.parallel=false
@@ -101,6 +102,8 @@ jobs:
           org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
           kotlin.daemon.jvmargs=-Xmx2g
           EOF
+          grep -q '^expo.inlineModules.watchedDirectories=\[\]$' gradle.properties
+          grep -q '^org.gradle.daemon=false$' gradle.properties
           chmod +x gradlew
           ./gradlew --version
 
