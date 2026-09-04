@@ -58,7 +58,16 @@ jobs:
           test -f appsrc/app.json
           grep -q '"name": "ZORYQ"' appsrc/app.json
           grep -q 'app.zoryq.mobile' appsrc/app.json
-          ! grep -RIn --exclude='*.png' --exclude='*.jpg' -E 'ZORIQ|zoriq|KYVO|kyvo' appsrc
+          LEGACY_FILES="$(grep -RIlE --exclude='*.png' --exclude='*.jpg' 'ZORIQ|zoriq|KYVO|kyvo' appsrc || true)"
+          if [ -n "$LEGACY_FILES" ]; then
+            printf '%s\n' "$LEGACY_FILES"
+            UNEXPECTED="$(printf '%s\n' "$LEGACY_FILES" | grep -v '^appsrc/scripts/strip-legacy-branding.mjs$' || true)"
+            if [ -n "$UNEXPECTED" ]; then
+              echo 'Unexpected legacy branding remains in reconstructed source:' >&2
+              printf '%s\n' "$UNEXPECTED" >&2
+              exit 1
+            fi
+          fi
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
