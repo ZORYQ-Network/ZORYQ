@@ -1,44 +1,41 @@
-# KYVO Mobile
+# ZORYQ Mobile
 
 **Crypto without complexity.**
 
-KYVO é um projeto crypto mobile-first que combina wallet self-custody, swap/cross-chain, SocialFi, Spotify, XP e três tecnologias próprias em desenvolvimento:
+ZORYQ é uma plataforma crypto mobile-first que une wallet self-custody, swap/cross-chain, SocialFi, Spotify, XP e uma camada própria de abstração de blockchain.
 
-- **KYVO ONE** — intent engine: o usuário diz o resultado desejado e a KYVO planeja rede, rota, custo e execução.
-- **KYVO Guard** — camada de segurança pré-assinatura, score e futura simulação on-chain.
-- **KYVO ID** — identidade humana multi-chain, como `@usuario`, com endereços verificados.
+## Núcleo do produto
+- **ZORYQ Vault** — wallet self-custody/embedded wallet com segurança local;
+- **ZORYQ ONE** — intent engine para transformar objetivo em rota de execução;
+- **ZORYQ Guard** — segurança pré-assinatura, score, simulação e alertas;
+- **ZORYQ ID** — identidade humana multi-chain no formato `@usuario`;
+- **ZORYQ Route** — roteamento de swap/bridge/rede/custo;
+- **ZORYQ Pro** — assinatura premium;
+- SocialFi + Spotify;
+- XP, quests, streak, referrals e **Airdrop Coming Soon**;
+- idioma/região automáticos + alteração manual;
+- roadmap para futura **ZORYQ Network**, sem obrigar usuários a abandonar outras redes.
 
-## Produto atual
-- KYVO Vault / wallet própria em arquitetura segura
-- Swap e cross-chain com KYVO Fee transparente
-- SocialFi + Spotify
-- XP, quests, streak, referrals e **Airdrop Coming Soon**
-- Multi-chain
-- idioma/região automáticos + alteração manual
-- KYVO ONE preview
-- KYVO Guard preview
-- KYVO Pro preparado para assinatura futura
+## Treasuries oficiais
+Apenas endereços públicos ficam no projeto. Seed phrase e private keys nunca entram no app, GitHub, backend, CI ou logs.
 
-## Receita
-Caminhos priorizados:
-1. **KYVO Route Fee** em operações elegíveis após cadastro do integrador + treasury;
-2. **KYVO Pro** via billing nativo das lojas;
-3. **KYVO Guard / ONE API** como produto B2B futuro.
+- **EVM:** `0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33`
+- **Solana:** `53uWrDJCiGtFHZPFiCzuRGPbSxEYaep2JC5mCQqZV3jG`
+- **Bitcoin Native SegWit:** `bc1q55tt9sphzstjvs3tzylxsltxvvwsv8l69dydmg`
 
-A UI não significa que cobrança real esteja ativa. O modo `live` só deve ser habilitado quando partner account, backend e treasury estiverem configurados e testados.
+## Monetização priorizada
+1. **ZORYQ Route Fee** em swaps/bridges elegíveis após integração real do partner;
+2. **ZORYQ Pro** via billing nativo das lojas;
+3. **Guard / ONE API** como B2B;
+4. referrals/revenue share de protocolos quando permitido;
+5. futuramente, economia da **ZORYQ Network** apenas após tração real.
 
-## Documentação
-O repositório contém whitepaper, arquitetura, segurança, compliance, taxas/treasury, token/airdrop, operações e ADRs. A nova camada de plataforma está documentada em:
-- `docs/product/KYVO_ONE.md`
-- `docs/product/KYVO_GUARD.md`
-- `docs/product/KYVO_ID.md`
-- `docs/business/MONETIZATION.md`
-- `docs/business/REVENUE_LAUNCH.md`
-- `docs/security/THREAT_MODEL.md`
-- `docs/operations/MAINNET_CHECKLIST.md`
-- `docs/operations/ROADMAP.md`
+O modo de cobrança nasce em `preview`. Nenhuma taxa real deve ser ativada até provider, treasury, backend, testes e disclosures estarem validados.
 
 ## APK pelo GitHub
-O workflow `Build KYVO Android APK` extrai a base `kyvo-src.tgz`, aplica os arquivos em `overrides/`, roda validações Expo/TypeScript e gera o APK em **Actions → Artifacts**.
+O workflow **Build ZORYQ Android APK** valida o SHA-256 da fonte oficial, roda TypeScript + Expo Doctor + Expo Prebuild + Gradle e publica `ZORYQ-<build>.apk` em **Actions → Artifacts**.
 
-> O APK atual é de desenvolvimento/teste. Wallet com dinheiro real, swap mainnet e taxas reais só entram depois dos gates de segurança e integrações externas.
+## Roadmap
+Leia `ROADMAP_ZORYQ.md` para a estratégia completa de adoção, receita, segurança, crescimento e futura ZORYQ Network.
+
+> ZORYQ não promete retorno financeiro, valorização de token ou airdrop garantido. Mainnet e cobrança real dependem dos gates técnicos, comerciais, jurídicos e de segurança definidos no projeto.
