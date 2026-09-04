@@ -1,18 +1,23 @@
-name: Build KYVO Android APK
+name: Build ZORIQ Android APK
 
 on:
   workflow_dispatch:
   push:
+    branches: [main, feature/zoriq-platform-foundation]
+    paths:
+      - 'source/zoriq5k/**'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
     branches: [main]
     paths:
-      - 'kyvo-src.tgz'
+      - 'source/zoriq5k/**'
       - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: kyvo-android-apk-${{ github.ref }}
+  group: zoriq-android-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,12 +30,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Extract KYVO source
+      - name: Reconstruct and verify ZORIQ source
         run: |
+          set -euo pipefail
+          cat source/zoriq5k/part-*.b64 | base64 --decode > /tmp/zoriq-source.tgz
+          echo 'e093dd9bcc39a3fbb122b381e867b95b7a3ff0a615d54d55dc02be449744f1cd  /tmp/zoriq-source.tgz' | sha256sum -c -
           mkdir -p appsrc
-          tar -xzf kyvo-src.tgz -C appsrc
+          tar -xzf /tmp/zoriq-source.tgz -C appsrc
           test -f appsrc/package.json
           test -f appsrc/app.json
+          grep -q '"name": "ZORIQ"' appsrc/app.json
+          grep -q 'app.zoriq.mobile' appsrc/app.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -75,15 +85,15 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p dist
-          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk dist/KYVO-${{ github.run_number }}.apk
+          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk dist/ZORIQ-${{ github.run_number }}.apk
 
       - name: APK checksum
         run: sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
-      - name: Upload KYVO APK
+      - name: Upload ZORIQ APK
         uses: actions/upload-artifact@v4
         with:
-          name: KYVO-Android-APK-${{ github.run_number }}
+          name: ZORIQ-Android-APK-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt
