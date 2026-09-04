@@ -17,7 +17,7 @@
     "expo-clipboard": "*",
     "expo-screen-capture": "*",
     "expo-secure-store": "*",
-    "react": "19.2.0",
+    "react": "19.2.3",
     "react-native": "0.86.0",
     "react-native-get-random-values": "^1.11.0"
   },
