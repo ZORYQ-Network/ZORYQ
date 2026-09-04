@@ -7,12 +7,16 @@ on:
     paths:
       - 'source/zoryq15k/**'
       - 'tsconfig.json'
+      - 'overrides/app/(tabs)/xp.tsx'
+      - 'overrides/src/components/ZoryqLogo.tsx'
       - '.github/workflows/android-apk.yml'
   pull_request:
     branches: [main]
     paths:
       - 'source/zoryq15k/**'
       - 'tsconfig.json'
+      - 'overrides/app/(tabs)/xp.tsx'
+      - 'overrides/src/components/ZoryqLogo.tsx'
       - '.github/workflows/android-apk.yml'
 
 permissions:
@@ -40,6 +44,9 @@ jobs:
           mkdir -p appsrc
           tar -xzf /tmp/zoryq-source.tgz -C appsrc
           cp tsconfig.json appsrc/tsconfig.json
+          mkdir -p 'appsrc/app/(tabs)' appsrc/src/components
+          cp 'overrides/app/(tabs)/xp.tsx' 'appsrc/app/(tabs)/xp.tsx'
+          cp overrides/src/components/ZoryqLogo.tsx appsrc/src/components/ZoryqLogo.tsx
           test -f appsrc/package.json
           test -f appsrc/app.json
           grep -q '"name": "ZORYQ"' appsrc/app.json
