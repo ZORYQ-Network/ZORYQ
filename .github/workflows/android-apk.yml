@@ -1,36 +1,34 @@
-name: Build KYVO Android APK
+name: Build ZORYQ Wallet Android APK
 
 on:
   workflow_dispatch:
   push:
+    branches: [main, zoryq-wallet-professional]
+    paths:
+      - 'zoryq-wallet/**'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
     branches: [main]
     paths:
-      - 'kyvo-src.tgz'
+      - 'zoryq-wallet/**'
       - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: kyvo-android-apk-${{ github.ref }}
+  group: zoryq-wallet-android-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build-apk:
-    name: Android APK
+    name: ZORYQ Wallet Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
-      - name: Extract KYVO source
-        run: |
-          mkdir -p appsrc
-          tar -xzf kyvo-src.tgz -C appsrc
-          test -f appsrc/package.json
-          test -f appsrc/app.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -44,23 +42,23 @@ jobs:
           java-version: '17'
 
       - name: Install dependencies
-        working-directory: appsrc
+        working-directory: zoryq-wallet
         run: npm install --no-audit --no-fund
 
-      - name: Align Expo SDK dependencies
-        working-directory: appsrc
+      - name: Align Expo SDK 57 dependencies
+        working-directory: zoryq-wallet
         run: npx expo install --fix
 
       - name: TypeScript check
-        working-directory: appsrc
+        working-directory: zoryq-wallet
         run: npm run typecheck
 
       - name: Expo Doctor
-        working-directory: appsrc
+        working-directory: zoryq-wallet
         run: npx expo-doctor@latest
 
       - name: Generate Android native project
-        working-directory: appsrc
+        working-directory: zoryq-wallet
         run: npx expo prebuild --platform android --clean
         env:
           CI: '1'
@@ -68,22 +66,20 @@ jobs:
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build installable APK
-        working-directory: appsrc/android
+      - name: Build installable debug APK
+        working-directory: zoryq-wallet/android
         run: ./gradlew :app:assembleDebug --no-daemon
 
-      - name: Rename APK
+      - name: Package artifact
         run: |
           mkdir -p dist
-          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk dist/KYVO-${{ github.run_number }}.apk
+          cp zoryq-wallet/android/app/build/outputs/apk/debug/app-debug.apk dist/ZORYQ-Wallet-Testnet-${{ github.run_number }}.apk
+          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
-      - name: APK checksum
-        run: sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
-
-      - name: Upload KYVO APK
+      - name: Upload ZORYQ Wallet APK
         uses: actions/upload-artifact@v4
         with:
-          name: KYVO-Android-APK-${{ github.run_number }}
+          name: ZORYQ-Wallet-Android-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt
