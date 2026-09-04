@@ -108,12 +108,17 @@ jobs:
           org.gradle.daemon=false
           org.gradle.parallel=false
           org.gradle.workers.max=1
-          org.gradle.jvmargs=-Xmx2560m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
-          kotlin.daemon.jvmargs=-Xmx768m
+          org.gradle.vfs.watch=false
+          org.gradle.configuration-cache=false
+          org.gradle.jvmargs=-Xmx2304m -XX:MaxMetaspaceSize=640m -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx512m
           kotlin.compiler.execution.strategy=in-process
+          kotlin.incremental=false
+          reactNativeArchitectures=arm64-v8a
           EOF
           grep -q '^expo.inlineModules.watchedDirectories=\[\]$' gradle.properties
           grep -q '^org.gradle.daemon=false$' gradle.properties
+          grep -q '^reactNativeArchitectures=arm64-v8a$' gradle.properties
           chmod +x gradlew
           ./gradlew --version
 
@@ -135,11 +140,14 @@ jobs:
           set +e
           (while true; do date -u; free -h; df -h .; sleep 30; done) > ../../runner-resources.log 2>&1 &
           monitor_pid=$!
-          ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain 2>&1 | tee ../../gradle-build.log
+          timeout --signal=TERM --kill-after=60s 30m ./gradlew :app:assembleDebug --no-daemon --stacktrace --console=plain --max-workers=1 2>&1 | tee ../../gradle-build.log
           status=${PIPESTATUS[0]}
           kill "$monitor_pid" 2>/dev/null || true
           wait "$monitor_pid" 2>/dev/null || true
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+            echo "Gradle exceeded the bounded build window or was killed; diagnostics will be uploaded." | tee -a ../../gradle-build.log
+          fi
           exit 0
 
       - name: Collect Gradle diagnostics
