@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "ZORYQ Wallet Testnet",
+  "version": "0.1.0",
+  "description": "Self-custody ZORYQ Testnet wallet with BIP-39 recovery and ML-DSA-65 identity.",
+  "permissions": ["storage", "clipboardWrite"],
+  "action": {
+    "default_title": "ZORYQ Wallet",
+    "default_popup": "popup.html"
+  }
+}
