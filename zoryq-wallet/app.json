@@ -1,0 +1,31 @@
+{
+  "expo": {
+    "name": "ZORYQ Wallet",
+    "slug": "zoryq-wallet",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "app.zoryq.wallet",
+      "versionCode": 1,
+      "adaptiveIcon": {
+        "backgroundColor": "#050508"
+      }
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow ZORYQ Wallet to authenticate and protect your wallet."
+        }
+      ],
+      "expo-screen-capture"
+    ],
+    "extra": {
+      "network": "ZORYQ Testnet Alpha",
+      "ticker": "ZQ",
+      "chainId": "zoryq-testnet-1"
+    }
+  }
+}
