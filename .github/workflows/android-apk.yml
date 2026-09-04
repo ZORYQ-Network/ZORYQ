@@ -202,3 +202,5 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
+
+# Rebuild trigger: 2026-09-04T19:25-03:00
