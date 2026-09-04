@@ -1,0 +1,52 @@
+name: Build ZORYQ Wallet Browser Extension
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, zoryq-extension-build]
+    paths:
+      - 'zoryq-extension/**'
+      - '.github/workflows/zoryq-extension.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'zoryq-extension/**'
+      - '.github/workflows/zoryq-extension.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-extension-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-extension:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - name: Install dependencies
+        working-directory: zoryq-extension
+        run: npm install --no-audit --no-fund
+      - name: Build extension
+        working-directory: zoryq-extension
+        run: npm run build
+      - name: Package ZIP
+        run: |
+          cd zoryq-extension/dist
+          zip -r ../../ZORYQ-Wallet-Extension-${{ github.run_number }}.zip .
+          cd ../..
+          sha256sum ZORYQ-Wallet-Extension-${{ github.run_number }}.zip > ZORYQ-Wallet-Extension-SHA256.txt
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Wallet-Extension-${{ github.run_number }}
+          path: |
+            ZORYQ-Wallet-Extension-${{ github.run_number }}.zip
+            ZORYQ-Wallet-Extension-SHA256.txt
+          retention-days: 30
+          if-no-files-found: error
