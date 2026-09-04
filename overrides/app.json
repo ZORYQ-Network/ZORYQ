@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "zoryq-login",
     "userInterfaceStyle": "dark",
-    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "app.zoryq.mobile",
@@ -15,11 +14,7 @@
       }
     },
     "android": {
-      "package": "app.zoryq.mobile",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#07070B"
-      }
+      "package": "app.zoryq.mobile"
     },
     "web": {
       "bundler": "metro"
