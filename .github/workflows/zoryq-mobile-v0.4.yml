@@ -1,0 +1,68 @@
+name: Build ZORYQ Wallet Android v0.4
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-mobile-wallet-v0.4]
+    paths:
+      - 'zoryq-mobile-template/**'
+      - '.github/workflows/zoryq-mobile-v0.4.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-mobile-v04-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Create clean Expo SDK 57 app
+        run: npx create-expo-app@latest appsrc --template blank-typescript --yes
+      - name: Install ZORYQ wallet dependencies
+        working-directory: appsrc
+        run: |
+          npx expo install expo-secure-store expo-local-authentication expo-clipboard react-native-svg
+          npm install --no-audit --no-fund @noble/hashes@^2.0.0 @noble/post-quantum@^0.7.1 @scure/base@^2.0.0 @scure/bip39@^2.0.0 react-native-get-random-values react-native-qrcode-svg buffer
+      - name: Apply ZORYQ mobile source
+        run: |
+          cp zoryq-mobile-template/App.tsx appsrc/App.tsx
+          cp zoryq-mobile-template/app.json appsrc/app.json
+          mkdir -p appsrc/src
+          cp zoryq-mobile-template/src/wallet.ts appsrc/src/wallet.ts
+      - name: Typecheck
+        working-directory: appsrc
+        run: npx tsc --noEmit
+      - name: Expo doctor
+        working-directory: appsrc
+        run: npx expo-doctor@latest
+      - name: Generate Android project
+        working-directory: appsrc
+        run: npx expo prebuild --platform android --clean
+      - name: Build debug APK
+        working-directory: appsrc/android
+        run: ./gradlew assembleDebug --no-daemon
+      - name: Package APK and checksum
+        run: |
+          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk ZORYQ-Wallet-Android-v0.4.apk
+          sha256sum ZORYQ-Wallet-Android-v0.4.apk > ZORYQ-Wallet-Android-v0.4-SHA256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Wallet-Android-v0.4
+          path: |
+            ZORYQ-Wallet-Android-v0.4.apk
+            ZORYQ-Wallet-Android-v0.4-SHA256.txt
+          retention-days: 30
+          if-no-files-found: error
