@@ -19,8 +19,7 @@
           "configureAndroidBackup": false,
           "faceIDPermission": "Allow ZORYQ Wallet to authenticate and protect your wallet."
         }
-      ],
-      "expo-screen-capture"
+      ]
     ],
     "extra": {
       "network": "ZORYQ Testnet Alpha",
