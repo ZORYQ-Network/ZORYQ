@@ -33,8 +33,8 @@ jobs:
       - name: Install ZORYQ wallet dependencies
         working-directory: appsrc
         run: |
-          npx expo install expo-secure-store expo-local-authentication expo-clipboard react-native-svg
-          npm install --no-audit --no-fund @noble/hashes@^2.0.0 @noble/post-quantum@^0.7.1 @scure/base@^2.0.0 @scure/bip39@^2.0.0 react-native-get-random-values react-native-qrcode-svg buffer
+          npx expo install expo-secure-store expo-local-authentication expo-clipboard react-native-svg react-native-get-random-values
+          npm install --no-audit --no-fund @noble/hashes@^2.0.0 @noble/post-quantum@^0.7.1 @scure/base@^2.0.0 @scure/bip39@^2.0.0 react-native-qrcode-svg buffer
       - name: Apply ZORYQ mobile source
         run: |
           cp zoryq-mobile-template/App.tsx appsrc/App.tsx
