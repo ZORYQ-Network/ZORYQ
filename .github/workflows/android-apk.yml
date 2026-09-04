@@ -1,23 +1,23 @@
-name: Build ZORIQ Android APK
+name: Build ZORYQ Android APK
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, feature/zoriq-platform-foundation]
+    branches: [main, feature/zoryq-platform-foundation]
     paths:
-      - 'source/zoriq5k/**'
+      - 'source/zoryq-source.tgz'
       - '.github/workflows/android-apk.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'source/zoriq5k/**'
+      - 'source/zoryq-source.tgz'
       - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: zoriq-android-apk-${{ github.ref }}
+  group: zoryq-android-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,17 +30,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Reconstruct and verify ZORIQ source
+      - name: Verify and extract ZORYQ source
         run: |
           set -euo pipefail
-          cat source/zoriq5k/part-*.b64 | base64 --decode > /tmp/zoriq-source.tgz
-          echo 'e093dd9bcc39a3fbb122b381e867b95b7a3ff0a615d54d55dc02be449744f1cd  /tmp/zoriq-source.tgz' | sha256sum -c -
+          echo '6c8c584c88490a5296b60fbb2fe072d187dd17d776ffc7fd177f645142a25383  source/zoryq-source.tgz' | sha256sum -c -
           mkdir -p appsrc
-          tar -xzf /tmp/zoriq-source.tgz -C appsrc
+          tar -xzf source/zoryq-source.tgz -C appsrc
           test -f appsrc/package.json
           test -f appsrc/app.json
-          grep -q '"name": "ZORIQ"' appsrc/app.json
-          grep -q 'app.zoriq.mobile' appsrc/app.json
+          grep -q '"name": "ZORYQ"' appsrc/app.json
+          grep -q 'app.zoryq.mobile' appsrc/app.json
+          ! grep -RIn --exclude='*.png' --exclude='*.jpg' -E 'ZORIQ|zoriq|KYVO|kyvo' appsrc
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -85,15 +85,15 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p dist
-          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk dist/ZORIQ-${{ github.run_number }}.apk
+          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk dist/ZORYQ-${{ github.run_number }}.apk
 
       - name: APK checksum
         run: sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
-      - name: Upload ZORIQ APK
+      - name: Upload ZORYQ APK
         uses: actions/upload-artifact@v4
         with:
-          name: ZORIQ-Android-APK-${{ github.run_number }}
+          name: ZORYQ-Android-APK-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt
