@@ -1,72 +1,21 @@
-import { createPhrase, identity, validPhrase } from './core';
-
-declare const chrome: any;
-
-type Vault = { v:1; salt:string; iv:string; cipher:string; address:string };
-const app = document.getElementById('app')!;
-let currentPhrase = '';
-
-const b64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
-const unb64 = (value: string) => Uint8Array.from(atob(value), c => c.charCodeAt(0));
-
-async function passwordKey(password: string, salt: Uint8Array) {
-  const raw = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveKey']);
-  return crypto.subtle.deriveKey({ name:'PBKDF2', salt, iterations:310000, hash:'SHA-256' }, raw, { name:'AES-GCM', length:256 }, false, ['encrypt','decrypt']);
-}
-async function encryptPhrase(phrase: string, password: string, address: string): Promise<Vault> {
-  if (password.length < 8) throw new Error('Use a password with at least 8 characters.');
-  const salt = crypto.getRandomValues(new Uint8Array(16));
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await passwordKey(password, salt);
-  const cipher = new Uint8Array(await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, new TextEncoder().encode(phrase)));
-  return { v:1, salt:b64(salt), iv:b64(iv), cipher:b64(cipher), address };
-}
-async function decryptPhrase(vault: Vault, password: string) {
-  const key = await passwordKey(password, unb64(vault.salt));
-  const plain = await crypto.subtle.decrypt({ name:'AES-GCM', iv:unb64(vault.iv) }, key, unb64(vault.cipher));
-  return new TextDecoder().decode(plain);
-}
-async function getVault(): Promise<Vault|null> { const x = await chrome.storage.local.get('vault'); return x.vault || null; }
-async function setVault(vault: Vault) { await chrome.storage.local.set({ vault }); }
-async function connectionEnabled() { const x = await chrome.storage.local.get('siteConnectionEnabled'); return x.siteConnectionEnabled === true; }
-async function setConnectionEnabled(value: boolean) { await chrome.storage.local.set({ siteConnectionEnabled:value }); }
-async function unlockSigner(phrase: string, address: string) { const r=await chrome.runtime.sendMessage({ type:'wallet_unlock', phrase, address }); if(!r?.ok) throw new Error(r?.error || 'Signer unlock failed.'); }
-async function lockSigner() { await chrome.runtime.sendMessage({ type:'wallet_lock' }).catch(()=>{}); }
-function wordsHtml(phrase: string) { return `<div class="seed">${phrase.split(' ').map((w,i)=>`<span>${i+1}. ${w}</span>`).join('')}</div>`; }
-function status(text: string, bad=false) { const el=document.getElementById('status'); if(el){el.className=bad?'err':'ok';el.textContent=text;} }
-
-async function renderStart() {
-  const vault = await getVault();
-  if (vault) return renderLock(vault);
-  app.innerHTML = `<div class="eye">SELF-CUSTODY • ML-DSA-65</div><div class="title">Own your ZORYQ.</div><div class="muted">Create a BIP-39 recovery phrase or restore an existing ZORYQ Wallet. Secrets never leave this extension.</div><div class="card"><input id="password" type="password" placeholder="Create wallet password (8+ chars)"><button id="create" class="primary">CREATE NEW WALLET</button><button id="import" class="secondary">IMPORT RECOVERY PHRASE</button><div id="status"></div></div>`;
-  document.getElementById('create')!.onclick = async () => {
-    try { const p=(document.getElementById('password') as HTMLInputElement).value; const phrase=createPhrase(); const id=identity(phrase); await setVault(await encryptPhrase(phrase,p,id.address)); await setConnectionEnabled(false); await unlockSigner(phrase,id.address); currentPhrase=phrase; renderBackup(id.address); } catch(e:any){status(e.message,true)}
-  };
-  document.getElementById('import')!.onclick = () => renderImport();
-}
-function renderBackup(address: string) {
-  app.innerHTML = `<div class="eye">RECOVERY BACKUP</div><div class="title">Write these 12 words down.</div><div class="muted">Keep them offline and in order. Anyone with these words controls the wallet.</div>${wordsHtml(currentPhrase)}<div class="card"><div class="muted">Address</div><div class="addr">${address}</div></div><button id="done" class="primary">I SAVED MY RECOVERY PHRASE</button>`;
-  document.getElementById('done')!.onclick = () => renderWallet(address);
-}
-function renderImport() {
-  app.innerHTML = `<div class="eye">RESTORE</div><div class="title">Import wallet.</div><div class="muted">Enter your 12 or 24 BIP-39 words. They are processed locally.</div><textarea id="phrase" placeholder="word1 word2 word3 …"></textarea><input id="password" type="password" placeholder="New wallet password (8+ chars)"><button id="restore" class="primary">RESTORE WALLET</button><button id="back" class="secondary">BACK</button><div id="status"></div>`;
-  document.getElementById('restore')!.onclick = async () => {
-    try { const phrase=(document.getElementById('phrase') as HTMLTextAreaElement).value.trim().toLowerCase().replace(/\s+/g,' '); if(!validPhrase(phrase)) throw new Error('Invalid BIP-39 phrase.'); const p=(document.getElementById('password') as HTMLInputElement).value; const id=identity(phrase); await setVault(await encryptPhrase(phrase,p,id.address)); await setConnectionEnabled(false); await unlockSigner(phrase,id.address); currentPhrase=phrase; renderWallet(id.address); } catch(e:any){status(e.message,true)}
-  };
-  document.getElementById('back')!.onclick = renderStart;
-}
-function renderLock(vault: Vault) {
-  app.innerHTML = `<div class="eye">WALLET LOCKED</div><div class="title">Welcome back.</div><div class="card"><div class="muted">${vault.address}</div><input id="password" type="password" placeholder="Wallet password"><button id="unlock" class="primary">UNLOCK</button><div id="status"></div></div>`;
-  document.getElementById('unlock')!.onclick = async () => { try { currentPhrase=await decryptPhrase(vault,(document.getElementById('password') as HTMLInputElement).value); const id=identity(currentPhrase); if(id.address!==vault.address) throw new Error('Vault integrity check failed.'); await unlockSigner(currentPhrase,id.address); renderWallet(id.address); } catch { status('Incorrect password or damaged vault.',true); } };
-}
-async function renderWallet(address: string) {
-  const enabled = await connectionEnabled();
-  app.innerHTML = `<div class="eye">ZORYQ TESTNET • WALLET v0.3</div><div class="title">Wallet</div><div class="card"><div class="muted">ACCOUNT 1 • ML-DSA-65</div><div class="addr">${address}</div><button id="copy" class="secondary">COPY ADDRESS</button></div><div class="card"><div class="muted">OFFICIAL TESTNET CONNECTION</div><div style="margin-top:8px">${enabled ? 'Enabled. The official Testnet may request your address and signed challenges.' : 'Disabled. The website cannot access your wallet.'}</div><button id="site" class="${enabled ? 'danger' : 'primary'}">${enabled ? 'DISABLE TESTNET CONNECTION' : 'ALLOW TESTNET CONNECTION'}</button></div><button id="reveal" class="secondary">VIEW RECOVERY PHRASE</button><button id="lock" class="secondary">LOCK</button><button id="remove" class="danger">REMOVE WALLET</button><div id="status"></div>`;
-  document.getElementById('copy')!.onclick = async () => { await navigator.clipboard.writeText(address); status('Address copied.'); };
-  document.getElementById('site')!.onclick = async () => { await setConnectionEnabled(!enabled); await renderWallet(address); status(!enabled ? 'Official Testnet connection enabled.' : 'Official Testnet connection disabled.'); };
-  document.getElementById('reveal')!.onclick = () => { if(currentPhrase) renderBackup(address); else status('Unlock the wallet first.',true); };
-  document.getElementById('lock')!.onclick = async () => { currentPhrase=''; await lockSigner(); const v=await getVault(); if(v) renderLock(v); };
-  document.getElementById('remove')!.onclick = async () => { if(confirm('Remove this wallet from the extension? Only continue if your recovery phrase is backed up.')) { currentPhrase=''; await lockSigner(); await chrome.storage.local.remove(['vault','siteConnectionEnabled']); renderStart(); } };
-}
-
-renderStart().catch(e => { app.innerHTML=`<div class="err">${e.message}</div>`; });
+import { createPhrase, identity, validPhrase, signMessage, signTransaction } from './core';
+declare const chrome:any;
+type Vault={v:1;salt:string;iv:string;cipher:string;address:string};
+const app=document.getElementById('app')!,API='https://juordakzclqefpuauzjq.supabase.co/functions/v1/zoryq-testnet',CHAIN='zoryq-testnet-1';let currentPhrase='';
+const b64=(b:Uint8Array)=>btoa(String.fromCharCode(...b)),unb64=(v:string)=>Uint8Array.from(atob(v),c=>c.charCodeAt(0));
+async function key(password:string,salt:Uint8Array){const raw=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:310000,hash:'SHA-256'},raw,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+async function encryptPhrase(phrase:string,password:string,address:string):Promise<Vault>{if(password.length<8)throw Error('Use uma senha com pelo menos 8 caracteres.');const salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12)),k=await key(password,salt),cipher=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,new TextEncoder().encode(phrase)));return{v:1,salt:b64(salt),iv:b64(iv),cipher:b64(cipher),address}}
+async function decryptPhrase(v:Vault,password:string){const k=await key(password,unb64(v.salt)),p=await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(v.iv)},k,unb64(v.cipher));return new TextDecoder().decode(p)}
+async function api(path:string,opts:any={}){const r=await fetch(API+path,{headers:{'Content-Type':'application/json'},...opts});const j=await r.json().catch(()=>({error:'Resposta inválida'}));if(!r.ok)throw Error(j.error||'Falha na ZORYQ Chain');return j}
+async function getVault():Promise<Vault|null>{return (await chrome.storage.local.get('vault')).vault||null}async function setVault(v:Vault){await chrome.storage.local.set({vault:v})}async function enabled(){return(await chrome.storage.local.get('siteConnectionEnabled')).siteConnectionEnabled===true}async function setEnabled(v:boolean){await chrome.storage.local.set({siteConnectionEnabled:v})}async function unlockSigner(p:string,a:string){const r=await chrome.runtime.sendMessage({type:'wallet_unlock',phrase:p,address:a});if(!r?.ok)throw Error(r?.error||'Signer unlock failed')}async function lockSigner(){await chrome.runtime.sendMessage({type:'wallet_lock'}).catch(()=>{})}
+function words(p:string){return`<div class="seed">${p.split(' ').map((w,i)=>`<span>${i+1}. ${w}</span>`).join('')}</div>`}function status(t:string,bad=false){const e=document.getElementById('status');if(e){e.className='status '+(bad?'err':'ok');e.textContent=t}}function short(s:string){return s?s.slice(0,12)+'…'+s.slice(-8):''}
+async function renderStart(){const v=await getVault();if(v)return renderLock(v);app.innerHTML=`<div class="eye">SELF-CUSTODY • ML-DSA-65</div><div class="title">ZORYQ Wallet</div><div class="muted">A mesma conta para a extensão, a Testnet e a ZORYQ Chain.</div><div class="card"><input id="password" type="password" placeholder="Crie uma senha (8+ caracteres)"><button id="create" class="primary">CRIAR NOVA WALLET</button><button id="import" class="secondary">RESTAURAR SEED</button><div id="status"></div></div>`;document.getElementById('create')!.onclick=async()=>{try{const p=(document.getElementById('password')as HTMLInputElement).value,phrase=createPhrase(),id=identity(phrase);await setVault(await encryptPhrase(phrase,p,id.address));await setEnabled(false);await unlockSigner(phrase,id.address);currentPhrase=phrase;renderBackup(id.address)}catch(e:any){status(e.message,true)}};document.getElementById('import')!.onclick=renderImport}
+function renderBackup(address:string){app.innerHTML=`<div class="eye">RECOVERY BACKUP</div><div class="title">Anote as 12 palavras.</div><div class="muted">Nunca salve sua seed em print, nuvem, chat ou e-mail.</div>${words(currentPhrase)}<div class="card"><div class="addr">${address}</div></div><button id="done" class="primary">JÁ ANOTEI • ABRIR WALLET</button>`;document.getElementById('done')!.onclick=()=>renderWallet(address)}
+function renderImport(){app.innerHTML=`<div class="eye">RESTAURAR</div><div class="title">Importar Wallet.</div><textarea id="phrase" placeholder="12 ou 24 palavras BIP-39"></textarea><input id="password" type="password" placeholder="Nova senha (8+ caracteres)"><button id="restore" class="primary">RESTAURAR</button><button id="back" class="secondary">VOLTAR</button><div id="status"></div>`;document.getElementById('restore')!.onclick=async()=>{try{const phrase=(document.getElementById('phrase')as HTMLTextAreaElement).value.trim().toLowerCase().replace(/\s+/g,' ');if(!validPhrase(phrase))throw Error('Seed BIP-39 inválida.');const p=(document.getElementById('password')as HTMLInputElement).value,id=identity(phrase);await setVault(await encryptPhrase(phrase,p,id.address));await setEnabled(false);await unlockSigner(phrase,id.address);currentPhrase=phrase;renderWallet(id.address)}catch(e:any){status(e.message,true)}};document.getElementById('back')!.onclick=renderStart}
+function renderLock(v:Vault){app.innerHTML=`<div class="eye">WALLET BLOQUEADA</div><div class="title">Bem-vindo.</div><div class="card"><div class="addr">${v.address}</div><input id="password" type="password" placeholder="Senha da Wallet"><button id="unlock" class="primary">DESBLOQUEAR</button><div id="status"></div></div>`;document.getElementById('unlock')!.onclick=async()=>{try{currentPhrase=await decryptPhrase(v,(document.getElementById('password')as HTMLInputElement).value);const id=identity(currentPhrase);if(id.address!==v.address)throw Error('Falha de integridade.');await unlockSigner(currentPhrase,id.address);renderWallet(id.address)}catch{status('Senha incorreta ou vault danificado.',true)}}}
+async function renderWallet(address:string){try{await api('/api/register',{method:'POST',body:JSON.stringify({wallet:address})});const s=await api('/api/state?wallet='+encodeURIComponent(address)),a=s.account,on=await enabled();const next=a.last_faucet_claim?new Date(a.last_faucet_claim).getTime()+86400000:0,remaining=Math.max(0,next-Date.now()),clock=remaining?`${String(Math.floor(remaining/3600000)).padStart(2,'0')}:${String(Math.floor(remaining%3600000/60000)).padStart(2,'0')}`:'DISPONÍVEL';app.innerHTML=`<div class="eye">ZORYQ WALLET v0.4 • ${CHAIN}</div><div class="card"><div class="balance">${Number(a.test_zq_balance).toFixed(2)} <i>ZQ</i></div><div class="addr">${address}</div><div class="stats"><div class="stat"><small>POINTS</small><b class="green">${a.points}</b></div><div class="stat"><small>CLAIMS</small><b>${a.faucet_claims}</b></div><div class="stat"><small>NONCE</small><b>${a.nonce||0}</b></div></div></div><div class="card"><div class="eye">FARM • 24H</div><div class="clock">${clock}</div><div class="muted">25 ZQ + 50 pontos por claim.</div><button id="faucet" class="primary" ${remaining?'disabled':''}>${remaining?'COOLDOWN ATIVO':'CLAIM 25 ZQ + 50 PTS'}</button></div><div class="card"><div class="eye">ENVIAR ZQ TESTNET</div><input id="to" placeholder="Destino zq1..."><input id="amount" type="number" step="0.01" placeholder="Quantidade ZQ"><button id="send" class="primary">ASSINAR E ENVIAR</button></div><div class="row2"><button id="copy" class="secondary">COPIAR ENDEREÇO</button><button id="chain" class="secondary">ABRIR CHAIN</button></div><div class="card"><div class="eye">CONEXÃO COM DAPPS</div><div class="muted">${on?'Ativa para a Testnet oficial.':'Desativada.'}</div><button id="site" class="${on?'danger':'primary'}">${on?'DESATIVAR':'ATIVAR'} CONEXÃO</button></div><div class="row2"><button id="refresh" class="secondary">ATUALIZAR</button><button id="lock" class="secondary">BLOQUEAR</button></div><button id="reveal" class="secondary">VER RECOVERY PHRASE</button><button id="remove" class="danger">REMOVER WALLET</button><div id="status"></div>`;
+ const faucet=document.getElementById('faucet')as HTMLButtonElement;if(faucet&&!remaining)faucet.onclick=async()=>{try{status('Assinando challenge ML-DSA-65…');const c=await api('/api/challenge',{method:'POST',body:JSON.stringify({wallet:address})}),p=signMessage(currentPhrase,c.message),r=await api('/api/faucet-auth',{method:'POST',body:JSON.stringify({wallet:address,challengeId:c.challengeId,message:c.message,publicKey:p.publicKey,signature:p.signature})});status(r.ok?`+${r.amount} ZQ e +${r.points_awarded} pontos confirmados.`:'Cooldown ativo.');setTimeout(()=>renderWallet(address),700)}catch(e:any){status(e.message,true)}};
+ document.getElementById('send')!.onclick=async()=>{try{const to=(document.getElementById('to')as HTMLInputElement).value.trim(),amount=Number((document.getElementById('amount')as HTMLInputElement).value);if(!to||!amount)throw Error('Informe destino e quantidade.');status('Assinando transação no dispositivo…');const st=await api('/api/state?wallet='+encodeURIComponent(address)),tx=signTransaction(currentPhrase,{version:1,chain_id:CHAIN,type:'transfer',from:address,to,amount,fee:0,nonce:Number(st.account.nonce||0),timestamp:Date.now()}),r=await api('/api/transfer',{method:'POST',body:JSON.stringify({transaction:tx})});status(`Confirmada no bloco #${r.block_height} • ${short(r.tx_hash)}`);setTimeout(()=>renderWallet(address),800)}catch(e:any){status(e.message,true)}};
+ document.getElementById('copy')!.onclick=async()=>{await navigator.clipboard.writeText(address);status('Endereço copiado.')};document.getElementById('chain')!.onclick=()=>chrome.tabs.create({url:'https://zoryq-testnet.vercel.app/chain.html'});document.getElementById('site')!.onclick=async()=>{await setEnabled(!on);renderWallet(address)};document.getElementById('refresh')!.onclick=()=>renderWallet(address);document.getElementById('reveal')!.onclick=()=>renderBackup(address);document.getElementById('lock')!.onclick=async()=>{currentPhrase='';await lockSigner();const v=await getVault();if(v)renderLock(v)};document.getElementById('remove')!.onclick=async()=>{if(confirm('Remover esta Wallet? Faça backup da seed antes.')){currentPhrase='';await lockSigner();await chrome.storage.local.remove(['vault','siteConnectionEnabled']);renderStart()}}
+ }catch(e:any){app.innerHTML=`<div class="err">${e.message}</div><button id="retry" class="secondary">TENTAR NOVAMENTE</button>`;document.getElementById('retry')!.onclick=()=>renderWallet(address)}}
+renderStart().catch(e=>app.innerHTML=`<div class="err">${e.message}</div>`);
