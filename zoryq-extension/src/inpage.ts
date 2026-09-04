@@ -1,8 +1,6 @@
 type Pending = { resolve: (value: any) => void; reject: (reason?: any) => void; timer: number };
 
-declare global {
-  interface Window { zoryq?: any }
-}
+declare global { interface Window { zoryq?: any } }
 
 const pending = new Map<string, Pending>();
 let seq = 0;
@@ -12,10 +10,10 @@ function request(method: string, params?: any) {
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => {
       pending.delete(id);
-      reject(new Error('ZORYQ Wallet did not respond. Open the extension and enable Testnet connection.'));
-    }, 12000);
+      reject(new Error('ZORYQ Wallet did not respond. Open the extension and unlock it.'));
+    }, 20000);
     pending.set(id, { resolve, reject, timer });
-    window.postMessage({ source: 'zoryq-inpage', type: 'request', id, method, params }, window.location.origin);
+    window.postMessage({ source:'zoryq-inpage', type:'request', id, method, params }, window.location.origin);
   });
 }
 
@@ -34,11 +32,9 @@ window.addEventListener('message', (event) => {
 const provider = Object.freeze({
   isZoryq: true,
   chainId: 'zoryq-testnet-1',
-  version: '0.2.0',
-  request: ({ method, params }: { method: string; params?: any }) => request(method, params),
+  version: '0.3.0',
+  request: ({ method, params }: { method:string; params?:any }) => request(method, params),
 });
 
-if (!window.zoryq) {
-  Object.defineProperty(window, 'zoryq', { value: provider, configurable: false, enumerable: false, writable: false });
-}
+if (!window.zoryq) Object.defineProperty(window, 'zoryq', { value:provider, configurable:false, enumerable:false, writable:false });
 window.dispatchEvent(new Event('zoryq#initialized'));
