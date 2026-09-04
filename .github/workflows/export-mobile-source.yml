@@ -1,0 +1,20 @@
+name: Export ZORYQ Mobile Source
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-mobile-wallet-v0.4]
+    paths:
+      - '.github/workflows/export-mobile-source.yml'
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - run: mkdir appsrc && tar -xzf kyvo-src.tgz -C appsrc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-mobile-source
+          path: appsrc
+          retention-days: 2
