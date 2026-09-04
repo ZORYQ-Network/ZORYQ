@@ -22,16 +22,28 @@ if (ALLOWED.has(location.origin)) {
     };
 
     try {
-      if (!['zoryq_requestAccounts', 'zoryq_accounts', 'zoryq_chainId'].includes(msg.method)) {
-        return reply(undefined, 'Unsupported ZORYQ Wallet method.');
-      }
+      const supported = ['zoryq_requestAccounts', 'zoryq_accounts', 'zoryq_chainId', 'zoryq_signMessage'];
+      if (!supported.includes(msg.method)) return reply(undefined, 'Unsupported ZORYQ Wallet method.');
       if (msg.method === 'zoryq_chainId') return reply('zoryq-testnet-1');
 
       const stored = await chrome.storage.local.get(['vault', 'siteConnectionEnabled']);
       if (!stored.vault?.address) return reply(undefined, 'No ZORYQ Wallet exists in the extension yet.');
-      if (!stored.siteConnectionEnabled) {
-        return reply(undefined, 'Connection disabled. Open ZORYQ Wallet and enable Testnet connection.');
+      if (!stored.siteConnectionEnabled) return reply(undefined, 'Connection disabled. Open ZORYQ Wallet and enable Testnet connection.');
+
+      if (msg.method === 'zoryq_signMessage') {
+        const message = typeof msg.params === 'string' ? msg.params : msg.params?.message;
+        if (!message) return reply(undefined, 'A message is required.');
+        const signed = await chrome.runtime.sendMessage({ type:'wallet_sign_message', message });
+        if (!signed?.ok) return reply(undefined, signed?.error || 'Signing failed.');
+        return reply({
+          address: signed.address,
+          publicKey: signed.publicKey,
+          signature: signed.signature,
+          algorithm: signed.algorithm,
+          domain: signed.domain,
+        });
       }
+
       return reply([stored.vault.address]);
     } catch (error: any) {
       reply(undefined, error?.message || 'ZORYQ Wallet connection failed.');
