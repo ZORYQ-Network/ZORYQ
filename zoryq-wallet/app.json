@@ -16,7 +16,7 @@
       [
         "expo-secure-store",
         {
-          "configureAndroidBackup": true,
+          "configureAndroidBackup": false,
           "faceIDPermission": "Allow ZORYQ Wallet to authenticate and protect your wallet."
         }
       ],
