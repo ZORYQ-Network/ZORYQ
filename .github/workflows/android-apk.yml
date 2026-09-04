@@ -32,7 +32,11 @@ jobs:
   build-apk:
     name: Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
+    env:
+      CI: '1'
+      NODE_OPTIONS: --max-old-space-size=4096
+      GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=-Xmx4g\ -XX:MaxMetaspaceSize=1024m
 
     steps:
       - name: Checkout
@@ -86,15 +90,32 @@ jobs:
       - name: Generate Android native project
         working-directory: appsrc
         run: npx expo prebuild --platform android --clean
-        env:
-          CI: '1'
+
+      - name: Harden Gradle for GitHub runner
+        working-directory: appsrc/android
+        run: |
+          cat >> gradle.properties <<'EOF'
+          org.gradle.daemon=false
+          org.gradle.parallel=false
+          org.gradle.workers.max=2
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1024m -Dfile.encoding=UTF-8
+          kotlin.daemon.jvmargs=-Xmx2g
+          EOF
+          chmod +x gradlew
+          ./gradlew --version
 
       - name: Setup Gradle cache
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build installable APK
         working-directory: appsrc/android
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: ./gradlew :app:assembleDebug --no-daemon --stacktrace --warning-mode all
+
+      - name: Verify generated APK
+        run: |
+          set -euo pipefail
+          test -s appsrc/android/app/build/outputs/apk/debug/app-debug.apk
+          file appsrc/android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Rename APK
         run: |
