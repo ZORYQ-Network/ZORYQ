@@ -1,4 +1,4 @@
-import { identity, signMessage } from './core';
+import { identity, signMessage, signTransaction } from './core';
 
 declare const chrome: any;
 
@@ -13,6 +13,13 @@ let unlockedAddress = '';
 function senderOrigin(sender: any) {
   try { return new URL(sender?.url || sender?.tab?.url || '').origin; } catch { return ''; }
 }
+function assertOrigin(sender: any) {
+  const origin = senderOrigin(sender);
+  if (!ALLOWED.has(origin)) throw new Error('Origin is not authorized by ZORYQ Wallet.');
+}
+function assertUnlocked() {
+  if (!unlockedPhrase) throw new Error('ZORYQ Wallet is locked. Open the extension and unlock it first.');
+}
 
 chrome.runtime.onMessage.addListener((msg: any, sender: any, sendResponse: (x: any) => void) => {
   (async () => {
@@ -26,25 +33,25 @@ chrome.runtime.onMessage.addListener((msg: any, sender: any, sendResponse: (x: a
       unlockedAddress = id.address;
       return { ok:true, address:id.address };
     }
-
     if (msg.type === 'wallet_lock') {
       unlockedPhrase = '';
       unlockedAddress = '';
       return { ok:true };
     }
-
-    if (msg.type === 'wallet_status') {
-      return { ok:true, unlocked:!!unlockedPhrase, address:unlockedAddress || null };
-    }
+    if (msg.type === 'wallet_status') return { ok:true, unlocked:!!unlockedPhrase, address:unlockedAddress || null };
 
     if (msg.type === 'wallet_sign_message') {
-      const origin = senderOrigin(sender);
-      if (!ALLOWED.has(origin)) throw new Error('Origin is not authorized by ZORYQ Wallet.');
-      if (!unlockedPhrase) throw new Error('ZORYQ Wallet is locked. Open the extension and unlock it first.');
-      const message = String(msg.message || '');
-      const signed = signMessage(unlockedPhrase, message);
+      assertOrigin(sender); assertUnlocked();
+      const signed = signMessage(unlockedPhrase, String(msg.message || ''));
       if (signed.address !== unlockedAddress) throw new Error('Signer integrity check failed.');
       return { ok:true, ...signed };
+    }
+
+    if (msg.type === 'wallet_sign_transaction') {
+      assertOrigin(sender); assertUnlocked();
+      const signed = signTransaction(unlockedPhrase, msg.transaction || {});
+      if (signed.from !== unlockedAddress) throw new Error('Transaction signer integrity check failed.');
+      return { ok:true, transaction:signed };
     }
 
     return { ok:false, error:'unsupported_message' };
