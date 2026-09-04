@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "ZORYQ Wallet",
+    "slug": "zoryq-wallet",
+    "version": "0.4.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.zoryq.wallet",
+      "versionCode": 4,
+      "adaptiveIcon": {
+        "backgroundColor": "#020205"
+      },
+      "permissions": []
+    },
+    "ios": {
+      "bundleIdentifier": "com.zoryq.wallet",
+      "supportsTablet": false
+    },
+    "extra": {
+      "zoryqChainId": "zoryq-testnet-1",
+      "zoryqNetwork": "ZORYQ Public Testnet Alpha"
+    }
+  }
+}
