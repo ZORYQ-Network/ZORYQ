@@ -1,0 +1,57 @@
+name: ZORYQ EVM Testnet Node
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-evm-node/**'
+      - '.github/workflows/zoryq-evm-testnet.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build node image
+        run: docker build -t zoryq-evm-node ./zoryq-evm-node
+
+      - name: Start node
+        run: |
+          docker run -d --name zoryq-evm-node -p 8080:8080 zoryq-evm-node
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/health >/tmp/health.json; then
+              cat /tmp/health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs zoryq-evm-node
+          exit 1
+
+      - name: Verify chain ID
+        run: |
+          test "$(curl -fsS http://127.0.0.1:8080/health | jq -r .chainId)" = "5919065"
+          test "$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -r .result)" = "0x5a5159"
+
+      - name: Verify public RPC guard and mixed batch
+        run: |
+          BLOCKED=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"anvil_setBalance","params":["0x0000000000000000000000000000000000000001","0x1"]}')
+          test "$(echo "$BLOCKED" | jq -r .error.code)" = "-32601"
+          BATCH=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '[{"jsonrpc":"2.0","id":3,"method":"eth_chainId","params":[]},{"jsonrpc":"2.0","id":4,"method":"anvil_setBalance","params":["0x0000000000000000000000000000000000000001","0x1"]}]')
+          test "$(echo "$BATCH" | jq -r '.[] | select(.id==3) | .result')" = "0x5a5159"
+          test "$(echo "$BATCH" | jq -r '.[] | select(.id==4) | .error.code')" = "-32601"
+
+      - name: Verify faucet
+        run: |
+          ADDR=0x000000000000000000000000000000000000dEaD
+          CLAIM=$(curl -fsS -X POST http://127.0.0.1:8080/faucet -H 'content-type: application/json' -d "{\"address\":\"$ADDR\"}")
+          test "$(echo "$CLAIM" | jq -r .ok)" = "true"
+          BALANCE=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"eth_getBalance\",\"params\":[\"$ADDR\",\"latest\"]}" | jq -r .result)
+          test "$BALANCE" != "0x0"
+
+      - name: Show node logs on failure
+        if: failure()
+        run: docker logs zoryq-evm-node || true
