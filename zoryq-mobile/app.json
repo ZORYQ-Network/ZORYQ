@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "ZORYQ Wallet",
+    "slug": "zoryq-wallet",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "android": {
+      "package": "com.zoryq.wallet",
+      "versionCode": 1,
+      "permissions": []
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}
