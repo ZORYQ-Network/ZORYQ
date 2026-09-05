@@ -3,8 +3,11 @@ pragma solidity ^0.8.24;
 
 import "../src/ZoryqRewardRegistryV2.sol";
 import "../src/ZoryqQuestRegistry.sol";
+import "../src/ZoryqTestnetStake.sol";
 
 contract ZoryqContractsTest {
+    receive() external payable {}
+
     function testRewardClassAccounting() public {
         ZoryqRewardRegistryV2 r = new ZoryqRewardRegistryV2();
         address user = address(0x1234);
@@ -46,5 +49,17 @@ contract ZoryqContractsTest {
         require(qid==1 && active,"updated");
         q.setQuestActive(id,false);
         require(!q.isQuestLive(id),"paused");
+    }
+
+    function testNativeStakeRoundTrip() public {
+        ZoryqTestnetStake s = new ZoryqTestnetStake();
+        uint256 beforeBalance = address(this).balance;
+        s.stake{value: 1 ether}();
+        require(s.staked(address(this))==1 ether,"stake balance");
+        require(s.totalStaked()==1 ether,"total stake");
+        s.unstake(1 ether);
+        require(s.staked(address(this))==0,"unstake balance");
+        require(s.totalStaked()==0,"total unstake");
+        require(address(this).balance==beforeBalance,"round trip");
     }
 }
