@@ -3,7 +3,7 @@ import React,{useEffect,useMemo,useState} from 'react';
 import {Alert,Linking,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,TextInput,View} from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as Clipboard from 'expo-clipboard';
-import {Contract,JsonRpcProvider,Wallet,formatEther,isAddress,parseEther} from 'ethers';
+import {Contract,HDNodeWallet,JsonRpcProvider,Wallet,formatEther,isAddress,parseEther} from 'ethers';
 import {StatusBar} from 'expo-status-bar';
 
 const BASE=process.env.EXPO_PUBLIC_ZORYQ_BASE||'https://zoryq-evm-node-v4-production.up.railway.app';
@@ -13,6 +13,7 @@ const REWARD_REGISTRY=process.env.EXPO_PUBLIC_REWARD_REGISTRY||'0x00000000000000
 const CHAIN_ID=5919065;const KEY='zoryq.wallet.privateKey';const ZERO='0x0000000000000000000000000000000000000000';
 const REWARD_ABI=['function scoreOf(address) view returns (uint256 total,uint256 mobile,uint256 contributor,uint256 validator,uint256 claimed,uint256 claimablePoints)'];
 
+type AppWallet=Wallet|HDNodeWallet;
 type Tab='home'|'send'|'quests'|'rank'|'activity'|'settings';
 type Quest={id:string;title:string;description:string;points:number;status:'active'|'upcoming'|'done';type:string};
 type Score={total:number;mobile:number;contributor:number;validator:number;claimable:number};
@@ -25,7 +26,7 @@ function level(p:number){if(p>=100000)return'Genesis';if(p>=50000)return'Archite
 
 export default function App(){
  const provider=useMemo(()=>new JsonRpcProvider(RPC,CHAIN_ID,{staticNetwork:true}),[]);
- const [wallet,setWallet]=useState<Wallet|null>(null);const [balance,setBalance]=useState('0.0000');const [block,setBlock]=useState<number|null>(null);
+ const [wallet,setWallet]=useState<AppWallet|null>(null);const [balance,setBalance]=useState('0.0000');const [block,setBlock]=useState<number|null>(null);
  const [tab,setTab]=useState<Tab>('home');const [to,setTo]=useState('');const [amount,setAmount]=useState('');const [busy,setBusy]=useState(false);
  const [score,setScore]=useState<Score>({total:0,mobile:0,contributor:0,validator:0,claimable:0});const [quests]=useState(fallbackQuests);
  useEffect(()=>{(async()=>{const pk=await SecureStore.getItemAsync(KEY);if(pk)setWallet(new Wallet(pk,provider))})()},[]);
