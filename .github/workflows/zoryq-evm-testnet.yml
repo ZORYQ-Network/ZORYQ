@@ -52,6 +52,108 @@ jobs:
           BALANCE=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"eth_getBalance\",\"params\":[\"$ADDR\",\"latest\"]}" | jq -r .result)
           test "$BALANCE" != "0x0"
 
+      - name: Verify native transfers, Solidity deploys, ERC-20, ERC-721, calls and logs
+        working-directory: zoryq-evm-node
+        run: |
+          npm install --no-save solc@0.8.30
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import solc from 'solc';
+          import { ContractFactory, JsonRpcProvider, Wallet, parseEther } from 'ethers';
+
+          const rpc = 'http://127.0.0.1:8080/rpc';
+          const provider = new JsonRpcProvider(rpc, 5919065, { staticNetwork: true });
+          const alice = Wallet.createRandom().connect(provider);
+          const bob = Wallet.createRandom().connect(provider);
+
+          const faucet = await fetch('http://127.0.0.1:8080/faucet', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ address: alice.address })
+          });
+          assert.equal(faucet.status, 200);
+          assert.equal((await faucet.json()).ok, true);
+          assert((await provider.getBalance(alice.address)) >= parseEther('100'));
+
+          const nativeTx = await alice.sendTransaction({ to: bob.address, value: parseEther('1') });
+          const nativeReceipt = await nativeTx.wait();
+          assert.equal(nativeReceipt.status, 1);
+          assert.equal(await provider.getBalance(bob.address), parseEther('1'));
+
+          const source = `// SPDX-License-Identifier: MIT
+          pragma solidity ^0.8.20;
+          contract Probe {
+            uint256 public value;
+            event ValueChanged(uint256 value);
+            constructor(uint256 initialValue) { value = initialValue; }
+            function set(uint256 nextValue) external { value = nextValue; emit ValueChanged(nextValue); }
+          }
+          contract TestERC20 {
+            string public constant name = "ZORYQ Test Token";
+            string public constant symbol = "ZT20";
+            uint8 public constant decimals = 18;
+            uint256 public totalSupply;
+            mapping(address => uint256) public balanceOf;
+            event Transfer(address indexed from, address indexed to, uint256 value);
+            constructor(uint256 supply) { totalSupply = supply; balanceOf[msg.sender] = supply; emit Transfer(address(0), msg.sender, supply); }
+            function transfer(address to, uint256 amount) external returns (bool) {
+              require(balanceOf[msg.sender] >= amount, "balance");
+              balanceOf[msg.sender] -= amount; balanceOf[to] += amount; emit Transfer(msg.sender, to, amount); return true;
+            }
+          }
+          contract TestERC721 {
+            string public constant name = "ZORYQ Test NFT";
+            string public constant symbol = "ZT721";
+            mapping(uint256 => address) private _ownerOf;
+            event Transfer(address indexed from, address indexed to, uint256 indexed tokenId);
+            function mint(address to, uint256 tokenId) external { require(to != address(0) && _ownerOf[tokenId] == address(0), "mint"); _ownerOf[tokenId] = to; emit Transfer(address(0), to, tokenId); }
+            function ownerOf(uint256 tokenId) external view returns (address) { address owner = _ownerOf[tokenId]; require(owner != address(0), "missing"); return owner; }
+          }`;
+
+          const input = { language: 'Solidity', sources: { 'ZoryqE2E.sol': { content: source } }, settings: { outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object'] } } } };
+          const output = JSON.parse(solc.compile(JSON.stringify(input)));
+          const errors = (output.errors || []).filter((e) => e.severity === 'error');
+          assert.equal(errors.length, 0, errors.map((e) => e.formattedMessage).join('\n'));
+          const artifact = (name) => output.contracts['ZoryqE2E.sol'][name];
+          const deploy = async (name, args = []) => {
+            const a = artifact(name);
+            const c = await new ContractFactory(a.abi, `0x${a.evm.bytecode.object}`, alice).deploy(...args);
+            await c.waitForDeployment();
+            return c;
+          };
+
+          const probe = await deploy('Probe', [7n]);
+          assert.equal(await probe.value(), 7n);
+          const setReceipt = await (await probe.set(42n)).wait();
+          assert.equal(setReceipt.status, 1);
+          assert.equal(await probe.value(), 42n);
+          const probeLogs = await provider.getLogs({ address: await probe.getAddress(), fromBlock: setReceipt.blockNumber, toBlock: setReceipt.blockNumber });
+          assert(probeLogs.length >= 1);
+
+          const erc20 = await deploy('TestERC20', [1000n]);
+          assert.equal(await erc20.balanceOf(alice.address), 1000n);
+          const transferReceipt = await (await erc20.transfer(bob.address, 25n)).wait();
+          assert.equal(transferReceipt.status, 1);
+          assert.equal(await erc20.balanceOf(bob.address), 25n);
+
+          const erc721 = await deploy('TestERC721');
+          const mintReceipt = await (await erc721.mint(bob.address, 1n)).wait();
+          assert.equal(mintReceipt.status, 1);
+          assert.equal((await erc721.ownerOf(1n)).toLowerCase(), bob.address.toLowerCase());
+          const nftLogs = await provider.getLogs({ address: await erc721.getAddress(), fromBlock: mintReceipt.blockNumber, toBlock: mintReceipt.blockNumber });
+          assert(nftLogs.length >= 1);
+
+          console.log(JSON.stringify({
+            nativeTransfer: 'ok',
+            probe: await probe.getAddress(),
+            erc20: await erc20.getAddress(),
+            erc721: await erc721.getAddress(),
+            ethCall: 'ok',
+            receipts: 'ok',
+            logs: 'ok'
+          }, null, 2));
+          NODE
+
       - name: Show node logs on failure
         if: failure()
         run: docker logs zoryq-evm-node || true
