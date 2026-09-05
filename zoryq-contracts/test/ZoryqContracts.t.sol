@@ -3,9 +3,17 @@ pragma solidity ^0.8.24;
 
 import "../src/ZoryqRewardRegistryV2.sol";
 import "../src/ZoryqQuestRegistry.sol";
+import "../src/ZoryqQuestCompletionRegistry.sol";
 import "../src/ZoryqTestnetStake.sol";
+import "../src/ZoryqTestToken.sol";
+import "../src/ZoryqSwapLab.sol";
+
+interface Vm {
+    function deal(address who, uint256 newBalance) external;
+}
 
 contract ZoryqContractsTest {
+    Vm constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
     receive() external payable {}
 
     function testRewardClassAccounting() public {
@@ -51,7 +59,16 @@ contract ZoryqContractsTest {
         require(!q.isQuestLive(id),"paused");
     }
 
+    function testQuestCompletionRegistry() public {
+        ZoryqQuestCompletionRegistry c = new ZoryqQuestCompletionRegistry(address(this));
+        address user = address(0xCAFE);
+        c.recordCompletion(1,user,keccak256("tx-proof"));
+        require(c.completed(1,user),"completion");
+        require(c.completionCount(user)==1,"count");
+    }
+
     function testNativeStakeRoundTrip() public {
+        vm.deal(address(this),10 ether);
         ZoryqTestnetStake s = new ZoryqTestnetStake();
         uint256 beforeBalance = address(this).balance;
         s.stake{value: 1 ether}();
@@ -61,5 +78,23 @@ contract ZoryqContractsTest {
         require(s.staked(address(this))==0,"unstake balance");
         require(s.totalStaked()==0,"total unstake");
         require(address(this).balance==beforeBalance,"round trip");
+    }
+
+    function testSwapLabRoundTrip() public {
+        vm.deal(address(this),10 ether);
+        ZoryqTestToken t = new ZoryqTestToken("ZORYQ Test USD","zUSD",1000000 ether,address(this));
+        ZoryqSwapLab swap = new ZoryqSwapLab(address(t),100 ether);
+        require(t.transfer(address(swap),100000 ether),"fund token");
+        (bool ok,) = payable(address(swap)).call{value:5 ether}("");
+        require(ok,"fund zq");
+        uint256 beforeTokens=t.balanceOf(address(this));
+        uint256 out=swap.swapZQForToken{value:1 ether}(100 ether);
+        require(out==100 ether,"quote out");
+        require(t.balanceOf(address(this))==beforeTokens+100 ether,"token receive");
+        require(t.approve(address(swap),100 ether),"approve");
+        uint256 zqBefore=address(this).balance;
+        uint256 back=swap.swapTokenForZQ(100 ether,1 ether);
+        require(back==1 ether,"reverse quote");
+        require(address(this).balance==zqBefore+1 ether,"zq receive");
     }
 }
