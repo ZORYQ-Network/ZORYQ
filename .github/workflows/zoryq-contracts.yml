@@ -1,0 +1,33 @@
+name: Test ZORYQ Contracts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-contracts/**'
+      - '.github/workflows/zoryq-contracts.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - name: Prepare Foundry project
+        working-directory: zoryq-contracts
+        run: |
+          test -f foundry.toml || printf '[profile.default]\nsrc = "src"\ntest = "test"\nout = "out"\nsolc_version = "0.8.24"\n' > foundry.toml
+      - name: Build
+        working-directory: zoryq-contracts
+        run: forge build
+      - name: Test
+        working-directory: zoryq-contracts
+        run: forge test -vv
