@@ -15,13 +15,23 @@ contract ZoryqTestToken {
 
     event Transfer(address indexed from, address indexed to, uint256 value);
     event Approval(address indexed owner, address indexed spender, uint256 value);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
-    constructor(string memory name_, string memory symbol_, uint256 initialSupply, address recipient) {
+    constructor(string memory name_, string memory symbol_, uint256 initialSupply, address recipient, address initialOwner) {
         require(recipient != address(0), "zero_recipient");
+        require(initialOwner != address(0), "zero_owner");
         name = name_;
         symbol = symbol_;
-        owner = msg.sender;
+        owner = initialOwner;
+        emit OwnershipTransferred(address(0), initialOwner);
         _mint(recipient, initialSupply);
+    }
+
+    function transferOwnership(address nextOwner) external {
+        require(msg.sender == owner, "not_owner");
+        require(nextOwner != address(0), "zero_owner");
+        emit OwnershipTransferred(owner, nextOwner);
+        owner = nextOwner;
     }
 
     function transfer(address to, uint256 value) external returns (bool) {
