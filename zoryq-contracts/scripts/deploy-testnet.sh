@@ -1,9 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RPC_URL="${RPC_URL:-https://zoryq-evm-node-live-production.up.railway.app/rpc}"
-FAUCET_URL="${FAUCET_URL:-https://zoryq-evm-node-live-production.up.railway.app/faucet}"
+BASE_URL="${BASE_URL:-https://zoryq-evm-node-live-production.up.railway.app}"
+RPC_URL="${RPC_URL:-$BASE_URL/rpc}"
+FAUCET_URL="${FAUCET_URL:-$BASE_URL/faucet}"
 ADMIN="${ADMIN:-0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33}"
+
+retry_curl() {
+  curl --fail --silent --show-error \
+    --retry 8 --retry-delay 5 --retry-all-errors --connect-timeout 10 --max-time 30 "$@"
+}
+
+echo "Checking ZORYQ public health..."
+retry_curl "$BASE_URL/health" | tee /tmp/zoryq-health.json
+
+echo "Checking ZORYQ chain ID..."
+CHAIN_HEX=$(retry_curl -X POST "$RPC_URL" -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -r '.result')
+test "$CHAIN_HEX" = "0x5a5159"
 
 printf '[profile.default]\nsrc = "src"\ntest = "test"\nout = "out"\nsolc_version = "0.8.24"\n' > foundry.toml
 forge build
@@ -13,9 +27,11 @@ DEPLOYER_KEY="0x$(openssl rand -hex 32)"
 DEPLOYER=$(cast wallet address --private-key "$DEPLOYER_KEY")
 echo "Transient Testnet deployer: $DEPLOYER"
 
-curl --fail --silent --show-error -X POST "$FAUCET_URL" \
+echo "Funding transient deployer from Testnet faucet..."
+retry_curl -X POST "$FAUCET_URL" \
   -H 'content-type: application/json' \
-  -d "{\"address\":\"$DEPLOYER\"}" > /tmp/zoryq-faucet.json
+  -d "{\"address\":\"$DEPLOYER\"}" | tee /tmp/zoryq-faucet.json
+jq -e '.ok == true' /tmp/zoryq-faucet.json >/dev/null
 sleep 3
 
 BALANCE=$(cast balance "$DEPLOYER" --rpc-url "$RPC_URL")
