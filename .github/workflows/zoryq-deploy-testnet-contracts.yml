@@ -17,9 +17,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      RPC_URL: https://zoryq-evm-node-live-production.up.railway.app/rpc
-      FAUCET_URL: https://zoryq-evm-node-live-production.up.railway.app/faucet
-      ADMIN: 0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33
+      RPC_URL: "https://zoryq-evm-node-live-production.up.railway.app/rpc"
+      FAUCET_URL: "https://zoryq-evm-node-live-production.up.railway.app/faucet"
+      ADMIN: "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33"
     steps:
       - name: Checkout
         uses: actions/checkout@v4
