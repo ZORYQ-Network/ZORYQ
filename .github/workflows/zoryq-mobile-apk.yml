@@ -21,6 +21,9 @@ jobs:
     timeout-minutes: 45
     env:
       NODE_ENV: production
+      EXPO_PUBLIC_ZORYQ_BASE: https://zoryq-evm-node-live-production.up.railway.app
+      EXPO_PUBLIC_ZORYQ_RPC: https://zoryq-evm-node-live-production.up.railway.app/rpc
+      EXPO_PUBLIC_ZORYQ_EXPLORER: https://zoryq-testnet.vercel.app/explorer.html
     steps:
       - uses: actions/checkout@v6
 
