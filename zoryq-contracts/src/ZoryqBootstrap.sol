@@ -9,7 +9,7 @@ import "./ZoryqTestToken.sol";
 import "./ZoryqSwapLab.sol";
 
 /// @notice One-shot Testnet bootstrap that deploys the current ZORYQ contract suite atomically.
-/// The bootstrap retains no privileged ownership after construction.
+/// @dev Re-triggered after attaching the persistent Railway volume; no privileged ownership is retained here.
 contract ZoryqBootstrap {
     address public immutable admin;
     ZoryqRewardRegistryV2 public immutable rewardRegistry;
@@ -28,13 +28,7 @@ contract ZoryqBootstrap {
         ZoryqQuestRegistry quests = new ZoryqQuestRegistry(admin_);
         ZoryqQuestCompletionRegistry completions = new ZoryqQuestCompletionRegistry(admin_);
         ZoryqTestnetStake stake = new ZoryqTestnetStake();
-        ZoryqTestToken token = new ZoryqTestToken(
-            "ZORYQ Test USD",
-            "zUSD",
-            1_000_000 ether,
-            address(this),
-            admin_
-        );
+        ZoryqTestToken token = new ZoryqTestToken("ZORYQ Test USD", "zUSD", 1_000_000 ether, address(this), admin_);
         ZoryqSwapLab swap = new ZoryqSwapLab(address(token), 100 ether);
 
         require(token.transfer(address(swap), 100_000 ether), "seed_token_failed");
