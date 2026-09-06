@@ -82,7 +82,8 @@ contract ZoryqContractsTest {
 
     function testSwapLabRoundTrip() public {
         vm.deal(address(this),10 ether);
-        ZoryqTestToken t = new ZoryqTestToken("ZORYQ Test USD","zUSD",1000000 ether,address(this));
+        ZoryqTestToken t = new ZoryqTestToken("ZORYQ Test USD","zUSD",1000000 ether,address(this),address(this));
+        require(t.owner()==address(this),"token owner");
         ZoryqSwapLab swap = new ZoryqSwapLab(address(t),100 ether);
         require(t.transfer(address(swap),100000 ether),"fund token");
         (bool ok,) = payable(address(swap)).call{value:5 ether}("");
