@@ -59,21 +59,22 @@ jobs:
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict';
           import solc from 'solc';
-          import { ContractFactory, JsonRpcProvider, Wallet, parseEther } from 'ethers';
+          import { ContractFactory, JsonRpcProvider, Wallet, NonceManager, parseEther } from 'ethers';
 
           const rpc = 'http://127.0.0.1:8080/rpc';
           const provider = new JsonRpcProvider(rpc, 5919065, { staticNetwork: true });
-          const alice = Wallet.createRandom().connect(provider);
+          const alice = new NonceManager(Wallet.createRandom().connect(provider));
+          const aliceAddress = await alice.getAddress();
           const bob = Wallet.createRandom().connect(provider);
 
           const faucet = await fetch('http://127.0.0.1:8080/faucet', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ address: alice.address })
+            body: JSON.stringify({ address: aliceAddress })
           });
           assert.equal(faucet.status, 200);
           assert.equal((await faucet.json()).ok, true);
-          assert((await provider.getBalance(alice.address)) >= parseEther('100'));
+          assert((await provider.getBalance(aliceAddress)) >= parseEther('100'));
 
           const nativeTx = await alice.sendTransaction({ to: bob.address, value: parseEther('1') });
           const nativeReceipt = await nativeTx.wait();
@@ -131,7 +132,7 @@ jobs:
           assert(probeLogs.length >= 1);
 
           const erc20 = await deploy('TestERC20', [1000n]);
-          assert.equal(await erc20.balanceOf(alice.address), 1000n);
+          assert.equal(await erc20.balanceOf(aliceAddress), 1000n);
           const transferReceipt = await (await erc20.transfer(bob.address, 25n)).wait();
           assert.equal(transferReceipt.status, 1);
           assert.equal(await erc20.balanceOf(bob.address), 25n);
