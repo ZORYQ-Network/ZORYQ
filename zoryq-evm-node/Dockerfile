@@ -5,7 +5,8 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 COPY server.mjs ./
-RUN mkdir -p /data
+COPY entrypoint.sh ./
+RUN chmod +x /app/entrypoint.sh && mkdir -p /data
 ENV PORT=8080
 EXPOSE 8080
-CMD ["npm","start"]
+CMD ["/app/entrypoint.sh"]
