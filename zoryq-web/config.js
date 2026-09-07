@@ -6,12 +6,12 @@ window.ZORYQ_CONFIG={
   rpcBase:'https://zoryq-evm-node-live-production.up.railway.app',
   rpcUrl:'https://zoryq-evm-node-live-production.up.railway.app/rpc',
   explorerUrl:'https://zoryq-testnet.vercel.app/explorer.html',
-  rewardRegistry:'0xE8c01A67735B47Ba3318e96266F0b8bef39710ad',
-  questRegistry:'0x00e8BDa4280e340f75beEEAAcd68C4A6E6828a5a',
-  questCompletionRegistry:'0x2f2378ffdFA02622baF05523901de9a9b7f4f2e3',
-  stakeContract:'0xa1294BeC35184Ac9Ad2f16F3DCfd4de276833499',
-  testToken:'0xdDeE4ECD600aC501B2A6b2A4e98aC180EbF79f94',
-  swapContract:'0xa16AaA3F4df98D312dD7D146E4d0116967F0F7bf',
+  rewardRegistry:'0xAB1Dd21c529b182191ED84f00A4dF1917652CB10',
+  questRegistry:'0x85747F9BdCd758fcfB562c929236CCA6eEB025a9',
+  questCompletionRegistry:'0xD371eb7863cA000fF5039e2Db613F2094ba46b15',
+  stakeContract:'0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1',
+  testToken:'0xd2121E96C6af936c0496fDB499c1D0613d26c2B9',
+  swapContract:'0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE',
   adminTreasury:'0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33',
   scoreEpoch:1
 };
