@@ -43,13 +43,14 @@ if balance <= minimum:
     raise SystemExit(f"deployer balance too low: {balance}")
 PY
 
+# forge treats every token after --constructor-args as constructor input, so keep it last.
 forge create src/ZoryqBootstrap.sol:ZoryqBootstrap \
   --rpc-url "$RPC_URL" \
   --private-key "$DEPLOYER_KEY" \
-  --constructor-args "$ADMIN" \
   --value 10000000000000000000 \
   --broadcast \
-  --json > /tmp/zoryq-deploy.json
+  --json \
+  --constructor-args "$ADMIN" > /tmp/zoryq-deploy.json
 
 BOOTSTRAP=$(jq -r '.deployedTo // .deployed_to // .contractAddress // empty' /tmp/zoryq-deploy.json)
 TX=$(jq -r '.transactionHash // .transaction_hash // .txHash // empty' /tmp/zoryq-deploy.json)
