@@ -12,17 +12,20 @@ const STATE=process.env.ZORYQ_STATE_PATH||'/data/zoryq-state.json';
 const FAUCET_FILE=process.env.ZORYQ_FAUCET_STATE||'/data/faucet.json';
 const VALIDATOR_FILE=process.env.ZORYQ_VALIDATOR_STATE||'/data/validators.json';
 const FAUCET_AMOUNT=process.env.ZORYQ_FAUCET_AMOUNT||'100';
+const STATE_INTERVAL=String(Math.max(30,Number(process.env.ZORYQ_STATE_INTERVAL||60)));
 const BLOCKED_PREFIXES=['anvil_','hardhat_','evm_','debug_'];
 const CHALLENGE_TTL=10*60*1000;
 const HEARTBEAT_MAX_SKEW=5*60*1000;
 const HEARTBEAT_HEALTHY_WINDOW=3*60*1000;
 
 fs.mkdirSync('/data',{recursive:true});
-const args=['--host','127.0.0.1','--port',String(RPC_PORT),'--chain-id',String(CHAIN_ID),'--block-time','2','--accounts','0','--state',STATE,'--state-interval','5','--preserve-historical-states'];
+// Keep only the latest chain state. --preserve-historical-states made Anvil snapshots grow
+// rapidly on an always-on 2s block chain and could exhaust container memory during persistence.
+const args=['--host','127.0.0.1','--port',String(RPC_PORT),'--chain-id',String(CHAIN_ID),'--block-time','2','--accounts','0','--state',STATE,'--state-interval',STATE_INTERVAL];
 const anvil=spawn('anvil',args,{stdio:['ignore','pipe','pipe']});
 anvil.stdout.on('data',d=>process.stdout.write('[anvil] '+d));
 anvil.stderr.on('data',d=>process.stderr.write('[anvil] '+d));
-anvil.on('exit',c=>{console.error('Anvil exited',c);process.exit(c||1)});
+anvil.on('exit',(c,signal)=>{console.error('Anvil exited',{code:c,signal});process.exit(c||1)});
 process.on('SIGTERM',()=>anvil.kill('SIGTERM'));
 process.on('SIGINT',()=>anvil.kill('SIGINT'));
 
@@ -40,7 +43,7 @@ async function body(req){let s='';for await(const c of req){s+=c;if(s.length>2_0
 function blocked(q){return !!q&&typeof q.method==='string'&&BLOCKED_PREFIXES.some(p=>q.method.startsWith(p))}
 function blockedReply(q){if(q?.id===undefined||q?.id===null)return null;return {jsonrpc:'2.0',id:q.id,error:{code:-32601,message:'Administrative RPC method disabled on public ZORYQ endpoint'}}}
 function loadJson(file,fallback={}){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
-function saveJson(file,x){fs.writeFileSync(file,JSON.stringify(x,null,2))}
+function saveJson(file,x){const tmp=`${file}.tmp`;fs.writeFileSync(tmp,JSON.stringify(x,null,2));fs.renameSync(tmp,file)}
 function registrationMessage(operator,nonce){return `ZORYQ Testnet Node Registration\nOperator: ${operator}\nNonce: ${nonce}\nChain ID: ${CHAIN_ID}`}
 function cleanChallenges(){const now=Date.now();for(const [k,v] of challenges)if(now-v.createdAt>CHALLENGE_TTL)challenges.delete(k)}
 function publicValidator(v){const now=Date.now();const healthy=!!v.lastHeartbeat&&now-v.lastHeartbeat<=HEARTBEAT_HEALTHY_WINDOW;const onlineMs=Math.max(0,Number(v.onlineMs||0));const hours=Math.floor(onlineMs/3600000);const validatorEstimate=hours*120+(onlineMs>=86400000?1500:0)+(onlineMs>=7*86400000?12000:0);return {nodeId:v.nodeId,operator:v.operator,createdAt:v.createdAt,lastHeartbeat:v.lastHeartbeat||null,lastBlock:v.lastBlock||null,heartbeatCount:v.heartbeatCount||0,onlineMs,healthy,pendingValidatorPointsEstimate:validatorEstimate}}
