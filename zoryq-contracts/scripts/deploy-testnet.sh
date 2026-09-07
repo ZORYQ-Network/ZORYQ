@@ -35,7 +35,13 @@ jq -e '.ok == true' /tmp/zoryq-faucet.json >/dev/null
 sleep 3
 
 BALANCE=$(cast balance "$DEPLOYER" --rpc-url "$RPC_URL")
-test "$BALANCE" -gt 10000000000000000000
+python3 - "$BALANCE" <<'PY'
+import sys
+balance = int(sys.argv[1])
+minimum = 10_000_000_000_000_000_000
+if balance <= minimum:
+    raise SystemExit(f"deployer balance too low: {balance}")
+PY
 
 forge create src/ZoryqBootstrap.sol:ZoryqBootstrap \
   --rpc-url "$RPC_URL" \
