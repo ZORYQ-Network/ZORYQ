@@ -1,133 +1,145 @@
-# ZORYQ Sepolia Bridge + Swap Lab
+# ZORYQ Sepolia ETH -> ZQ Testnet Exchange
 
 ## Goal
-Enable users to bring test ETH from Ethereum Sepolia into the ZORYQ EVM Testnet as a representation token (`zETH`) and use it inside the ZORYQ Swap Lab.
+Allow a user to send test ETH on Ethereum Sepolia to a dedicated ZORYQ Sepolia treasury flow and receive ZQ on the ZORYQ EVM Testnet after the source transaction is independently verified.
 
-## Scope
-Testnet only. This design does not represent production-grade trust-minimized bridging and does not imply financial value.
+## Scope and legal/product boundary
+- Testnet only.
+- Sepolia ETH and ZQ Testnet are test assets and must be presented as having no monetary value.
+- This is a Testnet exchange/faucet mechanism, not a trust-minimized bridge, investment product, token sale, promise of return, or representation of future Mainnet ZQ.
+- Participation must not create any entitlement to future tokens, airdrops, profits or Mainnet assets.
 
-## Target user flow
-1. Connect wallet on Ethereum Sepolia.
-2. Deposit Sepolia ETH into a Sepolia-side bridge contract.
-3. Relayer/indexer detects the deposit event.
-4. Relayer submits proof/reference to the ZORYQ-side bridge contract.
-5. ZORYQ-side contract mints `zETH` 1:1 to the same wallet on ZORYQ.
-6. User swaps `zETH`, `ZQ`, and `zUSD` inside ZORYQ Swap Lab.
-7. For withdrawal, user burns `zETH` on ZORYQ.
-8. Relayer observes burn and releases matching Sepolia ETH back to the user.
+## User flow
+1. User connects the same EVM wallet identity used for ZORYQ.
+2. Wallet switches to Ethereum Sepolia.
+3. UI shows the current Testnet quote, limits and destination ZQ amount before confirmation.
+4. User sends Sepolia ETH to a dedicated Sepolia-side ZORYQ treasury/vault contract.
+5. The verifier waits for a configurable confirmation threshold and validates chain ID, vault address, event, sender, recipient, amount and deposit id.
+6. The source transaction hash/deposit id is atomically marked as processed before fulfillment.
+7. ZQ Testnet is delivered on ZORYQ Chain to the destination address recorded in the deposit event.
+8. UI shows both the Sepolia source transaction and ZORYQ fulfillment transaction.
 
 ## Networks
 ### Ethereum Sepolia
-- Native asset: ETH
-- Purpose: source/sink test asset
+- Chain ID: 11155111
+- Asset received: test ETH
+- Destination: dedicated Testnet treasury/vault contract; do not use a personal EOA as the public deposit endpoint.
 
 ### ZORYQ EVM Testnet
 - Chain ID: 5919065
-- Native asset: ZQ
-- Wrapped bridge asset: zETH
-- Existing lab asset: zUSD
+- Asset delivered: native ZQ Testnet
+- ZQ Testnet has no monetary value and is not a claim on any future Mainnet token.
 
-## Contracts
-### SepoliaBridgeVault
+## Sepolia contract: ZoryqTestnetExchangeVault
 Responsibilities:
-- Accept ETH deposits.
-- Emit deterministic deposit events with nonce/deposit id.
-- Release ETH on authorized withdrawal completion.
-- Prevent duplicate withdrawal ids.
-- Emergency pause for Testnet operations.
+- Accept deposits through an explicit payable deposit function, not ambiguous raw transfers.
+- Record the intended ZORYQ recipient in the deposit event.
+- Generate monotonic deposit IDs/nonces.
+- Emit amount, sender, recipient and deposit ID.
+- Pausable.
+- Reentrancy protected.
+- Enforce configurable minimum/maximum deposits and rate limits where practical.
+- Treasury withdrawal restricted to a secured admin/multisig role.
+- Emit administrative/configuration events.
 
-### ZoryqBridgedETH (zETH)
-Responsibilities:
-- ERC-20 representation of Sepolia ETH.
-- 18 decimals.
-- Mint/burn restricted to bridge controller.
+## Fulfillment service
+The initial Testnet fulfillment service may be centralized, but must:
+- Never receive or store a user's seed phrase or private key.
+- Use a dedicated least-privilege service credential, isolated from treasury/admin credentials.
+- Verify Sepolia chain ID, finalized/confirmed receipt, canonical vault address, event signature, deposit ID, sender, ZORYQ recipient and amount.
+- Reject failed/reverted transactions.
+- Reject duplicate tx hashes and duplicate deposit IDs.
+- Persist processing state atomically and idempotently.
+- Use states such as observed -> confirmed -> reserved -> fulfilled, with reconciliation after crashes.
+- Record the ZORYQ fulfillment tx hash.
+- Apply per-wallet, per-transaction and rolling-period Testnet limits.
+- Stop automatically if RPC/network consistency checks fail.
 
-### ZoryqBridgeController
-Responsibilities:
-- Mint zETH from valid Sepolia deposit references.
-- Burn zETH for withdrawals.
-- Prevent duplicate deposit ids/proof references.
-- Emit bridge lifecycle events.
-- Keep bridge admin separate from user wallets.
+## Quote model
+The Testnet conversion rate is configurable and explicitly synthetic. Example only:
+`0.01 Sepolia ETH -> 1,000 ZQ Testnet`
 
-## Relayer
-Initial Testnet relayer may be centralized but must:
-- Never receive or store user wallet private keys.
-- Use an isolated bridge service key only for bridge contract authorization.
-- Verify chain ID, contract address, event signature, amount, recipient and deposit id.
-- Persist processed deposits/withdrawals atomically.
-- Be replay-safe and idempotent.
+The production UI must not imply a market price. Quote changes must be versioned/auditable and a deposit must bind to the quote/rate policy accepted at submission time or use a clearly disclosed deterministic rule.
 
-## Swap integration
-Add zETH routes to Swap Lab:
-- zETH <-> ZQ
-- zETH <-> zUSD
-- Optional multi-hop routing when direct reserves are unavailable.
-
-For the first Testnet implementation, fixed-price lab routing is acceptable. Do not present it as a production AMM.
+## ZQ fulfillment
+For the first implementation, fulfillment may use a dedicated funded ZQ Testnet distributor account with strict limits. It must not use the core admin/treasury key directly in an internet-facing service. A later version should use a dedicated on-chain distributor contract with role-based authorization, pause, quotas and replay-proof fulfillment IDs.
 
 ## Wallet UX
-Wallet must expose a `Bridge / Sepolia ETH` entry with:
-- Current network indicator.
+Add `Get ZQ with Sepolia ETH`:
 - Sepolia ETH balance.
-- zETH balance on ZORYQ.
-- Deposit amount.
-- Estimated received zETH.
-- Deposit/withdrawal status.
-- Source and destination transaction hashes.
-- Clear label: `Testnet assets only — no monetary value`.
+- Current synthetic Testnet quote.
+- Amount to send.
+- Estimated ZQ Testnet received.
+- Minimum/maximum and rolling limits.
+- Destination ZORYQ address.
+- Source transaction status and confirmations.
+- ZORYQ fulfillment transaction.
+- Explicit label: `Testnet assets only — no monetary value`.
+- Explicit label: `Does not create a right to future Mainnet ZQ or an airdrop`.
 
-## Explorer
-Explorer should identify bridge events:
-- Sepolia deposit reference.
-- ZORYQ zETH mint.
-- zETH burn.
-- Sepolia release reference.
+## Explorer / audit trail
+Where practical, expose:
+- Deposit ID.
+- Sepolia source tx hash/reference.
+- ZORYQ recipient.
+- ZQ amount fulfilled.
+- ZORYQ fulfillment tx hash.
+- Fulfillment status.
+Never expose service credentials or sensitive internal metadata.
 
-## Security requirements before public Testnet
-- Reentrancy guard on value-moving bridge functions.
-- Pausable bridge operations.
-- Replay protection for every deposit/withdrawal id.
-- Daily and per-transaction Testnet limits.
-- Separate bridge operator role.
-- Admin ownership transfer events.
-- No seed phrases/private keys in repository, client app or public config.
-- Relayer secret stored only in deployment secret manager.
+## Security gates before public Testnet
+- Contract unit tests and adversarial tests.
+- Reentrancy protection.
+- Pause/emergency stop.
+- Replay protection for tx hash and deposit ID.
+- Confirmation threshold.
+- Chain-ID and contract-address pinning.
+- Per-wallet/per-transaction/rolling limits.
+- Idempotent fulfillment and crash recovery.
+- Dedicated service key, separate treasury/admin roles.
+- Secrets only in a deployment secret manager.
+- No private keys, mnemonics or secrets in repo/client/public configuration.
+- Monitoring for abnormal deposit/fulfillment ratios.
+- Manual emergency reconciliation procedure.
 
-## Reward / Score integration
-Bridge participation may create proof-of-participation evidence for ZORYQ Score, but:
-- Bridge usage alone must not finalize points on the client.
-- Score finalization must occur through the authorized reward finalization path.
-- No guaranteed token, airdrop or monetary reward.
+## Mainnet policy — mandatory future gate
+This Testnet mechanism MUST NOT be copied directly to Mainnet.
+Before any real-value ETH -> ZQ mechanism or ZQ sale on Mainnet:
+1. Define token legal classification, issuer/entity structure and applicable jurisdictions.
+2. Obtain qualified legal/compliance review for Brazil and every intended distribution jurisdiction.
+3. Assess securities/investment-contract, virtual-asset/VASP, payments/exchange, AML/KYC, sanctions, consumer-protection, tax, privacy/data-protection and marketing obligations as applicable.
+4. Define transparent tokenomics, supply, treasury policy, pricing/liquidity mechanism, vesting, disclosures and conflicts.
+5. Use audited production contracts, multisig/role separation, timelocks where appropriate, monitoring, incident response and independent security review.
+6. Do not market guaranteed appreciation, returns, profit, future exchange listing or guaranteed airdrops.
+7. Publish terms/risk disclosures and obtain any registrations, licenses or approvals that qualified counsel determines are required before launch.
+8. Reassess requirements immediately before Mainnet because laws, regulatory guidance and product design can change.
+
+This repository policy is a product/security gate, not legal advice and not a declaration that a Mainnet sale is lawful.
 
 ## Implementation phases
-### Phase 1 — Contracts and tests
-- zETH ERC-20.
-- SepoliaBridgeVault.
-- ZoryqBridgeController.
-- Unit tests for replay, mint/burn, limits, ownership and pause.
+### Phase 1
+- Sepolia vault contract.
+- Tests for deposit IDs, limits, pause, admin controls and reentrancy.
+- ZORYQ distributor contract or tightly limited Testnet distributor design.
 
-### Phase 2 — Relayer
-- Sepolia event watcher.
-- ZORYQ event watcher.
-- Idempotent persistence.
-- Health endpoint and reconciliation routine.
+### Phase 2
+- Sepolia watcher/verifier.
+- Confirmation policy.
+- Idempotent fulfillment database/state.
+- ZORYQ fulfillment and reconciliation.
 
-### Phase 3 — Product integration
-- Wallet bridge screen.
-- zETH in Swap Lab.
-- Explorer bridge labels.
-- Bridge transaction history.
+### Phase 3
+- Wallet screen.
+- Explorer/history integration.
+- End-to-end Testnet monitoring.
 
-### Phase 4 — Public Testnet hardening
-- Operator key isolation.
-- Rate limits.
-- Recovery/reconciliation procedure.
-- End-to-end Sepolia -> ZORYQ -> Swap -> withdraw test.
+### Phase 4
+- Threat-model review.
+- Key/role isolation.
+- Abuse/rate limiting.
+- Failure recovery drills.
+- Public Testnet launch only after E2E verification.
 
 ## Definition of done
-The feature is considered testable only when a user can complete:
-
-`Sepolia ETH -> deposit -> zETH on ZORYQ -> swap -> burn zETH -> Sepolia ETH release`
-
-with both-chain transaction references and no user private key leaving the wallet.
+`Sepolia ETH -> verified vault deposit -> ZQ Testnet fulfillment`
+works end-to-end with source/destination transaction references, replay protection, limits, recovery, no user private key leaving the wallet, and clear Testnet/no-value disclosures.
