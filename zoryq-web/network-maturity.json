@@ -1,0 +1,100 @@
+{
+  "schemaVersion": "1.0.0",
+  "network": {
+    "name": "ZORYQ EVM Testnet",
+    "chainId": 5919065,
+    "caip2": "eip155:5919065",
+    "stage": "public-centralized-testnet",
+    "mainnet": false
+  },
+  "execution": {
+    "evmCompatible": true,
+    "engine": "Anvil-based execution environment",
+    "publicRpc": true,
+    "persistentState": true,
+    "adminNamespacesPubliclyBlocked": true,
+    "status": "live"
+  },
+  "consensus": {
+    "decentralized": false,
+    "independentValidators": 0,
+    "multiValidatorConsensus": false,
+    "faultToleranceVerified": false,
+    "status": "not-implemented",
+    "disclosure": "The current public Testnet is a centralized execution environment. It must not be described as decentralized or production-ready."
+  },
+  "rpcTopology": {
+    "publicGateways": 1,
+    "independentRpcProviders": 0,
+    "regionalRedundancyVerified": false,
+    "automaticFailoverVerified": false,
+    "status": "single-public-gateway"
+  },
+  "protocols": {
+    "swapLab": "deployed-live-verified",
+    "stake": "deployed-live-verified",
+    "zUSD": "deployed-live-verified",
+    "dexV1": "source-tested-awaiting-wallet-confirmed-deployment",
+    "lending": "source-tested-awaiting-wallet-confirmed-deployment",
+    "projectRegistry": "source-tested-awaiting-wallet-confirmed-deployment"
+  },
+  "adminSecurity": {
+    "treasury": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
+    "controlProofMechanism": "EIP-191 personal_sign challenge",
+    "privateKeyStoredByPlatform": false,
+    "walletControlProofRequiredForProtocolLaunch": true
+  },
+  "dataIntegrity": {
+    "contractCanonicalityRequiresLiveBytecodeVerification": true,
+    "deploymentCanonicalityRequiresReceiptAndConfigurationVerification": true,
+    "genesisFinalizedOnchainScoreLive": false,
+    "projectRegistryOnchainIdentityLive": false
+  },
+  "roadmap": [
+    {
+      "milestone": "independent-node-spec",
+      "status": "next",
+      "exitCriteria": [
+        "document reproducible node bootstrap",
+        "define validator identity and peer discovery",
+        "define persistent chain-data lifecycle",
+        "define upgrades and rollback policy"
+      ]
+    },
+    {
+      "milestone": "multi-node-devnet",
+      "status": "planned",
+      "exitCriteria": [
+        "minimum three independently operated nodes",
+        "verified deterministic chain head agreement",
+        "node restart and catch-up tests",
+        "single-node failure does not halt RPC availability"
+      ]
+    },
+    {
+      "milestone": "fault-tested-testnet",
+      "status": "planned",
+      "exitCriteria": [
+        "network partition test",
+        "validator outage test",
+        "state recovery test",
+        "documented threat model and incident playbook"
+      ]
+    }
+  ],
+  "claimsPolicy": {
+    "allowed": [
+      "EVM-compatible public Testnet",
+      "centralized testing environment",
+      "agent-native developer tooling",
+      "verifiable contract and project activity"
+    ],
+    "prohibitedUntilEvidenceExists": [
+      "decentralized network",
+      "production-ready Mainnet",
+      "multi-validator consensus",
+      "audited protocol suite",
+      "finalized on-chain Genesis Score"
+    ]
+  }
+}
