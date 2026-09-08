@@ -9,6 +9,7 @@ COPY zoryq-evm-node/server.mjs ./server.mjs
 # Suppress Anvil startup account/mnemonic output in production logs.
 RUN sed -i "s/const args=\['--host'/const args=['--silent','--host'/" ./server.mjs
 COPY zoryq-evm-node/public-gateway.mjs ./public-gateway.mjs
+COPY zoryq-evm-node/edge-gateway.mjs ./edge-gateway.mjs
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY zoryq-web ./web
 RUN chmod +x /app/entrypoint.sh && mkdir -p /data
