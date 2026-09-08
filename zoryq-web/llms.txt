@@ -1,0 +1,33 @@
+# ZORYQ EVM Testnet — Builder Index
+
+Network: ZORYQ EVM Testnet
+Chain ID: 5919065
+Hex: 0x5a5159
+CAIP-2: eip155:5919065
+Native gas token: ZQ (18 decimals)
+RPC: https://zoryq-evm-node-live-production.up.railway.app/rpc
+Explorer: https://zoryq-evm-node-live-production.up.railway.app/explorer
+Faucet: https://zoryq-evm-node-live-production.up.railway.app/faucet
+Developer portal: https://zoryq-evm-node-live-production.up.railway.app/developer
+Agent context: https://zoryq-evm-node-live-production.up.railway.app/.well-known/zoryq-agent.json
+Action schema: https://zoryq-evm-node-live-production.up.railway.app/agent/action-schema.json
+Project schema: https://zoryq-evm-node-live-production.up.railway.app/agent/project-schema.json
+
+Current verified client primitives:
+- Swap Lab: 0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE
+- Stake: 0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1
+- Test token / current zUSD client address: 0xd2121E96C6af936c0496fDB499c1D0613d26c2B9
+
+Experimental, not deployed:
+- ZORYQ DEX v1
+- ZORYQ Lending Lab
+- ZORYQ Project Registry
+
+Agent safety requirements:
+1. Never request or reveal a seed phrase/private key.
+2. Simulate and estimate state-changing calls when possible.
+3. Show contract, method, value, expected result, fees and gas before signing.
+4. Require explicit wallet confirmation.
+5. Verify receipt after broadcast.
+6. Treat ZQ, zUSD and points as testnet-only with no monetary value.
+7. Do not describe the current network as decentralized or production-ready.
