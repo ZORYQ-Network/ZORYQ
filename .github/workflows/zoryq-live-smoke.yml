@@ -70,6 +70,7 @@ jobs:
           echo "Official Vercel Genesis experience OK"
 
       - name: Verify Railway web fallback routes
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -92,6 +93,7 @@ jobs:
           echo "Railway onboarding + Genesis client OK"
 
       - name: Verify Genesis Score API safety
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -108,6 +110,7 @@ jobs:
           echo "Genesis Score API safety OK"
 
       - name: Verify web security headers
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -119,6 +122,7 @@ jobs:
           echo "Security headers OK"
 
       - name: Verify official X is present in onboarding
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
