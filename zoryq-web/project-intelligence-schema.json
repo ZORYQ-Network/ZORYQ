@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zoryq.dev/schemas/project-intelligence.schema.json",
+  "title": "ZORYQ Project Intelligence Result",
+  "type": "object",
+  "required": ["version", "status", "project", "metrics", "reputation", "evidence", "caveat"],
+  "properties": {
+    "version": {"type": "string"},
+    "status": {"enum": ["derived-from-supplied-chain-evidence", "live-indexed"]},
+    "project": {
+      "type": "object",
+      "required": ["slug", "name", "builder", "contracts"],
+      "properties": {
+        "slug": {"type": "string"},
+        "name": {"type": "string"},
+        "builder": {"type": "string", "pattern": "^0x[0-9a-f]{40}$"},
+        "contracts": {"type": "array", "items": {"type": "string", "pattern": "^0x[0-9a-f]{40}$"}}
+      },
+      "additionalProperties": false
+    },
+    "metrics": {
+      "type": "object",
+      "required": ["uniqueExternalWallets", "returningWallets", "successfulInteractions", "attemptedInteractions", "failedInteractions", "activeDays", "verifiedPrimitiveIntegrations", "integrityFlags", "successRatio"],
+      "properties": {
+        "uniqueExternalWallets": {"type": "integer", "minimum": 0},
+        "returningWallets": {"type": "integer", "minimum": 0},
+        "successfulInteractions": {"type": "integer", "minimum": 0},
+        "attemptedInteractions": {"type": "integer", "minimum": 0},
+        "failedInteractions": {"type": "integer", "minimum": 0},
+        "activeDays": {"type": "integer", "minimum": 0},
+        "verifiedPrimitiveIntegrations": {"type": "array", "items": {"enum": ["dex", "stake", "lending"]}, "uniqueItems": true},
+        "integrityFlags": {"type": "array"},
+        "successRatio": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "reputation": {"type": "object"},
+    "evidence": {"type": "object"},
+    "caveat": {"type": "string"}
+  },
+  "additionalProperties": false
+}
