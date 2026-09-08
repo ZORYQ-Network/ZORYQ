@@ -1,0 +1,52 @@
+name: ZORYQ Live Protocol State
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - '.github/workflows/zoryq-live-protocol-state.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
+      RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
+      TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+      ZUSD: '0xd2121E96C6af936c0496fDB499c1D0613d26c2B9'
+    steps:
+      - name: Read verified deployment registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/deployments")"
+          echo "$body" | jq .
+          echo "$body" | jq -e '.ok == true and .controlProven == true' >/dev/null
+          printf '%s' "$body" > /tmp/deployments.json
+      - name: Verify every recorded deployment has live code
+        shell: bash
+        run: |
+          set -euo pipefail
+          rpc(){ curl --fail --silent --show-error -H 'content-type: application/json' --data "$1" "$RPC"; }
+          for key in dexV1 lending projectRegistry; do
+            addr="$(jq -r --arg key "$key" '.deployments[$key].address // empty' /tmp/deployments.json)"
+            if [ -z "$addr" ]; then echo "$key: not recorded"; continue; fi
+            code="$(rpc "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getCode\",\"params\":[\"$addr\",\"latest\"]}" | jq -r '.result')"
+            test "$code" != '0x'
+            echo "$key=$addr codeBytes=$(( (${#code} - 2) / 2 ))"
+          done
+      - name: Report Treasury gas balance
+        shell: bash
+        run: |
+          set -euo pipefail
+          raw="$(curl --fail --silent --show-error -H 'content-type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"eth_getBalance\",\"params\":[\"$TREASURY\",\"latest\"]}" "$RPC" | jq -r '.result')"
+          python3 - "$raw" <<'PY'
+          import sys
+          wei=int(sys.argv[1],16)
+          print(f'Treasury balance: {wei/10**18:.6f} ZQ')
+          PY
