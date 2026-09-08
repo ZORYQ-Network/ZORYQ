@@ -62,7 +62,10 @@ jobs:
             echo "$route OK"
           done
           curl --fail --silent --show-error "$BASE/start" | grep -q '/genesis-client.js'
-          curl --fail --silent --show-error "$BASE/genesis-client.js" | grep -q 'genesis/status'
+          client="$(curl --fail --silent --show-error "$BASE/genesis-client.js")"
+          echo "$client" | grep -q 'genesis/status'
+          echo "$client" | grep -q 'zoryqShareProof'
+          echo "$client" | grep -q 'Paste a valid x.com post URL first'
           echo "Railway onboarding + Genesis client OK"
 
       - name: Verify Genesis Score API safety
@@ -76,6 +79,9 @@ jobs:
           code="$(curl --silent --show-error --output /tmp/genesis-reject --write-out '%{http_code}' -H 'content-type: application/json' --data "{\"address\":\"$WALLET\",\"action\":\"swap\",\"txHash\":\"0x00\"}" "$BASE/genesis/action")"
           test "$code" = '400'
           grep -q 'tx_hash_required' /tmp/genesis-reject
+          code="$(curl --silent --show-error --output /tmp/genesis-x-reject --write-out '%{http_code}' -H 'content-type: application/json' --data "{\"address\":\"$WALLET\",\"action\":\"x_share\",\"campaignId\":\"genesis-share-v1\",\"proofRef\":\"self-attested-share\"}" "$BASE/genesis/action")"
+          test "$code" = '400'
+          grep -q 'valid_x_post_url_required' /tmp/genesis-x-reject
           echo "Genesis Score API safety OK"
 
       - name: Verify web security headers
