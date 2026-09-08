@@ -5,10 +5,15 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
+    "icon": "./assets/zoryq-icon.png",
     "android": {
       "package": "com.zoryq.wallet",
       "versionCode": 1,
-      "permissions": []
+      "permissions": [],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/zoryq-icon.png",
+        "backgroundColor": "#050609"
+      }
     },
     "plugins": ["expo-secure-store"]
   }
