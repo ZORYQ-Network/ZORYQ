@@ -1,0 +1,48 @@
+{
+  "name": "ZORYQ Builder Context",
+  "version": "0.1.0",
+  "network": {
+    "name": "ZORYQ EVM Testnet",
+    "chainId": 5919065,
+    "chainIdHex": "0x5a5159",
+    "caip2": "eip155:5919065",
+    "nativeCurrency": {"symbol": "ZQ", "decimals": 18},
+    "rpc": "https://zoryq-evm-node-live-production.up.railway.app/rpc",
+    "explorer": "https://zoryq-evm-node-live-production.up.railway.app/explorer",
+    "faucet": "https://zoryq-evm-node-live-production.up.railway.app/faucet"
+  },
+  "principles": [
+    "Never request or store a wallet seed phrase or private key.",
+    "Require explicit wallet confirmation before any state-changing transaction.",
+    "Display target contract, method, value, expected output and gas estimate before signing.",
+    "Treat ZQ, zUSD and Testnet points as having no monetary value.",
+    "Do not describe the current Testnet as decentralized or production-ready.",
+    "Prefer verifiable on-chain evidence over self-reported activity."
+  ],
+  "builderFlow": [
+    "connect_wallet",
+    "ensure_network",
+    "claim_test_zq",
+    "select_template",
+    "configure",
+    "simulate",
+    "request_signature",
+    "broadcast",
+    "verify_receipt",
+    "open_explorer",
+    "index_activity"
+  ],
+  "nativePrimitives": {
+    "swapLab": "0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE",
+    "stake": "0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1",
+    "testToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
+    "rewardRegistry": "0xAB1Dd21c529b182191ED84f00A4dF1917652CB10",
+    "questRegistry": "0x85747F9BdCd758fcfB562c929236CCA6eEB025a9",
+    "questCompletionRegistry": "0xD371eb7863cA000fF5039e2Db613F2094ba46b15"
+  },
+  "experimental": {
+    "dexV1": "source-created-not-deployed",
+    "lending": "source-created-not-deployed",
+    "multiValidatorConsensus": "roadmap"
+  }
+}
