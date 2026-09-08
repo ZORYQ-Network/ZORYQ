@@ -2,7 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { JsonRpcProvider, getAddress, parseEther, toBeHex, verifyMessage } from 'ethers';
+import { Contract, JsonRpcProvider, Wallet, getAddress, keccak256, parseEther, toBeHex, toUtf8Bytes, verifyMessage } from 'ethers';
 
 const PORT=Number(process.env.PORT||8080);
 const RPC_PORT=8545;
@@ -12,11 +12,16 @@ const STATE=process.env.ZORYQ_STATE_PATH||'/data/zoryq-state.json';
 const FAUCET_FILE=process.env.ZORYQ_FAUCET_STATE||'/data/faucet.json';
 const VALIDATOR_FILE=process.env.ZORYQ_VALIDATOR_STATE||'/data/validators.json';
 const FAUCET_AMOUNT=process.env.ZORYQ_FAUCET_AMOUNT||'100';
+const FAUCET_CONTRACT=String(process.env.ZORYQ_FAUCET_CONTRACT||'').trim();
+const FAUCET_OPERATOR_KEY=String(process.env.ZORYQ_FAUCET_OPERATOR_KEY||'').trim();
+const REQUIRE_X_ATTESTATION=String(process.env.ZORYQ_REQUIRE_X_ATTESTATION||'false').toLowerCase()==='true';
+const OFFICIAL_X_HANDLE='ZORIQNetwork';
 const STATE_INTERVAL=String(Math.max(30,Number(process.env.ZORYQ_STATE_INTERVAL||60)));
 const BLOCKED_PREFIXES=['anvil_','hardhat_','evm_','debug_'];
 const CHALLENGE_TTL=10*60*1000;
 const HEARTBEAT_MAX_SKEW=5*60*1000;
 const HEARTBEAT_HEALTHY_WINDOW=3*60*1000;
+const FAUCET_ABI=['function fulfill(bytes32 claimId,address recipient)','function claimAmount() view returns(uint256)','function cooldown() view returns(uint256)','function paused() view returns(bool)'];
 
 fs.mkdirSync('/data',{recursive:true});
 // Keep only the latest chain state. --preserve-historical-states made Anvil snapshots grow
@@ -48,21 +53,36 @@ function registrationMessage(operator,nonce){return `ZORYQ Testnet Node Registra
 function cleanChallenges(){const now=Date.now();for(const [k,v] of challenges)if(now-v.createdAt>CHALLENGE_TTL)challenges.delete(k)}
 function publicValidator(v){const now=Date.now();const healthy=!!v.lastHeartbeat&&now-v.lastHeartbeat<=HEARTBEAT_HEALTHY_WINDOW;const onlineMs=Math.max(0,Number(v.onlineMs||0));const hours=Math.floor(onlineMs/3600000);const validatorEstimate=hours*120+(onlineMs>=86400000?1500:0)+(onlineMs>=7*86400000?12000:0);return {nodeId:v.nodeId,operator:v.operator,createdAt:v.createdAt,lastHeartbeat:v.lastHeartbeat||null,lastBlock:v.lastBlock||null,heartbeatCount:v.heartbeatCount||0,onlineMs,healthy,pendingValidatorPointsEstimate:validatorEstimate}}
 function safeEqHex(a,b){try{const aa=Buffer.from(String(a),'hex'),bb=Buffer.from(String(b),'hex');return aa.length===bb.length&&aa.length>0&&timingSafeEqual(aa,bb)}catch{return false}}
+function onchainFaucetConfigured(){return /^0x[0-9a-fA-F]{40}$/.test(FAUCET_CONTRACT)&&/^0x[0-9a-fA-F]{64}$/.test(FAUCET_OPERATOR_KEY)}
+function xAttestationValid(b){if(!REQUIRE_X_ATTESTATION)return true;return b?.followAttested===true&&String(b?.xHandle||'').replace(/^@/,'').toLowerCase()===OFFICIAL_X_HANDLE.toLowerCase()}
+async function faucetStatus(){const base={ok:true,amount:FAUCET_AMOUNT,symbol:'ZQ',officialX:'@'+OFFICIAL_X_HANDLE,xAttestationRequired:REQUIRE_X_ATTESTATION,mode:onchainFaucetConfigured()?'onchain':'legacy-balance'};if(!onchainFaucetConfigured())return base;try{const c=new Contract(getAddress(FAUCET_CONTRACT),FAUCET_ABI,provider);const [amount,cooldown,paused,balance]=await Promise.all([c.claimAmount(),c.cooldown(),c.paused(),provider.getBalance(FAUCET_CONTRACT)]);return {...base,contract:getAddress(FAUCET_CONTRACT),claimAmountWei:amount.toString(),cooldownSeconds:Number(cooldown),paused,balanceWei:balance.toString()}}catch(e){return {...base,healthy:false,error:'onchain_faucet_unreachable'}}}
 
 const server=http.createServer(async(req,res)=>{try{
  if(req.method==='OPTIONS'){cors(res);res.writeHead(204);return res.end()}
  await nodeReady;
  const url=new URL(req.url,'http://localhost');
- if(req.method==='GET'&&url.pathname==='/health'){const block=await provider.getBlockNumber();const vals=Object.values(loadJson(VALIDATOR_FILE,{}));const healthy=vals.filter(v=>Date.now()-Number(v.lastHeartbeat||0)<=HEARTBEAT_HEALTHY_WINDOW).length;return send(res,200,{ok:true,name:'ZORYQ EVM Testnet',chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,symbol:'ZQ',block,evm:true,contracts:true,erc20:true,erc721:true,rpc:true,registeredNodes:vals.length,healthyNodes:healthy})}
- if(req.method==='GET'&&url.pathname==='/network'){return send(res,200,{chainName:'ZORYQ EVM Testnet',chainId:CHAIN_HEX,nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},rpcUrls:[process.env.PUBLIC_RPC_URL||'SET_PUBLIC_RPC_URL'],blockExplorerUrls:[process.env.PUBLIC_EXPLORER_URL||'https://zoryq-testnet.vercel.app/explorer.html']})}
+ if(req.method==='GET'&&url.pathname==='/health'){const block=await provider.getBlockNumber();const vals=Object.values(loadJson(VALIDATOR_FILE,{}));const healthy=vals.filter(v=>Date.now()-Number(v.lastHeartbeat||0)<=HEARTBEAT_HEALTHY_WINDOW).length;return send(res,200,{ok:true,name:'ZORYQ EVM Testnet',chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,symbol:'ZQ',block,evm:true,contracts:true,erc20:true,erc721:true,rpc:true,registeredNodes:vals.length,healthyNodes:healthy,faucetMode:onchainFaucetConfigured()?'onchain':'legacy-balance',xFaucetGate:REQUIRE_X_ATTESTATION})}
+ if(req.method==='GET'&&url.pathname==='/network'){return send(res,200,{chainName:'ZORYQ EVM Testnet',chainId:CHAIN_HEX,nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},rpcUrls:[process.env.PUBLIC_RPC_URL||'SET_PUBLIC_RPC_URL'],blockExplorerUrls:[process.env.PUBLIC_EXPLORER_URL||'https://zoryq-testnet.vercel.app/explorer']})}
+ if(req.method==='GET'&&url.pathname==='/faucet/status'){return send(res,200,await faucetStatus())}
  if(req.method==='POST'&&url.pathname==='/faucet'){
    const b=await body(req);let address;
    try{address=getAddress(String(b.address||''))}catch{return send(res,400,{ok:false,error:'invalid_address'})}
+   if(!xAttestationValid(b))return send(res,403,{ok:false,error:'x_follow_attestation_required',officialX:'@'+OFFICIAL_X_HANDLE});
    const f=loadJson(FAUCET_FILE,{}),k=address.toLowerCase(),last=Number(f[k]||0),now=Date.now();
    if(now-last<86400000)return send(res,429,{ok:false,error:'cooldown',nextClaim:new Date(last+86400000).toISOString()});
+   if(onchainFaucetConfigured()){
+     try{
+       const wallet=new Wallet(FAUCET_OPERATOR_KEY,provider);const c=new Contract(getAddress(FAUCET_CONTRACT),FAUCET_ABI,wallet);
+       const claimId=keccak256(toUtf8Bytes(`zoryq-faucet:${address.toLowerCase()}:${now}:${randomUUID()}`));
+       const tx=await c.fulfill(claimId,address);const receipt=await tx.wait();
+       if(!receipt||receipt.status!==1)throw Error('faucet_tx_failed');
+       f[k]=now;saveJson(FAUCET_FILE,f);
+       return send(res,200,{ok:true,address,amount:FAUCET_AMOUNT,symbol:'ZQ',mode:'onchain',txHash:tx.hash,claimId,contract:getAddress(FAUCET_CONTRACT)});
+     }catch(e){console.error('Onchain faucet fulfill failed',e?.shortMessage||e?.message||e);return send(res,503,{ok:false,error:'onchain_faucet_unavailable'})}
+   }
    const current=BigInt(await rpcLocal('eth_getBalance',[address,'latest']));const next=current+parseEther(FAUCET_AMOUNT);
    await rpcLocal('anvil_setBalance',[address,toBeHex(next)]);f[k]=now;saveJson(FAUCET_FILE,f);
-   return send(res,200,{ok:true,address,amount:FAUCET_AMOUNT,symbol:'ZQ',balance:next.toString()})
+   return send(res,200,{ok:true,address,amount:FAUCET_AMOUNT,symbol:'ZQ',balance:next.toString(),mode:'legacy-balance'})
  }
  if(req.method==='GET'&&url.pathname==='/validator/challenge'){
    cleanChallenges();let operator;try{operator=getAddress(String(url.searchParams.get('operator')||''))}catch{return send(res,400,{ok:false,error:'invalid_operator'})}
