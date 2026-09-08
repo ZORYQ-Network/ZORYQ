@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.2.0",
+  "schemaVersion": "1.3.0",
   "network": {
     "name": "ZORYQ EVM Testnet",
     "chainId": 5919065,
@@ -8,11 +8,12 @@
   "contracts": {
     "faucet": {
       "address": null,
-      "status": "service-live-contract-mode-dependent",
+      "status": "service-live-legacy-balance",
       "role": "testnet-faucet-service",
+      "amountZQ": "100",
       "historicalContractReference": "0x0fB96a10a25499248EC7cE8B1FEd3fF0307E2910",
       "historicalReferenceHasCode": false,
-      "warning": "The historical faucet address has no bytecode on the current chain. The live service can operate in legacy-balance mode or an environment-configured on-chain mode; /faucet/status is the runtime source of truth."
+      "warning": "Live read-only verification reported legacy-balance mode. The historical faucet contract address has no bytecode on the current chain. /faucet/status remains the runtime source of truth."
     },
     "swapLab": {
       "address": "0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE",
@@ -21,6 +22,7 @@
       "productionAmm": false,
       "bytecodeVerified": true,
       "token": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
+      "owner": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
       "tokensPerZQ": "100000000000000000000"
     },
     "stake": {
@@ -36,6 +38,7 @@
       "symbol": "zUSD",
       "decimals": 18,
       "totalSupply": "1000000000000000000000000",
+      "owner": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
       "canonicalityEvidence": "Live read-only verification confirmed Swap Lab token() equals this address and that deployed ERC-20 bytecode/metadata are present.",
       "historicalAddress": "0x742227605AF1839683A51A7B74B6EB2C75D37A3e",
       "historicalAddressHasCode": false
@@ -56,39 +59,48 @@
       "role": "quest-completion-registry"
     },
     "treasury": {
-      "address": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
-      "status": "client-configured-canonicality-pending-verification",
+      "address": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
+      "status": "onchain-owner-alignment-verified-signer-control-unverified",
       "role": "admin-treasury",
-      "warning": "Do not route protocol fees or transfer ownership of new contracts to this address until the intended Treasury control and current configuration are independently verified."
+      "evidence": [
+        "Matches live ZoryqSwapLab.owner()",
+        "Matches live canonical zUSD owner()",
+        "Matches current web client adminTreasury configuration"
+      ],
+      "warning": "Owner alignment does not prove that an authorized human or deployment system currently controls this account. Do not transfer new protocol ownership or route fees until signer control is verified through an authorized signature/action."
     },
     "dexV1": {
       "address": null,
-      "status": "source-created-not-deployed",
+      "status": "source-created-not-deployed-tests-green",
       "source": "zoryq-contracts/src/ZoryqDexV1.sol",
       "deploymentToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
-      "deploymentBlockedBy": ["treasury-control-verification", "contract-test-and-deploy-receipt-verification"]
+      "deploymentBlockedBy": ["authorized-signer-control-verification", "safe-deployment-receipt-and-bytecode-verification", "initial-liquidity-plan"]
     },
     "lending": {
       "address": null,
-      "status": "source-created-not-deployed",
+      "status": "source-created-not-deployed-tests-green",
       "source": "zoryq-contracts/src/ZoryqLendingLab.sol",
       "deploymentToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
-      "deploymentBlockedBy": ["treasury-or-admin-control-verification", "contract-test-and-deploy-receipt-verification"]
+      "deploymentBlockedBy": ["authorized-signer-control-verification", "safe-deployment-receipt-and-bytecode-verification", "testnet-liquidity-plan"]
     },
     "projectRegistry": {
       "address": null,
-      "status": "source-created-not-deployed",
-      "source": "zoryq-contracts/src/ZoryqProjectRegistry.sol"
+      "status": "source-created-not-deployed-tests-green",
+      "source": "zoryq-contracts/src/ZoryqProjectRegistry.sol",
+      "deploymentBlockedBy": ["authorized-signer-control-verification", "safe-deployment-receipt-and-bytecode-verification"]
     }
   },
   "verification": {
-    "lastLiveReadOnlyEvidenceAt": "2026-09-08T17:50:47.257Z",
+    "lastLiveReadOnlyEvidenceAt": "2026-09-08T17:53:34.950Z",
     "chainIdVerified": 5919065,
-    "source": "GitHub Actions read-only RPC verifier",
-    "limitations": "Privileged account ownership/control is not proven by bytecode checks and must be verified separately."
+    "contractSuiteCI": "green",
+    "projectIntelligenceCI": "green",
+    "canonicalProductionSmoke": "green",
+    "source": "GitHub Actions + read-only public ZORYQ RPC",
+    "limitations": "Privileged account signer control is not proven by owner() alignment or bytecode checks and must be verified separately."
   },
   "policy": {
-    "canonicalAddressRule": "Only mark a contract or privileged account canonical after on-chain state, bytecode/configuration and intended control are independently verified on the current testnet.",
+    "canonicalAddressRule": "Only mark a contract canonical after current-chain bytecode/state verification. Treat privileged-account signer control as a separate property requiring authorized proof.",
     "testnetOnly": true,
     "monetaryValue": false
   }
