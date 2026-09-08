@@ -1,0 +1,60 @@
+name: ZORYQ Treasury Readiness
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - '.github/workflows/zoryq-treasury-readiness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
+      RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
+      TREASURY: '0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33'
+      MIN_BALANCE_WEI: '20000000000000000000'
+    steps:
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Verify Treasury control proof
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/status")"
+          echo "$status" | jq .
+          echo "$status" | jq -e '.ok == true and .proven == true and (.treasury | ascii_downcase) == "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33"' >/dev/null
+          echo "Treasury control proof is valid."
+
+      - name: Check and fund Treasury testnet gas balance
+        shell: bash
+        run: |
+          set -euo pipefail
+          balance="$(cast balance "$TREASURY" --rpc-url "$RPC")"
+          echo "Treasury balance before: $balance wei"
+          if [ "$balance" -ge "$MIN_BALANCE_WEI" ]; then
+            echo "Treasury already has enough testnet ZQ for deployment gas."
+            exit 0
+          fi
+
+          echo "Treasury balance is below the 20 ZQ readiness threshold. Requesting public faucet funding."
+          code="$(curl --silent --show-error --output /tmp/faucet.json --write-out '%{http_code}' -X POST "$BASE/faucet" -H 'content-type: application/json' --data "{\"address\":\"$TREASURY\"}")"
+          cat /tmp/faucet.json | jq . || cat /tmp/faucet.json
+          if [ "$code" -ge 300 ]; then
+            echo "Faucet request was not accepted. No bypass attempted."
+            exit 2
+          fi
+
+          sleep 3
+          after="$(cast balance "$TREASURY" --rpc-url "$RPC")"
+          echo "Treasury balance after: $after wei"
+          test "$after" -ge "$MIN_BALANCE_WEI"
+          echo "Treasury is funded and ready for wallet-confirmed protocol deployment gas."
