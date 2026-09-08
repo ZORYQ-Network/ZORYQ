@@ -132,7 +132,8 @@ contract ZoryqLendingLabTest {
         lending.setPaused(false);
         vm.prank(borrower);
         lending.deposit{value: 1 ether}();
-        require(lending.positions(borrower).collateralZQ == 1 ether, "unpaused_deposit");
+        (uint256 collateral,,) = lending.positions(borrower);
+        require(collateral == 1 ether, "unpaused_deposit");
     }
 
     function testOwnershipTransferChangesAuthority() public {
