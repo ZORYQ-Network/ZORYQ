@@ -1,0 +1,21 @@
+{
+  "name": "ZORYQ EVM Testnet",
+  "chain": "ZORYQ",
+  "chainId": 5919065,
+  "chainIdHex": "0x5a5159",
+  "networkId": 5919065,
+  "caip2": "eip155:5919065",
+  "nativeCurrency": {
+    "name": "ZORYQ",
+    "symbol": "ZQ",
+    "decimals": 18
+  },
+  "rpcUrls": [
+    "https://zoryq-evm-node-live-production.up.railway.app/rpc"
+  ],
+  "explorer": "https://zoryq-evm-node-live-production.up.railway.app/explorer",
+  "faucet": "https://zoryq-evm-node-live-production.up.railway.app/faucet",
+  "status": "public-testnet",
+  "consensusStatus": "centralized-testing-environment",
+  "disclaimer": "Testnet only. Test assets have no monetary value."
+}
