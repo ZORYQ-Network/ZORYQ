@@ -50,6 +50,25 @@ jobs:
             echo "$route OK"
           done
 
+      - name: Require Genesis experience on official Vercel
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://zoryq-testnet.vercel.app'
+          page="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 "$BASE/start")"
+          echo "$page" | grep -q '/genesis-client.js'
+          echo "$page" | grep -q 'Genesis Score'
+          echo "$page" | grep -q '+250 verified Score'
+          client="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 "$BASE/genesis-client.js")"
+          echo "$client" | grep -q 'genesis/status'
+          echo "$client" | grep -q 'zoryqShareProof'
+          echo "$client" | grep -q 'genesis-share-v1'
+          if echo "$client" | grep -q "proofRef:'self-attested-follow'"; then
+            echo 'Unsafe shared follow proof still present on official client.' >&2
+            exit 1
+          fi
+          echo "Official Vercel Genesis experience OK"
+
       - name: Verify Railway web fallback routes
         shell: bash
         run: |
@@ -66,6 +85,10 @@ jobs:
           echo "$client" | grep -q 'genesis/status'
           echo "$client" | grep -q 'zoryqShareProof'
           echo "$client" | grep -q 'Paste a valid x.com post URL first'
+          if echo "$client" | grep -q "proofRef:'self-attested-follow'"; then
+            echo 'Unsafe shared follow proof still present on Railway client.' >&2
+            exit 1
+          fi
           echo "Railway onboarding + Genesis client OK"
 
       - name: Verify Genesis Score API safety
@@ -75,7 +98,7 @@ jobs:
           BASE='https://zoryq-evm-node-live-production.up.railway.app'
           WALLET='0x000000000000000000000000000000000000dEaD'
           body="$(curl --fail --silent --show-error "$BASE/genesis/status?address=$WALLET")"
-          echo "$body" | jq -e '.ok == true and .pendingScore >= 0 and .genesis.total == 4 and .finalizedOnchainScore == 0' >/dev/null
+          echo "$body" | jq -e '.ok == true and .pendingScore >= 0 and .socialPendingScore >= 0 and .genesis.total == 4 and .finalizedOnchainScore == 0' >/dev/null
           code="$(curl --silent --show-error --output /tmp/genesis-reject --write-out '%{http_code}' -H 'content-type: application/json' --data "{\"address\":\"$WALLET\",\"action\":\"swap\",\"txHash\":\"0x00\"}" "$BASE/genesis/action")"
           test "$code" = '400'
           grep -q 'tx_hash_required' /tmp/genesis-reject
