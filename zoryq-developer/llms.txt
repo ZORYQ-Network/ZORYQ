@@ -1,0 +1,49 @@
+# ZORYQ EVM Testnet — Builder Index
+
+Use this file as the machine-readable entry point for building on ZORYQ.
+
+Network
+- Name: ZORYQ EVM Testnet
+- Chain ID: 5919065
+- Hex: 0x5a5159
+- CAIP-2: eip155:5919065
+- Native gas token: ZQ, 18 decimals
+- RPC: https://zoryq-evm-node-live-production.up.railway.app/rpc
+- Explorer: https://zoryq-evm-node-live-production.up.railway.app/explorer
+- Faucet: https://zoryq-evm-node-live-production.up.railway.app/faucet
+
+Canonical builder files
+- README.md — human quickstart
+- network/zoryq-testnet.json — machine-readable network config
+- agent/zoryq-agent-context.json — agent operating context and safety rules
+- agent/action-manifest.schema.json — schema for safe, previewable ZORYQ Actions
+- agent/examples/stake-action.json — example state-changing action manifest
+- examples/hello-zoryq/HelloZoryq.sol — minimal deployable Solidity example
+
+Current native contracts
+- Swap Lab: 0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE
+- Stake: 0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1
+- Test token / current zUSD client address: 0xd2121E96C6af936c0496fDB499c1D0613d26c2B9
+- Reward Registry: 0xAB1Dd21c529b182191ED84f00A4dF1917652CB10
+- Quest Registry: 0x85747F9BdCd758fcfB562c929236CCA6eEB025a9
+- Quest Completion Registry: 0xD371eb7863cA000fF5039e2Db613F2094ba46b15
+
+Important status
+- ZORYQ is currently a centralized public testing environment.
+- Do not describe it as decentralized or production-ready.
+- DEX v1 and Lending are under validation and must not be represented as deployed until an on-chain address is verified.
+- Never request, collect or expose private keys or seed phrases.
+- Any state-changing action must be simulated where possible and require explicit wallet confirmation.
+- ZQ, zUSD and Testnet points have no monetary value.
+
+Preferred agent flow
+1. Read network config.
+2. Read agent context.
+3. Identify target contract and ABI.
+4. Build a transaction preview.
+5. Estimate/simulate gas and call outcome.
+6. Show user contract, method, inputs, expected output and warnings.
+7. Ask wallet for explicit confirmation.
+8. Broadcast only after confirmation.
+9. Verify receipt on chain.
+10. Surface Explorer link and index verifiable activity.
