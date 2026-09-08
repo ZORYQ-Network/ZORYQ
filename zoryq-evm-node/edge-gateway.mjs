@@ -60,6 +60,7 @@ http.createServer((req,res)=>{
   if(readable&&url.pathname==='/.well-known/zoryq-agent.json')return serveFile(req,res,'.well-known-zoryq-agent.json','application/json; charset=utf-8');
   if(readable&&url.pathname==='/agent/action-schema.json')return serveFile(req,res,'zoryq-action-schema.json','application/schema+json; charset=utf-8');
   if(readable&&url.pathname==='/agent/project-schema.json')return serveFile(req,res,'zoryq-project-schema.json','application/schema+json; charset=utf-8');
+  if(readable&&url.pathname==='/agent/project-intelligence-schema.json')return serveFile(req,res,'project-intelligence-schema.json','application/schema+json; charset=utf-8');
   if(readable&&url.pathname==='/agent/builder-reputation.json')return serveFile(req,res,'builder-reputation.json','application/json; charset=utf-8');
   return proxy(req,res);
 }).listen(PORT,'0.0.0.0',()=>console.log(`ZORYQ edge gateway listening on :${PORT}; app :${APP_PORT}`));
