@@ -1,0 +1,71 @@
+name: ZORYQ Production Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/**'
+      - 'zoryq-evm-node/**'
+      - '.github/workflows/zoryq-live-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify ZORYQ chain health
+        shell: bash
+        run: |
+          set -euo pipefail
+          HEALTH='https://zoryq-evm-node-live-production.up.railway.app/health'
+          body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 "$HEALTH")"
+          echo "$body" | jq -e '.ok == true and .chainId == 5919065 and .evm == true and .rpc == true' >/dev/null
+          echo "Chain health OK"
+
+      - name: Verify public RPC chain id
+        shell: bash
+        run: |
+          set -euo pipefail
+          RPC='https://zoryq-evm-node-live-production.up.railway.app/rpc'
+          body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 \
+            -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
+            "$RPC")"
+          echo "$body" | jq -e '.result == "0x5a5159"' >/dev/null
+          echo "RPC chain id OK"
+
+      - name: Verify official web routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://zoryq-testnet.vercel.app'
+          for route in / /start /lab /explorer /clock /docs; do
+            code="$(curl --silent --show-error --location --output /tmp/zoryq-page --write-out '%{http_code}' --retry 3 --retry-delay 2 "$BASE$route")"
+            test "$code" = '200'
+            grep -q 'ZORYQ' /tmp/zoryq-page
+            echo "$route OK"
+          done
+
+      - name: Verify web security headers
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$(curl --silent --show-error --head --retry 3 --retry-delay 2 https://zoryq-testnet.vercel.app/start | tr -d '\r')"
+          echo "$headers" | grep -qi '^strict-transport-security:'
+          echo "$headers" | grep -qi '^content-security-policy:'
+          echo "$headers" | grep -qi '^x-content-type-options: nosniff'
+          echo "$headers" | grep -qi '^x-frame-options: DENY'
+          echo "Security headers OK"
+
+      - name: Verify official X is present in onboarding
+        shell: bash
+        run: |
+          set -euo pipefail
+          page="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 https://zoryq-testnet.vercel.app/start)"
+          echo "$page" | grep -q 'https://x.com/ZORIQNetwork'
+          echo "$page" | grep -q '@ZORIQNetwork'
+          echo "Official X shortcut OK"
