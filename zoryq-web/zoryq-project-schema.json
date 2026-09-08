@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZORYQ Project Manifest",
+  "type": "object",
+  "required": ["version", "chainId", "slug", "name", "builder", "contracts", "links", "status"],
+  "properties": {
+    "version": {"type": "string"},
+    "chainId": {"const": 5919065},
+    "slug": {"type": "string", "pattern": "^[a-z0-9-]{3,48}$"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 80},
+    "description": {"type": "string", "maxLength": 500},
+    "builder": {"type": "object", "required": ["address"], "properties": {"address": {"type": "string", "pattern": "^0x[0-9a-fA-F]{40}$"}, "ens": {"type": ["string", "null"]}}, "additionalProperties": false},
+    "contracts": {"type": "array"},
+    "links": {"type": "object"},
+    "status": {"enum": ["experimental", "testnet", "paused", "archived"]}
+  },
+  "additionalProperties": false
+}
