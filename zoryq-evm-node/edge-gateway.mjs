@@ -50,6 +50,7 @@ http.createServer((req,res)=>{
   if((req.method==='GET'||req.method==='HEAD')&&(url.pathname==='/swap'||url.pathname==='/swap.html'))return serveFile(req,res,'swap.html');
   if((req.method==='GET'||req.method==='HEAD')&&(url.pathname==='/stake'||url.pathname==='/stake.html'))return serveFile(req,res,'stake.html');
   if((req.method==='GET'||req.method==='HEAD')&&(url.pathname==='/lending'||url.pathname==='/lending.html'))return serveFile(req,res,'lending.html');
+  if((req.method==='GET'||req.method==='HEAD')&&(url.pathname==='/developer'||url.pathname==='/developers'||url.pathname==='/developer.html'))return serveFile(req,res,'developer.html');
   if((req.method==='GET'||req.method==='HEAD')&&url.pathname==='/defi-common.js')return serveFile(req,res,'defi-common.js','application/javascript; charset=utf-8');
   return proxy(req,res);
 }).listen(PORT,'0.0.0.0',()=>console.log(`ZORYQ edge gateway listening on :${PORT}; app :${APP_PORT}`));
