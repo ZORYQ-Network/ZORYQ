@@ -58,13 +58,38 @@ jobs:
         run: |
           set -euo pipefail
           status="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/status")"
-          echo "$status" | jq -e '.ok == true and (.treasury | ascii_downcase) == "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33" and (.proven == true or .proven == false)' >/dev/null
+          echo "$status" | jq .
+          echo "$status" | jq -e '.ok == true and .proven == true and (.treasury | ascii_downcase) == "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33"' >/dev/null
           deployments="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/deployments")"
-          echo "$deployments" | jq -e '.ok == true and (.controlProven == true or .controlProven == false) and (.deployments | type == "object")' >/dev/null
+          echo "$deployments" | jq -e '.ok == true and .controlProven == true and (.deployments | type == "object")' >/dev/null
           code="$(curl --silent --show-error --output /tmp/admin-challenge-reject --write-out '%{http_code}' "$BASE/admin/control/challenge?address=0x000000000000000000000000000000000000dEaD")"
           test "$code" = '403'
           grep -q 'signer_must_equal_configured_treasury' /tmp/admin-challenge-reject
-          echo "Treasury control proof service OK"
+          echo "Treasury control proof is valid."
+
+      - name: Ensure Treasury has deployment gas
+        shell: bash
+        run: |
+          set -euo pipefail
+          rpc_balance(){ curl --fail --silent --show-error --retry 5 --retry-delay 2 -H 'content-type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"eth_getBalance\",\"params\":[\"$ADDRESS\",\"latest\"]}" "$RPC" | jq -r '.result'; }
+          before="$(rpc_balance)"
+          before_dec="$(python3 -c 'import sys; print(int(sys.argv[1],16))' "$before")"
+          echo "Treasury balance before: $before_dec wei"
+          min='20000000000000000000'
+          if python3 -c 'import sys; raise SystemExit(0 if int(sys.argv[1]) >= int(sys.argv[2]) else 1)' "$before_dec" "$min"; then
+            echo "Treasury already has at least 20 ZQ for testnet deployment gas."
+            exit 0
+          fi
+          echo "Treasury is below 20 ZQ. Requesting public testnet faucet funding."
+          code="$(curl --silent --show-error --output /tmp/treasury-faucet.json --write-out '%{http_code}' -X POST "$BASE/faucet" -H 'content-type: application/json' --data "{\"address\":\"$ADDRESS\"}")"
+          cat /tmp/treasury-faucet.json | jq . || cat /tmp/treasury-faucet.json
+          test "$code" -lt 300
+          sleep 3
+          after="$(rpc_balance)"
+          after_dec="$(python3 -c 'import sys; print(int(sys.argv[1],16))' "$after")"
+          echo "Treasury balance after: $after_dec wei"
+          python3 -c 'import sys; raise SystemExit(0 if int(sys.argv[1]) >= int(sys.argv[2]) else 1)' "$after_dec" "$min"
+          echo "Treasury is funded and ready for wallet-confirmed deployment gas."
 
       - name: Verify CI-built protocol artifacts
         shell: bash
