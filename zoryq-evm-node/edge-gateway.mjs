@@ -18,6 +18,7 @@ process.on('SIGINT',()=>app.kill('SIGINT'));
 const txRoute=/^\/tx\/0x[0-9a-fA-F]{64}$/;
 const addressRoute=/^\/address\/0x[0-9a-fA-F]{40}$/;
 const blockRoute=/^\/block\/(?:0x[0-9a-fA-F]+|[0-9]+)$/;
+const tokenRoute=/^\/token\/0x[0-9a-fA-F]{40}$/;
 
 function serveFile(req,res,file,contentType='text/html; charset=utf-8'){
   const full=path.join(WEB_ROOT,file);
@@ -47,7 +48,7 @@ function proxy(req,res){
 http.createServer((req,res)=>{
   const url=new URL(req.url||'/','http://localhost');
   const readable=req.method==='GET'||req.method==='HEAD';
-  if(readable&&(txRoute.test(url.pathname)||addressRoute.test(url.pathname)||blockRoute.test(url.pathname)))return serveFile(req,res,'explorer.html');
+  if(readable&&(txRoute.test(url.pathname)||addressRoute.test(url.pathname)||blockRoute.test(url.pathname)||tokenRoute.test(url.pathname)))return serveFile(req,res,'explorer.html');
   if(readable&&(url.pathname==='/faucet'||url.pathname==='/faucet.html'))return serveFile(req,res,'faucet.html');
   if(readable&&(url.pathname==='/swap'||url.pathname==='/swap.html'))return serveFile(req,res,'swap.html');
   if(readable&&(url.pathname==='/stake'||url.pathname==='/stake.html'))return serveFile(req,res,'stake.html');
