@@ -1,6 +1,6 @@
 {
   "name": "ZORYQ Builder Context",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "chainId": 5919065,
   "caip2": "eip155:5919065",
   "network": {
@@ -12,8 +12,11 @@
   },
   "entrypoints": {
     "developers": "/developer",
+    "intelligence": "/intelligence",
+    "networkIntelligence": "/genesis/network",
     "actionsSchema": "/agent/action-schema.json",
     "projectSchema": "/agent/project-schema.json",
+    "builderReputationMethodology": "/agent/builder-reputation.json",
     "llms": "/llms.txt"
   },
   "rules": [
@@ -22,7 +25,8 @@
     "Simulate and estimate when possible before signing.",
     "Show target contract, method, value, expected result and gas before signing.",
     "Treat all current assets and points as testnet-only with no monetary value.",
-    "Do not describe the current network as decentralized or production-ready."
+    "Do not describe the current network as decentralized or production-ready.",
+    "Do not represent self-attested activity as verified reputation."
   ],
   "nativePrimitives": {
     "swapLab": "0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE",
@@ -33,6 +37,8 @@
     "dexV1": "source-created-not-deployed",
     "lending": "source-created-not-deployed",
     "projectRegistry": "source-created-not-deployed",
+    "projectIntelligence": "methodology-created-indexer-pending",
+    "builderReputation": "specification-v0.1-not-live-scoring",
     "multiValidatorConsensus": "roadmap"
   }
 }
