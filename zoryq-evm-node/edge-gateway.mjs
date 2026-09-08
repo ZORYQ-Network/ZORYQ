@@ -61,6 +61,7 @@ http.createServer((req,res)=>{
   if(readable&&(url.pathname==='/network-maturity'||url.pathname==='/network-maturity.html'))return serveFile(req,res,'network-maturity.html');
   if(readable&&url.pathname==='/network-maturity.json')return serveFile(req,res,'network-maturity.json','application/json; charset=utf-8');
   if(readable&&url.pathname==='/defi-common.js')return serveFile(req,res,'defi-common.js','application/javascript; charset=utf-8');
+  if(readable&&url.pathname==='/i18n.js')return serveFile(req,res,'i18n.js','application/javascript; charset=utf-8');
   if(readable&&url.pathname==='/llms.txt')return serveFile(req,res,'llms.txt','text/plain; charset=utf-8');
   if(readable&&url.pathname==='/.well-known/zoryq-agent.json')return serveFile(req,res,'.well-known-zoryq-agent.json','application/json; charset=utf-8');
   if(readable&&url.pathname==='/agent/action-schema.json')return serveFile(req,res,'zoryq-action-schema.json','application/schema+json; charset=utf-8');
