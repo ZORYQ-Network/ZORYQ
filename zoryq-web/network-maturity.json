@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "network": {
     "name": "ZORYQ EVM Testnet",
     "chainId": 5919065,
@@ -34,21 +34,35 @@
     "swapLab": "deployed-live-verified",
     "stake": "deployed-live-verified",
     "zUSD": "deployed-live-verified",
-    "dexV1": "source-tested-awaiting-wallet-confirmed-deployment",
-    "lending": "source-tested-awaiting-wallet-confirmed-deployment",
-    "projectRegistry": "source-tested-awaiting-wallet-confirmed-deployment"
+    "dexV1": {
+      "status": "deployed-live-verified",
+      "address": "0x686Ff70d8D551F0a183DbDc608486De9fA9Aa156",
+      "liveLiquidityVerified": true,
+      "liveSwapEventVerified": true
+    },
+    "lending": {
+      "status": "deployed-live-verified",
+      "address": "0xA08d491c06a2B01bbe6866CA87302c794aD9fB77"
+    },
+    "projectRegistry": {
+      "status": "deployed-live-verified",
+      "address": "0x180042c92A42f183A67005E8C0968a1F190aab33",
+      "projectCountAtLastVerification": 0
+    }
   },
   "adminSecurity": {
     "treasury": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
     "controlProofMechanism": "EIP-191 personal_sign challenge",
+    "controlProofVerified": true,
     "privateKeyStoredByPlatform": false,
-    "walletControlProofRequiredForProtocolLaunch": true
+    "walletControlProofRequiredForPrivilegedProtocolActions": true
   },
   "dataIntegrity": {
     "contractCanonicalityRequiresLiveBytecodeVerification": true,
     "deploymentCanonicalityRequiresReceiptAndConfigurationVerification": true,
     "genesisFinalizedOnchainScoreLive": false,
-    "projectRegistryOnchainIdentityLive": false
+    "projectRegistryContractLive": true,
+    "projectRegistryHasRegisteredProjectsAtLastVerification": false
   },
   "roadmap": [
     {
@@ -87,7 +101,8 @@
       "EVM-compatible public Testnet",
       "centralized testing environment",
       "agent-native developer tooling",
-      "verifiable contract and project activity"
+      "verifiable contract and project activity",
+      "live native DEX with verified testnet liquidity and swap event"
     ],
     "prohibitedUntilEvidenceExists": [
       "decentralized network",
