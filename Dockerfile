@@ -6,7 +6,9 @@ COPY --from=foundry /usr/local/bin/anvil /usr/local/bin/anvil
 COPY zoryq-evm-node/package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 COPY zoryq-evm-node/server.mjs ./server.mjs
+COPY zoryq-evm-node/public-gateway.mjs ./public-gateway.mjs
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
+COPY zoryq-web ./web
 RUN chmod +x /app/entrypoint.sh && mkdir -p /data
 ENV PORT=8080
 EXPOSE 8080
