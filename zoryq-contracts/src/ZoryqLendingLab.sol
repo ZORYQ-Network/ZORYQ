@@ -7,6 +7,8 @@ interface IZoryqERC20 {
     function transferFrom(address,address,uint256) external returns (bool);
 }
 
+/// @notice Testnet-only overcollateralized lending market for native ZQ collateral and zUSD debt.
+/// @dev Uses an owner-managed test oracle and conservative limits. Not suitable for real-value assets.
 contract ZoryqLendingLab {
     uint256 public constant WAD = 1e18;
     uint256 public constant YEAR = 365 days;
@@ -22,11 +24,15 @@ contract ZoryqLendingLab {
 
     struct Position { uint256 collateralZQ; uint256 principal; uint64 lastAccruedAt; }
     mapping(address => Position) public positions;
+    mapping(address => uint256) public suppliedZUSD;
+    uint256 public totalSuppliedZUSD;
 
     event Deposit(address indexed user,uint256 amount);
     event Withdraw(address indexed user,uint256 amount);
     event Borrow(address indexed user,uint256 amount);
     event Repay(address indexed user,uint256 amount);
+    event LiquiditySupplied(address indexed user,uint256 amount,uint256 userTotal);
+    event LiquidityWithdrawn(address indexed user,uint256 amount,uint256 userRemaining);
     event Liquidate(address indexed liquidator,address indexed user,uint256 repaid,uint256 collateralSeized);
     event RiskParameters(uint256 zqPrice,uint256 maxLtvBps,uint256 liquidationThresholdBps,uint256 liquidationBonusBps,uint256 aprBps);
     event Paused(bool value);
@@ -52,6 +58,7 @@ contract ZoryqLendingLab {
     function availableToBorrow(address user) public view returns(uint256){ uint256 m=maxBorrow(user),d=accruedDebt(user); return m>d?m-d:0; }
     function healthFactor(address user) public view returns(uint256){ uint256 d=accruedDebt(user); if(d==0)return type(uint256).max; return collateralValue(user)*liquidationThresholdBps*WAD/(10000*d); }
     function liquidatable(address user) public view returns(bool){ return accruedDebt(user)>0 && healthFactor(user)<WAD; }
+    function availableLiquidity() public view returns(uint256){ return debtToken.balanceOf(address(this)); }
 
     function _accrue(address user) internal {
         Position storage p=positions[user];
@@ -67,12 +74,29 @@ contract ZoryqLendingLab {
         emit Deposit(msg.sender,msg.value);
     }
 
+    function supplyLiquidity(uint256 amount) external live nonReentrant {
+        require(amount>0,"zero_amount");
+        require(debtToken.transferFrom(msg.sender,address(this),amount),"transfer_failed");
+        suppliedZUSD[msg.sender]+=amount;
+        totalSuppliedZUSD+=amount;
+        emit LiquiditySupplied(msg.sender,amount,suppliedZUSD[msg.sender]);
+    }
+
+    function withdrawLiquidity(uint256 amount) external live nonReentrant {
+        require(amount>0 && amount<=suppliedZUSD[msg.sender],"invalid_amount");
+        require(availableLiquidity()>=amount,"insufficient_liquidity");
+        suppliedZUSD[msg.sender]-=amount;
+        totalSuppliedZUSD-=amount;
+        require(debtToken.transfer(msg.sender,amount),"transfer_failed");
+        emit LiquidityWithdrawn(msg.sender,amount,suppliedZUSD[msg.sender]);
+    }
+
     function borrow(uint256 amount) external live nonReentrant {
         require(amount>0,"zero_amount");
         _accrue(msg.sender);
         Position storage p=positions[msg.sender];
         require(p.principal+amount<=maxBorrow(msg.sender),"ltv_exceeded");
-        require(debtToken.balanceOf(address(this))>=amount,"insufficient_liquidity");
+        require(availableLiquidity()>=amount,"insufficient_liquidity");
         p.principal+=amount;
         require(debtToken.transfer(msg.sender,amount),"transfer_failed");
         emit Borrow(msg.sender,amount);
