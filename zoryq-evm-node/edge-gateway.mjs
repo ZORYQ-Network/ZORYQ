@@ -7,6 +7,7 @@ const PORT=Number(process.env.PORT||8080);
 const APP_PORT=8082;
 const ADMIN_PORT=8083;
 const WEB_ROOT='/app/web';
+const PROTOCOL_ROOT='/app/protocol-out';
 
 const app=spawn(process.execPath,['public-gateway.mjs'],{
   stdio:'inherit',
@@ -26,10 +27,15 @@ const txRoute=/^\/tx\/0x[0-9a-fA-F]{64}$/;
 const addressRoute=/^\/address\/0x[0-9a-fA-F]{40}$/;
 const blockRoute=/^\/block\/(?:0x[0-9a-fA-F]+|[0-9]+)$/;
 const tokenRoute=/^\/token\/0x[0-9a-fA-F]{40}$/;
+const protocolArtifacts=new Map([
+  ['/protocol-artifacts/dexV1.json','ZoryqDexV1.sol/ZoryqDexV1.json'],
+  ['/protocol-artifacts/lending.json','ZoryqLendingLab.sol/ZoryqLendingLab.json'],
+  ['/protocol-artifacts/projectRegistry.json','ZoryqProjectRegistry.sol/ZoryqProjectRegistry.json']
+]);
 
-function serveFile(req,res,file,contentType='text/html; charset=utf-8'){
-  const full=path.join(WEB_ROOT,file);
-  if(!full.startsWith(WEB_ROOT)||!fs.existsSync(full)){
+function servePath(req,res,root,file,contentType='text/html; charset=utf-8'){
+  const full=path.resolve(root,file);
+  if(!full.startsWith(path.resolve(root)+path.sep)||!fs.existsSync(full)||!fs.statSync(full).isFile()){
     res.writeHead(404,{'content-type':'application/json; charset=utf-8'});
     return res.end(JSON.stringify({ok:false,error:'not_found'}));
   }
@@ -42,6 +48,7 @@ function serveFile(req,res,file,contentType='text/html; charset=utf-8'){
   if(req.method==='HEAD')return res.end();
   fs.createReadStream(full).pipe(res);
 }
+function serveFile(req,res,file,contentType='text/html; charset=utf-8'){return servePath(req,res,WEB_ROOT,file,contentType)}
 
 function proxyTo(port,req,res){
   const p=http.request({
@@ -57,6 +64,7 @@ http.createServer((req,res)=>{
   const url=new URL(req.url||'/','http://localhost');
   const readable=req.method==='GET'||req.method==='HEAD';
   if(url.pathname.startsWith('/admin/control/'))return proxyTo(ADMIN_PORT,req,res);
+  if(readable&&protocolArtifacts.has(url.pathname))return servePath(req,res,PROTOCOL_ROOT,protocolArtifacts.get(url.pathname),'application/json; charset=utf-8');
   if(readable&&(txRoute.test(url.pathname)||addressRoute.test(url.pathname)||blockRoute.test(url.pathname)||tokenRoute.test(url.pathname)))return serveFile(req,res,'explorer.html');
   if(readable&&(url.pathname==='/faucet'||url.pathname==='/faucet.html'))return serveFile(req,res,'faucet.html');
   if(readable&&(url.pathname==='/swap'||url.pathname==='/swap.html'))return serveFile(req,res,'swap.html');
@@ -65,6 +73,7 @@ http.createServer((req,res)=>{
   if(readable&&(url.pathname==='/developer'||url.pathname==='/developers'||url.pathname==='/developer.html'))return serveFile(req,res,'developer.html');
   if(readable&&(url.pathname==='/intelligence'||url.pathname==='/genesis-intelligence'||url.pathname==='/intelligence.html'))return serveFile(req,res,'intelligence.html');
   if(readable&&(url.pathname==='/admin-control'||url.pathname==='/admin-control.html'))return serveFile(req,res,'admin-control.html');
+  if(readable&&(url.pathname==='/protocol-launch'||url.pathname==='/protocol-launch.html'))return serveFile(req,res,'protocol-launch.html');
   if(readable&&url.pathname==='/defi-common.js')return serveFile(req,res,'defi-common.js','application/javascript; charset=utf-8');
   if(readable&&url.pathname==='/llms.txt')return serveFile(req,res,'llms.txt','text/plain; charset=utf-8');
   if(readable&&url.pathname==='/.well-known/zoryq-agent.json')return serveFile(req,res,'.well-known-zoryq-agent.json','application/json; charset=utf-8');
