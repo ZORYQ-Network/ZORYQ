@@ -52,6 +52,7 @@ http.createServer((req,res)=>{
   if(readable&&(url.pathname==='/stake'||url.pathname==='/stake.html'))return serveFile(req,res,'stake.html');
   if(readable&&(url.pathname==='/lending'||url.pathname==='/lending.html'))return serveFile(req,res,'lending.html');
   if(readable&&(url.pathname==='/developer'||url.pathname==='/developers'||url.pathname==='/developer.html'))return serveFile(req,res,'developer.html');
+  if(readable&&(url.pathname==='/build'||url.pathname==='/quickstart'||url.pathname==='/build.html'))return serveFile(req,res,'build.html');
   if(readable&&(url.pathname==='/ecosystem'||url.pathname==='/builders'||url.pathname==='/investors'||url.pathname==='/ecosystem.html'))return serveFile(req,res,'ecosystem.html');
   if(readable&&(url.pathname==='/intelligence'||url.pathname==='/genesis-intelligence'||url.pathname==='/intelligence.html'))return serveFile(req,res,'intelligence.html');
   if(readable&&(url.pathname==='/admin-control'||url.pathname==='/admin-control.html'))return serveFile(req,res,'admin-control.html');
