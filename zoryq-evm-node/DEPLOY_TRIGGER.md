@@ -9,6 +9,9 @@ Current release intent:
 - show pending vs verified vs finalized Score distinctly;
 - show per-wallet Genesis progress and verification history;
 - keep X social actions pending until OAuth/API verification exists;
-- preserve Faucet → Swap → Stake → Explorer as the core Testnet flow.
+- preserve Faucet → Swap → Stake → Unstake → Explorer as the core Testnet flow;
+- expose direct Explorer links for on-chain Genesis proofs;
+- never require payment for Testnet Score and never sell points;
+- include zoryq-web/** in the Railway redeploy watch set.
 
-Trigger generation: genesis-progress-history-2026-09-08
+Trigger generation: genesis-unstake-proof-ux-2026-09-08-0925
