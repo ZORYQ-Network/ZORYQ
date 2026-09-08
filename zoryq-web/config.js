@@ -5,7 +5,7 @@ window.ZORYQ_CONFIG={
   nativeSymbol:'ZQ',
   rpcBase:'https://zoryq-evm-node-live-production.up.railway.app',
   rpcUrl:'https://zoryq-evm-node-live-production.up.railway.app/rpc',
-  explorerUrl:'https://zoryq-testnet.vercel.app/explorer.html',
+  explorerUrl:'https://zoryq-evm-node-live-production.up.railway.app/explorer',
   rewardRegistry:'0xAB1Dd21c529b182191ED84f00A4dF1917652CB10',
   questRegistry:'0x85747F9BdCd758fcfB562c929236CCA6eEB025a9',
   questCompletionRegistry:'0xD371eb7863cA000fF5039e2Db613F2094ba46b15',
