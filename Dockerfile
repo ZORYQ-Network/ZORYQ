@@ -1,6 +1,7 @@
 FROM ghcr.io/foundry-rs/foundry:latest AS foundry
 
 FROM foundry AS protocol-builder
+USER root
 WORKDIR /build
 COPY zoryq-contracts ./zoryq-contracts
 RUN cd zoryq-contracts && \
