@@ -46,12 +46,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for route in /start /developer /docs /explorer /faucet /stake /swap /intelligence; do
+          for route in /start /developer /docs /explorer /faucet /stake /swap /intelligence /admin-control; do
             code="$(curl --silent --show-error --location --output /tmp/zoryq-page --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE$route")"
             test "$code" = '200'
             grep -q 'ZORYQ' /tmp/zoryq-page
             echo "$route OK"
           done
+
+      - name: Verify Treasury control proof service
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/status")"
+          echo "$status" | jq -e '.ok == true and (.treasury | ascii_downcase) == "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33" and (.proven == true or .proven == false)' >/dev/null
+          code="$(curl --silent --show-error --output /tmp/admin-challenge-reject --write-out '%{http_code}' "$BASE/admin/control/challenge?address=0x000000000000000000000000000000000000dEaD")"
+          test "$code" = '403'
+          grep -q 'signer_must_equal_configured_treasury' /tmp/admin-challenge-reject
+          echo "Treasury control proof service OK"
 
       - name: Verify machine-readable builder surfaces
         shell: bash
