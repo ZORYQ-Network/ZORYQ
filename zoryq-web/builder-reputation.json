@@ -1,0 +1,29 @@
+{
+  "name": "ZORYQ Builder Reputation",
+  "version": "0.1.0",
+  "status": "specification",
+  "maxScore": 100,
+  "components": {
+    "adoption": {"max": 30, "signal": "unique_external_wallets"},
+    "retention": {"max": 25, "signal": "returning_external_wallets"},
+    "usageQuality": {"max": 20, "signal": "successful_independent_interactions_with_diminishing_returns"},
+    "ecosystemIntegration": {"max": 15, "signal": "verified_native_primitive_interactions"},
+    "reliability": {"max": 10, "signal": "longevity_success_ratio_integrity"}
+  },
+  "excludedFromVerifiedScore": [
+    "builder_or_project_owner_self_activity",
+    "contract_deployment_count_alone",
+    "self_attested_social_activity",
+    "failed_transactions",
+    "unverified_manifest_contracts",
+    "excluded_wash_or_circular_clusters"
+  ],
+  "evidenceTiers": ["onchain", "external_verified", "self_attested", "pending"],
+  "principles": [
+    "reproducible_from_evidence",
+    "methodology_versioned",
+    "component_breakdown_public",
+    "raw_analytics_separate_from_verified_reputation"
+  ],
+  "notice": "Specification only. No project currently has a verified ZORYQ Builder Reputation."
+}
