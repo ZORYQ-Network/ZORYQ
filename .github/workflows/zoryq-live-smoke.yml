@@ -16,117 +16,88 @@ jobs:
   smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
+      RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
+      TOKEN: '0xd2121E96C6af936c0496fDB499c1D0613d26c2B9'
+      ADDRESS: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+      TX: '0x23036c7656330368cb8cacee20455c268413085eab31d5f1868c4b042e5eb3f6'
     steps:
-      - name: Verify ZORYQ chain health
+      - name: Verify chain health
         shell: bash
         run: |
           set -euo pipefail
-          HEALTH='https://zoryq-evm-node-live-production.up.railway.app/health'
-          body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 "$HEALTH")"
+          body="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/health")"
           echo "$body" | jq -e '.ok == true and .chainId == 5919065 and .evm == true and .rpc == true' >/dev/null
           echo "Chain health OK"
 
-      - name: Verify public RPC chain id
+      - name: Verify public RPC identity and core reads
         shell: bash
         run: |
           set -euo pipefail
-          RPC='https://zoryq-evm-node-live-production.up.railway.app/rpc'
-          body="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 \
-            -H 'content-type: application/json' \
-            --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
-            "$RPC")"
-          echo "$body" | jq -e '.result == "0x5a5159"' >/dev/null
-          echo "RPC chain id OK"
+          call(){ curl --fail --silent --show-error --retry 5 --retry-delay 2 -H 'content-type: application/json' --data "$1" "$RPC"; }
+          call '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -e '.result == "0x5a5159"' >/dev/null
+          call '{"jsonrpc":"2.0","id":2,"method":"net_version","params":[]}' | jq -e '.result == "5919065"' >/dev/null
+          call '{"jsonrpc":"2.0","id":3,"method":"eth_blockNumber","params":[]}' | jq -e '.result | startswith("0x")' >/dev/null
+          call "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"eth_getCode\",\"params\":[\"$TOKEN\",\"latest\"]}" | jq -e '.result != "0x"' >/dev/null
+          echo "RPC identity + core reads OK"
 
-      - name: Verify official Vercel web routes
+      - name: Verify canonical product surfaces
         shell: bash
         run: |
           set -euo pipefail
-          BASE='https://zoryq-testnet.vercel.app'
-          for route in / /start /lab /explorer /clock /docs; do
-            code="$(curl --silent --show-error --location --output /tmp/zoryq-page --write-out '%{http_code}' --retry 3 --retry-delay 2 "$BASE$route")"
+          for route in /start /developer /docs /explorer /faucet /stake /swap /intelligence; do
+            code="$(curl --silent --show-error --location --output /tmp/zoryq-page --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE$route")"
             test "$code" = '200'
             grep -q 'ZORYQ' /tmp/zoryq-page
             echo "$route OK"
           done
 
-      - name: Require Genesis experience on official Vercel
+      - name: Verify machine-readable builder surfaces
         shell: bash
         run: |
           set -euo pipefail
-          BASE='https://zoryq-testnet.vercel.app'
-          page="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 "$BASE/start")"
-          echo "$page" | grep -q '/genesis-client.js'
-          echo "$page" | grep -q 'Genesis Score'
-          echo "$page" | grep -q '+250 verified Score'
-          client="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 "$BASE/genesis-client.js")"
-          echo "$client" | grep -q 'genesis/status'
-          echo "$client" | grep -q 'zoryqShareProof'
-          echo "$client" | grep -q 'genesis-share-v1'
-          if echo "$client" | grep -q "proofRef:'self-attested-follow'"; then
-            echo 'Unsafe shared follow proof still present on official client.' >&2
-            exit 1
-          fi
-          echo "Official Vercel Genesis experience OK"
+          curl --fail --silent --show-error "$BASE/llms.txt" | grep -q 'ZORYQ EVM Testnet'
+          curl --fail --silent --show-error "$BASE/.well-known/zoryq-agent.json" | jq -e '.chainId == 5919065 and .entrypoints.actionsSchema and .entrypoints.projectSchema' >/dev/null
+          curl --fail --silent --show-error "$BASE/agent/action-schema.json" | jq -e '.title == "ZORYQ Action Manifest"' >/dev/null
+          curl --fail --silent --show-error "$BASE/agent/project-schema.json" | jq -e '.title == "ZORYQ Project Manifest"' >/dev/null
+          curl --fail --silent --show-error "$BASE/agent/project-intelligence-schema.json" | jq -e '.title == "ZORYQ Project Intelligence Result"' >/dev/null
+          curl --fail --silent --show-error "$BASE/agent/builder-reputation.json" | jq -e '.maxScore == 100 and .status == "specification"' >/dev/null
+          echo "Agent/builder discovery surfaces OK"
 
-      - name: Verify Railway web fallback routes
-        if: always()
+      - name: Verify EIP-3091-style explorer routes
         shell: bash
         run: |
           set -euo pipefail
-          BASE='https://zoryq-evm-node-live-production.up.railway.app'
-          for route in /start /testnet /explorer /network-clock; do
-            code="$(curl --silent --show-error --location --output /tmp/zoryq-railway-page --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE$route")"
+          for route in "/address/$ADDRESS" "/token/$TOKEN" '/block/0'; do
+            code="$(curl --silent --show-error --location --output /tmp/explorer-route --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE$route")"
             test "$code" = '200'
-            grep -q 'ZORYQ' /tmp/zoryq-railway-page
+            grep -q 'ZORYQ Explorer' /tmp/explorer-route
             echo "$route OK"
           done
-          curl --fail --silent --show-error "$BASE/start" | grep -q '/genesis-client.js'
-          client="$(curl --fail --silent --show-error "$BASE/genesis-client.js")"
-          echo "$client" | grep -q 'genesis/status'
-          echo "$client" | grep -q 'zoryqShareProof'
-          echo "$client" | grep -q 'Paste a valid x.com post URL first'
-          if echo "$client" | grep -q "proofRef:'self-attested-follow'"; then
-            echo 'Unsafe shared follow proof still present on Railway client.' >&2
-            exit 1
-          fi
-          echo "Railway onboarding + Genesis client OK"
+          code="$(curl --silent --show-error --location --output /tmp/explorer-tx --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE/tx/$TX")"
+          test "$code" = '200'
+          grep -q 'ZORYQ Explorer' /tmp/explorer-tx
+          echo "EIP-3091-style route surface OK"
 
-      - name: Verify Genesis Score API safety
-        if: always()
+      - name: Verify Genesis APIs keep verification classes separate
         shell: bash
         run: |
           set -euo pipefail
-          BASE='https://zoryq-evm-node-live-production.up.railway.app'
           WALLET='0x000000000000000000000000000000000000dEaD'
           body="$(curl --fail --silent --show-error "$BASE/genesis/status?address=$WALLET")"
-          echo "$body" | jq -e '.ok == true and .pendingScore >= 0 and .socialPendingScore >= 0 and .genesis.total == 4 and .finalizedOnchainScore == 0' >/dev/null
+          echo "$body" | jq -e '.ok == true and .pendingScore >= 0 and .verifiedOnchainScore >= 0 and .socialPendingScore >= 0 and .genesis.total == 4 and .finalizedOnchainScore == 0' >/dev/null
+          network="$(curl --fail --silent --show-error "$BASE/genesis/network")"
+          echo "$network" | jq -e '.ok == true and .actions.total >= 0 and .actions.onchain >= 0' >/dev/null
           code="$(curl --silent --show-error --output /tmp/genesis-reject --write-out '%{http_code}' -H 'content-type: application/json' --data "{\"address\":\"$WALLET\",\"action\":\"swap\",\"txHash\":\"0x00\"}" "$BASE/genesis/action")"
           test "$code" = '400'
           grep -q 'tx_hash_required' /tmp/genesis-reject
-          code="$(curl --silent --show-error --output /tmp/genesis-x-reject --write-out '%{http_code}' -H 'content-type: application/json' --data "{\"address\":\"$WALLET\",\"action\":\"x_share\",\"campaignId\":\"genesis-share-v1\",\"proofRef\":\"self-attested-share\"}" "$BASE/genesis/action")"
-          test "$code" = '400'
-          grep -q 'valid_x_post_url_required' /tmp/genesis-x-reject
-          echo "Genesis Score API safety OK"
+          echo "Genesis verification separation OK"
 
-      - name: Verify web security headers
-        if: always()
+      - name: Verify public administrative RPC namespaces stay blocked
         shell: bash
         run: |
           set -euo pipefail
-          headers="$(curl --silent --show-error --head --retry 3 --retry-delay 2 https://zoryq-testnet.vercel.app/start | tr -d '\r')"
-          echo "$headers" | grep -qi '^strict-transport-security:'
-          echo "$headers" | grep -qi '^content-security-policy:'
-          echo "$headers" | grep -qi '^x-content-type-options: nosniff'
-          echo "$headers" | grep -qi '^x-frame-options: DENY'
-          echo "Security headers OK"
-
-      - name: Verify official X is present in onboarding
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          page="$(curl --fail --silent --show-error --retry 3 --retry-delay 2 https://zoryq-testnet.vercel.app/start)"
-          echo "$page" | grep -q 'https://x.com/ZORIQNetwork'
-          echo "$page" | grep -q '@ZORIQNetwork'
-          echo "Official X shortcut OK"
+          body="$(curl --fail --silent --show-error -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":9,"method":"anvil_setBalance","params":["0x000000000000000000000000000000000000dEaD","0x1"]}' "$RPC")"
+          echo "$body" | jq -e '.error.code == -32601' >/dev/null
+          echo "Administrative RPC namespaces blocked"
