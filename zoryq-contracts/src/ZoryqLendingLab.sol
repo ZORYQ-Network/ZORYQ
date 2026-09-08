@@ -36,12 +36,18 @@ contract ZoryqLendingLab {
     event Liquidate(address indexed liquidator,address indexed user,uint256 repaid,uint256 collateralSeized);
     event RiskParameters(uint256 zqPrice,uint256 maxLtvBps,uint256 liquidationThresholdBps,uint256 liquidationBonusBps,uint256 aprBps);
     event Paused(bool value);
+    event OwnershipTransferred(address indexed previousOwner,address indexed nextOwner);
 
     modifier onlyOwner(){ require(msg.sender==owner,"not_owner"); _; }
     modifier nonReentrant(){ require(lockState==1,"reentrant"); lockState=2; _; lockState=1; }
     modifier live(){ require(!paused,"paused"); _; }
 
-    constructor(address zUsd){ require(zUsd!=address(0),"zero_token"); debtToken=IZoryqERC20(zUsd); owner=msg.sender; }
+    constructor(address zUsd){
+        require(zUsd!=address(0),"zero_token");
+        debtToken=IZoryqERC20(zUsd);
+        owner=msg.sender;
+        emit OwnershipTransferred(address(0),msg.sender);
+    }
 
     receive() external payable { deposit(); }
 
@@ -55,7 +61,11 @@ contract ZoryqLendingLab {
 
     function collateralValue(address user) public view returns(uint256){ return positions[user].collateralZQ*zqPrice/WAD; }
     function maxBorrow(address user) public view returns(uint256){ return collateralValue(user)*maxLtvBps/10000; }
-    function availableToBorrow(address user) public view returns(uint256){ uint256 m=maxBorrow(user),d=accruedDebt(user); return m>d?m-d:0; }
+    function availableToBorrow(address user) public view returns(uint256){
+        uint256 maximum=maxBorrow(user);
+        uint256 debt=accruedDebt(user);
+        return maximum>debt?maximum-debt:0;
+    }
     function healthFactor(address user) public view returns(uint256){ uint256 d=accruedDebt(user); if(d==0)return type(uint256).max; return collateralValue(user)*liquidationThresholdBps*WAD/(10000*d); }
     function liquidatable(address user) public view returns(bool){ return accruedDebt(user)>0 && healthFactor(user)<WAD; }
     function availableLiquidity() public view returns(uint256){ return debtToken.balanceOf(address(this)); }
@@ -148,5 +158,10 @@ contract ZoryqLendingLab {
         emit RiskParameters(price,ltv,threshold,bonus,apr);
     }
     function setPaused(bool value) external onlyOwner { paused=value; emit Paused(value); }
-    function transferOwnership(address next) external onlyOwner { require(next!=address(0),"zero_owner"); owner=next; }
+    function transferOwnership(address next) external onlyOwner {
+        require(next!=address(0),"zero_owner");
+        address previous=owner;
+        owner=next;
+        emit OwnershipTransferred(previous,next);
+    }
 }
