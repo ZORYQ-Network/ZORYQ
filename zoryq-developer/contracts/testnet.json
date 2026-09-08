@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
   "network": {
     "name": "ZORYQ EVM Testnet",
     "chainId": 5919065,
@@ -60,34 +60,37 @@
     },
     "treasury": {
       "address": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
-      "status": "onchain-owner-alignment-verified-signer-control-unverified",
+      "status": "onchain-owner-alignment-verified-control-proof-required",
       "role": "admin-treasury",
       "evidence": [
         "Matches live ZoryqSwapLab.owner()",
         "Matches live canonical zUSD owner()",
         "Matches current web client adminTreasury configuration"
       ],
-      "warning": "Owner alignment does not prove that an authorized human or deployment system currently controls this account. Do not transfer new protocol ownership or route fees until signer control is verified through an authorized signature/action."
+      "controlProofPage": "/admin-control",
+      "controlProofStatusEndpoint": "/admin/control/status",
+      "warning": "Owner alignment does not prove current possession of the signing key. A non-transaction EIP-191 wallet challenge must be completed before privileged protocol deployment is authorized."
     },
     "dexV1": {
       "address": null,
-      "status": "source-created-not-deployed-tests-green",
+      "status": "source-tested-build-artifact-ready-not-deployed",
       "source": "zoryq-contracts/src/ZoryqDexV1.sol",
       "deploymentToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
-      "deploymentBlockedBy": ["authorized-signer-control-verification", "safe-deployment-receipt-and-bytecode-verification", "initial-liquidity-plan"]
+      "feeRecipient": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
+      "deploymentBlockedBy": ["treasury-control-proof", "explicit-wallet-deployment-confirmation", "post-deployment-receipt-code-owner-verification", "initial-liquidity-plan"]
     },
     "lending": {
       "address": null,
-      "status": "source-created-not-deployed-tests-green",
+      "status": "source-tested-build-artifact-ready-not-deployed",
       "source": "zoryq-contracts/src/ZoryqLendingLab.sol",
       "deploymentToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
-      "deploymentBlockedBy": ["authorized-signer-control-verification", "safe-deployment-receipt-and-bytecode-verification", "testnet-liquidity-plan"]
+      "deploymentBlockedBy": ["treasury-control-proof", "explicit-wallet-deployment-confirmation", "post-deployment-receipt-code-owner-verification", "testnet-liquidity-plan"]
     },
     "projectRegistry": {
       "address": null,
-      "status": "source-created-not-deployed-tests-green",
+      "status": "source-tested-build-artifact-ready-not-deployed",
       "source": "zoryq-contracts/src/ZoryqProjectRegistry.sol",
-      "deploymentBlockedBy": ["authorized-signer-control-verification", "safe-deployment-receipt-and-bytecode-verification"]
+      "deploymentBlockedBy": ["treasury-control-proof", "explicit-wallet-deployment-confirmation", "post-deployment-receipt-code-verification"]
     }
   },
   "verification": {
@@ -96,11 +99,14 @@
     "contractSuiteCI": "green",
     "projectIntelligenceCI": "green",
     "canonicalProductionSmoke": "green",
+    "contractBuildCommit": "5f997e14919f725ab85faf5d8bcd06bb9d98f030",
+    "contractBuildArtifactDigest": "sha256:9ba28507d7bb4653d0d5114746448be7d1a514918e84d2303d0b9eaad1e0168d",
     "source": "GitHub Actions + read-only public ZORYQ RPC",
-    "limitations": "Privileged account signer control is not proven by owner() alignment or bytecode checks and must be verified separately."
+    "limitations": "Privileged account signer control is separate from owner() alignment and requires the dedicated wallet proof flow."
   },
   "policy": {
     "canonicalAddressRule": "Only mark a contract canonical after current-chain bytecode/state verification. Treat privileged-account signer control as a separate property requiring authorized proof.",
+    "deploymentRule": "No CI job may autonomously broadcast privileged protocol deployments. Require Treasury control proof, explicit wallet confirmation, successful receipt, bytecode verification and ownership/configuration verification.",
     "testnetOnly": true,
     "monetaryValue": false
   }
