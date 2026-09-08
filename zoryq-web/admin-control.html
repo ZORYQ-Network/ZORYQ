@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ZORYQ Admin Control Proof</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    body{max-width:980px;margin:0 auto;padding:32px 20px 80px}.hero{margin:36px 0}.card{border:1px solid rgba(255,255,255,.12);border-radius:20px;padding:22px;margin:18px 0;background:rgba(255,255,255,.03)}button{padding:12px 18px;border-radius:12px;border:0;cursor:pointer;font-weight:700}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}.ok{color:#5df5a6}.warn{color:#ffd36a}.bad{color:#ff7d8f}.muted{opacity:.75}.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="hero">
+    <div class="muted">ZORYQ SECURITY / TESTNET ADMINISTRATION</div>
+    <h1>Prove Treasury Control</h1>
+    <p>Cryptographically prove control of the configured ZORYQ administrative wallet without exposing a private key. This signs a human-readable message only; it does not submit a blockchain transaction or move assets.</p>
+  </div>
+
+  <div class="card">
+    <h2>Configured Treasury</h2>
+    <div id="treasury" class="mono">Loading…</div>
+    <p id="proofStatus" class="muted">Checking current proof state…</p>
+  </div>
+
+  <div class="card">
+    <h2>Wallet proof</h2>
+    <div class="row">
+      <button id="connect">1. Connect wallet</button>
+      <button id="prove" disabled>2. Sign control proof</button>
+    </div>
+    <p id="wallet" class="mono muted">No wallet connected.</p>
+    <p id="result" class="muted">The connected address must exactly match the configured Treasury address.</p>
+  </div>
+
+  <div class="card">
+    <h2>Security guarantees</h2>
+    <p>No seed phrase or private key is requested or stored. The server stores only the recovered Treasury address, time, chain ID and a SHA-256 digest of the proof. Every future protocol deployment must still be explicitly approved by the wallet and verified by transaction receipt, bytecode and ownership checks.</p>
+  </div>
+
+<script>
+const $=id=>document.getElementById(id);
+let treasury=null, account=null;
+async function status(){
+  const r=await fetch('/admin/control/status',{cache:'no-store'});const j=await r.json();
+  treasury=j.treasury;$('treasury').textContent=treasury;
+  $('proofStatus').className=j.proven?'ok':'warn';
+  $('proofStatus').textContent=j.proven?`Control proven at ${j.proof?.provenAt||'unknown time'} · ${j.proof?.proofDigest||''}`:'Control has not yet been cryptographically proven.';
+}
+async function ensureChain(){
+  const hex='0x5a5159';
+  try{await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:hex}]});}
+  catch(e){if(e.code===4902){await ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:hex,chainName:'ZORYQ EVM Testnet',nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},rpcUrls:['https://zoryq-evm-node-live-production.up.railway.app/rpc'],blockExplorerUrls:['https://zoryq-evm-node-live-production.up.railway.app/explorer']}]});}else throw e;}
+}
+$('connect').onclick=async()=>{
+  try{
+    if(!window.ethereum)throw new Error('No injected wallet found. Open this page in a browser with MetaMask/Rabby or another EVM wallet.');
+    await ensureChain();
+    const accounts=await ethereum.request({method:'eth_requestAccounts'});account=accounts[0];
+    $('wallet').textContent=account;
+    const matches=account.toLowerCase()===treasury.toLowerCase();
+    $('result').className=matches?'ok':'bad';
+    $('result').textContent=matches?'Wallet matches configured Treasury. Ready to prove control.':'Connected wallet does not match the configured Treasury.';
+    $('prove').disabled=!matches;
+  }catch(e){$('result').className='bad';$('result').textContent=e.message||String(e);}
+};
+$('prove').onclick=async()=>{
+  try{
+    if(!account)throw new Error('Connect wallet first.');
+    const c=await fetch(`/admin/control/challenge?address=${account}`,{cache:'no-store'}).then(r=>r.json());
+    if(!c.ok)throw new Error(c.error||'challenge_failed');
+    const signature=await ethereum.request({method:'personal_sign',params:[c.message,account]});
+    const p=await fetch('/admin/control/prove',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({nonce:c.nonce,signature})}).then(r=>r.json());
+    if(!p.ok)throw new Error(p.error||'proof_failed');
+    $('result').className='ok';$('result').textContent='Treasury control cryptographically proven. No transaction was sent.';
+    await status();
+  }catch(e){$('result').className='bad';$('result').textContent=e.message||String(e);}
+};
+status().catch(e=>{$('proofStatus').className='bad';$('proofStatus').textContent=e.message||String(e)});
+</script>
+</body>
+</html>
