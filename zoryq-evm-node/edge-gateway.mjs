@@ -74,6 +74,8 @@ http.createServer((req,res)=>{
   if(readable&&(url.pathname==='/intelligence'||url.pathname==='/genesis-intelligence'||url.pathname==='/intelligence.html'))return serveFile(req,res,'intelligence.html');
   if(readable&&(url.pathname==='/admin-control'||url.pathname==='/admin-control.html'))return serveFile(req,res,'admin-control.html');
   if(readable&&(url.pathname==='/protocol-launch'||url.pathname==='/protocol-launch.html'))return serveFile(req,res,'protocol-launch.html');
+  if(readable&&(url.pathname==='/network-maturity'||url.pathname==='/network-maturity.html'))return serveFile(req,res,'network-maturity.html');
+  if(readable&&url.pathname==='/network-maturity.json')return serveFile(req,res,'network-maturity.json','application/json; charset=utf-8');
   if(readable&&url.pathname==='/defi-common.js')return serveFile(req,res,'defi-common.js','application/javascript; charset=utf-8');
   if(readable&&url.pathname==='/llms.txt')return serveFile(req,res,'llms.txt','text/plain; charset=utf-8');
   if(readable&&url.pathname==='/.well-known/zoryq-agent.json')return serveFile(req,res,'.well-known-zoryq-agent.json','application/json; charset=utf-8');
