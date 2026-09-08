@@ -2,29 +2,32 @@ name: Deploy ZORYQ Testnet Contracts
 
 'on':
   workflow_dispatch:
-  push:
-    branches:
-      - zoryq-evm-testnet-node
-    paths:
-      - zoryq-contracts/scripts/deploy-testnet.sh
-      - .github/workflows/zoryq-deploy-testnet-contracts.yml
+    inputs:
+      confirmation:
+        description: 'Type REVIEWED_DEPLOYMENT_REQUIRED'
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
+    if: ${{ inputs.confirmation == 'REVIEWED_DEPLOYMENT_REQUIRED' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
-      - name: Deploy and verify ZORYQ Testnet contracts
+      - name: Validate contracts only
         working-directory: zoryq-contracts
-        env:
-          ADMIN: "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33"
-        run: bash scripts/deploy-testnet.sh
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ZORYQ-Testnet-Deployment
-          path: zoryq-testnet-deployment.json
-          if-no-files-found: error
+        run: |
+          printf '[profile.default]\nsrc = "src"\ntest = "test"\nout = "out"\nsolc_version = "0.8.24"\n' > foundry.toml
+          forge build
+          forge test -vv
+      - name: Legacy broadcaster disabled
+        run: |
+          echo 'The legacy deployment script is intentionally not executed.'
+          echo 'A new deployment must use a reviewed signer flow, explicit target contracts, receipt/code verification, and no ephemeral LP ownership.'
