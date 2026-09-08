@@ -9,14 +9,8 @@ const ADMIN_PORT=8083;
 const WEB_ROOT='/app/web';
 const PROTOCOL_ROOT='/app/protocol-out';
 
-const app=spawn(process.execPath,['public-gateway.mjs'],{
-  stdio:'inherit',
-  env:{...process.env,PORT:String(APP_PORT)}
-});
-const admin=spawn(process.execPath,['admin-control.mjs'],{
-  stdio:'inherit',
-  env:{...process.env,PORT:String(ADMIN_PORT)}
-});
+const app=spawn(process.execPath,['public-gateway.mjs'],{stdio:'inherit',env:{...process.env,PORT:String(APP_PORT)}});
+const admin=spawn(process.execPath,['admin-control.mjs'],{stdio:'inherit',env:{...process.env,PORT:String(ADMIN_PORT)}});
 function childExit(name){return(code,signal)=>{console.error(`${name} exited`,{code,signal});process.exit(code||1)}}
 app.on('exit',childExit('ZORYQ public gateway'));
 admin.on('exit',childExit('ZORYQ admin control verifier'));
@@ -39,25 +33,12 @@ function servePath(req,res,root,file,contentType='text/html; charset=utf-8'){
     res.writeHead(404,{'content-type':'application/json; charset=utf-8'});
     return res.end(JSON.stringify({ok:false,error:'not_found'}));
   }
-  res.writeHead(200,{
-    'content-type':contentType,
-    'cache-control':contentType.startsWith('text/html')?'no-cache':'public, max-age=300',
-    'x-zoryq-route':'public-edge',
-    'access-control-allow-origin':'*'
-  });
+  res.writeHead(200,{'content-type':contentType,'cache-control':contentType.startsWith('text/html')?'no-cache':'public, max-age=300','x-zoryq-route':'public-edge','access-control-allow-origin':'*'});
   if(req.method==='HEAD')return res.end();
   fs.createReadStream(full).pipe(res);
 }
 function serveFile(req,res,file,contentType='text/html; charset=utf-8'){return servePath(req,res,WEB_ROOT,file,contentType)}
-
-function proxyTo(port,req,res){
-  const p=http.request({
-    hostname:'127.0.0.1',port,path:req.url,method:req.method,
-    headers:{...req.headers,host:`127.0.0.1:${port}`}
-  },u=>{res.writeHead(u.statusCode||502,u.headers);u.pipe(res)});
-  p.on('error',e=>{res.writeHead(503,{'content-type':'application/json; charset=utf-8'});res.end(JSON.stringify({ok:false,error:'gateway_unavailable',detail:e.message}))});
-  req.pipe(p);
-}
+function proxyTo(port,req,res){const p=http.request({hostname:'127.0.0.1',port,path:req.url,method:req.method,headers:{...req.headers,host:`127.0.0.1:${port}`}},u=>{res.writeHead(u.statusCode||502,u.headers);u.pipe(res)});p.on('error',e=>{res.writeHead(503,{'content-type':'application/json; charset=utf-8'});res.end(JSON.stringify({ok:false,error:'gateway_unavailable',detail:e.message}))});req.pipe(p)}
 function proxy(req,res){return proxyTo(APP_PORT,req,res)}
 
 http.createServer((req,res)=>{
@@ -71,6 +52,7 @@ http.createServer((req,res)=>{
   if(readable&&(url.pathname==='/stake'||url.pathname==='/stake.html'))return serveFile(req,res,'stake.html');
   if(readable&&(url.pathname==='/lending'||url.pathname==='/lending.html'))return serveFile(req,res,'lending.html');
   if(readable&&(url.pathname==='/developer'||url.pathname==='/developers'||url.pathname==='/developer.html'))return serveFile(req,res,'developer.html');
+  if(readable&&(url.pathname==='/ecosystem'||url.pathname==='/builders'||url.pathname==='/investors'||url.pathname==='/ecosystem.html'))return serveFile(req,res,'ecosystem.html');
   if(readable&&(url.pathname==='/intelligence'||url.pathname==='/genesis-intelligence'||url.pathname==='/intelligence.html'))return serveFile(req,res,'intelligence.html');
   if(readable&&(url.pathname==='/admin-control'||url.pathname==='/admin-control.html'))return serveFile(req,res,'admin-control.html');
   if(readable&&(url.pathname==='/protocol-launch'||url.pathname==='/protocol-launch.html'))return serveFile(req,res,'protocol-launch.html');
