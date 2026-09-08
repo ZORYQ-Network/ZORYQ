@@ -38,7 +38,7 @@ jobs:
           echo "$body" | jq -e '.result == "0x5a5159"' >/dev/null
           echo "RPC chain id OK"
 
-      - name: Verify official web routes
+      - name: Verify official Vercel web routes
         shell: bash
         run: |
           set -euo pipefail
@@ -49,6 +49,34 @@ jobs:
             grep -q 'ZORYQ' /tmp/zoryq-page
             echo "$route OK"
           done
+
+      - name: Verify Railway web fallback routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://zoryq-evm-node-live-production.up.railway.app'
+          for route in /start /testnet /explorer /network-clock; do
+            code="$(curl --silent --show-error --location --output /tmp/zoryq-railway-page --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE$route")"
+            test "$code" = '200'
+            grep -q 'ZORYQ' /tmp/zoryq-railway-page
+            echo "$route OK"
+          done
+          curl --fail --silent --show-error "$BASE/start" | grep -q '/genesis-client.js'
+          curl --fail --silent --show-error "$BASE/genesis-client.js" | grep -q 'genesis/status'
+          echo "Railway onboarding + Genesis client OK"
+
+      - name: Verify Genesis Score API safety
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://zoryq-evm-node-live-production.up.railway.app'
+          WALLET='0x000000000000000000000000000000000000dEaD'
+          body="$(curl --fail --silent --show-error "$BASE/genesis/status?address=$WALLET")"
+          echo "$body" | jq -e '.ok == true and .pendingScore >= 0 and .genesis.total == 4 and .finalizedOnchainScore == 0' >/dev/null
+          code="$(curl --silent --show-error --output /tmp/genesis-reject --write-out '%{http_code}' -H 'content-type: application/json' --data "{\"address\":\"$WALLET\",\"action\":\"swap\",\"txHash\":\"0x00\"}" "$BASE/genesis/action")"
+          test "$code" = '400'
+          grep -q 'tx_hash_required' /tmp/genesis-reject
+          echo "Genesis Score API safety OK"
 
       - name: Verify web security headers
         shell: bash
