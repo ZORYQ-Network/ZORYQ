@@ -40,13 +40,28 @@ jobs:
             test "$code" != '0x'
             echo "$key=$addr codeBytes=$(( (${#code} - 2) / 2 ))"
           done
-      - name: Report Treasury gas balance
+      - name: Inspect DEX liquidity and Treasury balances
         shell: bash
         run: |
           set -euo pipefail
-          raw="$(curl --fail --silent --show-error -H 'content-type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"eth_getBalance\",\"params\":[\"$TREASURY\",\"latest\"]}" "$RPC" | jq -r '.result')"
-          python3 - "$raw" <<'PY'
-          import sys
-          wei=int(sys.argv[1],16)
-          print(f'Treasury balance: {wei/10**18:.6f} ZQ')
-          PY
+          npm init -y >/dev/null 2>&1
+          npm install ethers@6 --no-audit --no-fund >/dev/null 2>&1
+          node <<'NODE'
+          const {JsonRpcProvider,Contract,formatEther}=require('ethers');
+          const fs=require('fs');
+          const state=JSON.parse(fs.readFileSync('/tmp/deployments.json','utf8'));
+          const dex=state.deployments.dexV1?.address;
+          if(!dex) throw new Error('dexV1_not_recorded');
+          const provider=new JsonRpcProvider(process.env.RPC,5919065,{staticNetwork:true});
+          const d=new Contract(dex,['function reserves() view returns(uint256 zqReserve,uint256 tokenReserve)','function active() view returns(bool)','function totalSupply() view returns(uint256)'],provider);
+          const t=new Contract(process.env.ZUSD,['function balanceOf(address) view returns(uint256)'],provider);
+          (async()=>{
+            const [r,active,supply,treasuryZq,treasuryZusd]=await Promise.all([d.reserves(),d.active(),d.totalSupply(),provider.getBalance(process.env.TREASURY),t.balanceOf(process.env.TREASURY)]);
+            console.log(`DEX address: ${dex}`);
+            console.log(`DEX active: ${active}`);
+            console.log(`DEX reserves: ${formatEther(r.zqReserve)} ZQ / ${formatEther(r.tokenReserve)} zUSD`);
+            console.log(`DEX LP total supply: ${formatEther(supply)}`);
+            console.log(`Treasury balance: ${formatEther(treasuryZq)} ZQ`);
+            console.log(`Treasury zUSD balance: ${formatEther(treasuryZusd)} zUSD`);
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
