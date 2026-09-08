@@ -54,6 +54,7 @@ http.createServer((req,res)=>{
   if(readable&&(url.pathname==='/stake'||url.pathname==='/stake.html'))return serveFile(req,res,'stake.html');
   if(readable&&(url.pathname==='/lending'||url.pathname==='/lending.html'))return serveFile(req,res,'lending.html');
   if(readable&&(url.pathname==='/developer'||url.pathname==='/developers'||url.pathname==='/developer.html'))return serveFile(req,res,'developer.html');
+  if(readable&&(url.pathname==='/intelligence'||url.pathname==='/genesis-intelligence'||url.pathname==='/intelligence.html'))return serveFile(req,res,'intelligence.html');
   if(readable&&url.pathname==='/defi-common.js')return serveFile(req,res,'defi-common.js','application/javascript; charset=utf-8');
   if(readable&&url.pathname==='/llms.txt')return serveFile(req,res,'llms.txt','text/plain; charset=utf-8');
   if(readable&&url.pathname==='/.well-known/zoryq-agent.json')return serveFile(req,res,'.well-known-zoryq-agent.json','application/json; charset=utf-8');
