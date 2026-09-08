@@ -1,55 +1,35 @@
 name: Deploy ZORYQ Testnet Contracts V2
 
 'on':
-  push:
-    branches:
-      - zoryq-evm-testnet-node
-    paths:
-      - .github/workflows/zoryq-deploy-testnet-contracts-v2.yml
   workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type DEPLOY_NEW_ZORYQ_TESTNET_SUITE to acknowledge this creates a new contract suite'
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
+    if: ${{ inputs.confirmation == 'DEPLOY_NEW_ZORYQ_TESTNET_SUITE' }}
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: foundry-rs/foundry-toolchain@v1
         with:
           version: stable
-      - name: Build contracts
+      - name: Build and test contracts before any broadcast
         working-directory: zoryq-contracts
         run: |
           printf '[profile.default]\nsrc = "src"\ntest = "test"\nout = "out"\nsolc_version = "0.8.24"\n' > foundry.toml
           forge build
           forge test -vv
-      - name: Deploy persistent suite
-        working-directory: zoryq-contracts
-        env:
-          RPC_URL: "https://zoryq-evm-node-live-production.up.railway.app/rpc"
-          FAUCET_URL: "https://zoryq-evm-node-live-production.up.railway.app/faucet"
-          ADMIN: "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33"
+      - name: Refuse deployment while privileged signer control is unverified
         run: |
-          set -euo pipefail
-          DEPLOYER_KEY="0x$(openssl rand -hex 32)"
-          DEPLOYER=$(cast wallet address --private-key "$DEPLOYER_KEY")
-          curl --fail --silent --show-error -X POST "$FAUCET_URL" -H 'content-type: application/json' -d "{\"address\":\"$DEPLOYER\"}" > /tmp/faucet.json
-          sleep 3
-          test "$(cast balance "$DEPLOYER" --rpc-url "$RPC_URL")" -gt 10000000000000000000
-          forge create src/ZoryqBootstrap.sol:ZoryqBootstrap --rpc-url "$RPC_URL" --private-key "$DEPLOYER_KEY" --constructor-args "$ADMIN" --value 10000000000000000000 --broadcast --json > /tmp/deploy.json
-          BOOTSTRAP=$(jq -r '.deployedTo // .deployed_to // .contractAddress // empty' /tmp/deploy.json)
-          TX=$(jq -r '.transactionHash // .transaction_hash // .txHash // empty' /tmp/deploy.json)
-          test -n "$BOOTSTRAP"
-          test "$(cast chain-id --rpc-url "$RPC_URL")" = "5919065"
-          REWARD=$(cast call "$BOOTSTRAP" 'rewardRegistry()(address)' --rpc-url "$RPC_URL")
-          QUEST=$(cast call "$BOOTSTRAP" 'questRegistry()(address)' --rpc-url "$RPC_URL")
-          COMPLETION=$(cast call "$BOOTSTRAP" 'questCompletionRegistry()(address)' --rpc-url "$RPC_URL")
-          STAKE=$(cast call "$BOOTSTRAP" 'stakeContract()(address)' --rpc-url "$RPC_URL")
-          TOKEN=$(cast call "$BOOTSTRAP" 'testToken()(address)' --rpc-url "$RPC_URL")
-          SWAP=$(cast call "$BOOTSTRAP" 'swapContract()(address)' --rpc-url "$RPC_URL")
-          for A in "$BOOTSTRAP" "$REWARD" "$QUEST" "$COMPLETION" "$STAKE" "$TOKEN" "$SWAP"; do test "$(cast code "$A" --rpc-url "$RPC_URL")" != "0x"; done
-          for A in "$REWARD" "$QUEST" "$COMPLETION" "$TOKEN" "$SWAP"; do test "$(cast call "$A" 'owner()(address)' --rpc-url "$RPC_URL" | tr '[:upper:]' '[:lower:]')" = "$(printf '%s' "$ADMIN" | tr '[:upper:]' '[:lower:]')"; done
-          jq -n --arg admin "$ADMIN" --arg bootstrap "$BOOTSTRAP" --arg tx "$TX" --arg rewardRegistry "$REWARD" --arg questRegistry "$QUEST" --arg questCompletionRegistry "$COMPLETION" --arg stakeContract "$STAKE" --arg testToken "$TOKEN" --arg swapContract "$SWAP" '{chainId:"5919065",admin:$admin,bootstrap:$bootstrap,deploymentTx:$tx,rewardRegistry:$rewardRegistry,questRegistry:$questRegistry,questCompletionRegistry:$questCompletionRegistry,stakeContract:$stakeContract,testToken:$testToken,swapContract:$swapContract,verified:true}' > ../zoryq-testnet-deployment.json
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ZORYQ-Testnet-Deployment-V2
-          path: zoryq-testnet-deployment.json
+          echo 'Deployment intentionally blocked.'
+          echo 'Current on-chain owner alignment points to 0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33, but authorized signer control has not been verified.'
+          echo 'Use a reviewed deployment workflow only after signer control, target addresses, initial liquidity, and post-deploy verification are explicitly approved.'
+          exit 1
