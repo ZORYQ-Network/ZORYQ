@@ -38,6 +38,15 @@ jobs:
             exit 1
           fi
 
+      - name: Verify advanced Genesis bundle before deploy
+        run: |
+          test -f start.html
+          test -f genesis-client.js
+          grep -Fq 'Genesis Score' start.html
+          grep -Fq 'Share Genesis' genesis-client.js
+          grep -Fq '@ZORIQNetwork' start.html
+          grep -Fq '/genesis/action' start.html
+
       - name: Link existing ZORYQ Vercel project
         run: |
           mkdir -p .vercel
@@ -46,11 +55,17 @@ jobs:
       - name: Deploy static web to existing production project
         run: npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
 
-      - name: Verify official live routes
+      - name: Verify official live routes and Genesis version
         run: |
-          sleep 5
-          for route in / /start.html /testnet-lab.html /network-clock.html /explorer.html; do
+          sleep 8
+          for route in / /start /lab /clock /explorer /docs /genesis-client.js; do
             code=$(curl -L -sS -o /tmp/zoryq-route -w '%{http_code}' "https://zoryq-testnet.vercel.app${route}")
             echo "$route -> HTTP $code"
             test "$code" = "200"
           done
+          curl -L -sS https://zoryq-testnet.vercel.app/start -o /tmp/zoryq-start
+          curl -L -sS https://zoryq-testnet.vercel.app/genesis-client.js -o /tmp/zoryq-genesis-client
+          grep -Fq 'Genesis Score' /tmp/zoryq-start
+          grep -Fq '@ZORIQNetwork' /tmp/zoryq-start
+          grep -Fq 'Share Genesis' /tmp/zoryq-genesis-client
+          echo 'Official production is serving the advanced Genesis UI.'
