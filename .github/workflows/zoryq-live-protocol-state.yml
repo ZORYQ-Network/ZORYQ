@@ -42,7 +42,7 @@ jobs:
             echo "$key=$addr codeBytes=$(( (${#code} - 2) / 2 ))"
           done
 
-      - name: Verify DEX liquidity and executable quotes
+      - name: Verify DEX liquidity, quotes and first live swap
         shell: bash
         run: |
           set -euo pipefail
@@ -52,16 +52,19 @@ jobs:
           const {JsonRpcProvider,Contract,formatEther,parseEther}=require('ethers');
           const fs=require('fs');
           const state=JSON.parse(fs.readFileSync('/tmp/deployments.json','utf8'));
-          const dex=state.deployments.dexV1?.address;
+          const deployment=state.deployments.dexV1;
+          const dex=deployment?.address;
           if(!dex) throw new Error('dexV1_not_recorded');
           const provider=new JsonRpcProvider(process.env.RPC,5919065,{staticNetwork:true});
-          const d=new Contract(dex,[
+          const abi=[
             'function reserves() view returns(uint256 zqReserve,uint256 tokenReserve)',
             'function active() view returns(bool)',
             'function totalSupply() view returns(uint256)',
             'function quoteZQForToken(uint256) view returns(uint256 amountOut,uint256 lpFee,uint256 protocolFee)',
-            'function quoteTokenForZQ(uint256) view returns(uint256 amountOut,uint256 lpFee,uint256 protocolFee)'
-          ],provider);
+            'function quoteTokenForZQ(uint256) view returns(uint256 amountOut,uint256 lpFee,uint256 protocolFee)',
+            'event Swap(address indexed account,address indexed assetIn,address indexed assetOut,uint256 amountIn,uint256 amountOut,uint256 lpFee,uint256 protocolFee)'
+          ];
+          const d=new Contract(dex,abi,provider);
           (async()=>{
             const [r,active,supply,q1,q2]=await Promise.all([
               d.reserves(), d.active(), d.totalSupply(),
@@ -77,6 +80,17 @@ jobs:
             if(!active) throw new Error('dex_not_active');
             if(r.zqReserve<=0n || r.tokenReserve<=0n || supply<=0n) throw new Error('dex_liquidity_missing');
             if(q1.amountOut<=0n || q2.amountOut<=0n) throw new Error('dex_quote_not_executable');
+
+            const events=await d.queryFilter(d.filters.Swap(), Number(deployment.blockNumber||0), 'latest');
+            console.log(`DEX swap events: ${events.length}`);
+            if(events.length<1) throw new Error('dex_no_live_swap_event');
+            const e=events[events.length-1];
+            console.log(`Latest swap tx: ${e.transactionHash}`);
+            console.log(`Latest swap account: ${e.args.account}`);
+            console.log(`Latest swap amountIn: ${formatEther(e.args.amountIn)}`);
+            console.log(`Latest swap amountOut: ${formatEther(e.args.amountOut)}`);
+            console.log(`Latest swap lpFee: ${formatEther(e.args.lpFee)}`);
+            console.log(`Latest swap protocolFee: ${formatEther(e.args.protocolFee)}`);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
 
