@@ -5,7 +5,11 @@
     { "source": "/start", "destination": "/start.html" },
     { "source": "/lab", "destination": "/testnet-lab.html" },
     { "source": "/clock", "destination": "/network-clock.html" },
-    { "source": "/explorer", "destination": "/explorer.html" }
+    { "source": "/explorer", "destination": "/explorer.html" },
+    { "source": "/faucet", "destination": "/faucet.html" },
+    { "source": "/tx/:hash", "destination": "/explorer.html" },
+    { "source": "/address/:address", "destination": "/explorer.html" },
+    { "source": "/block/:block", "destination": "/explorer.html" }
   ],
   "headers": [
     {
