@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "network": {
     "name": "ZORYQ EVM Testnet",
     "chainId": 5919065,
@@ -24,9 +24,9 @@
     },
     "testToken": {
       "address": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
-      "status": "client-configured-canonicality-pending-verification",
+      "status": "client-configured-canonicality-pending-live-verification",
       "symbol": "zUSD",
-      "warning": "A historical address 0x742227605AF1839683A51A7B74B6EB2C75D37A3e also exists in prior project records. Do not treat either address as canonical for new protocol deployment until the live Swap Lab token() value and deployed bytecode are verified."
+      "warning": "A historical address 0x742227605AF1839683A51A7B74B6EB2C75D37A3e also exists in prior project records. The read-only live-contract verifier must confirm Swap Lab token(), deployed bytecode and metadata before this address is approved for new protocol deployment."
     },
     "rewardRegistry": {
       "address": "0xAB1Dd21c529b182191ED84f00A4dF1917652CB10",
@@ -42,6 +42,12 @@
       "address": "0xD371eb7863cA000fF5039e2Db613F2094ba46b15",
       "status": "deployed-ci-reference",
       "role": "quest-completion-registry"
+    },
+    "treasury": {
+      "address": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
+      "status": "client-configured-canonicality-pending-verification",
+      "role": "admin-treasury",
+      "warning": "Do not route protocol fees or transfer ownership of new contracts to this address until the intended Treasury control and current configuration are independently verified."
     },
     "dexV1": {
       "address": null,
@@ -60,7 +66,7 @@
     }
   },
   "policy": {
-    "canonicalAddressRule": "Only mark a contract canonical after receipt, bytecode and intended configuration are independently verified on the current testnet.",
+    "canonicalAddressRule": "Only mark a contract or privileged account canonical after on-chain state, bytecode/configuration and intended control are independently verified on the current testnet.",
     "testnetOnly": true,
     "monetaryValue": false
   }
