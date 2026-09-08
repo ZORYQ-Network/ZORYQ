@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0.0",
+  "network": {
+    "name": "ZORYQ EVM Testnet",
+    "chainId": 5919065,
+    "caip2": "eip155:5919065"
+  },
+  "contracts": {
+    "faucet": {
+      "address": "0x0fB96a10a25499248EC7cE8B1FEd3fF0307E2910",
+      "status": "deployed",
+      "role": "testnet-faucet"
+    },
+    "swapLab": {
+      "address": "0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE",
+      "status": "deployed",
+      "role": "fixed-quote-testnet-swap-lab",
+      "productionAmm": false
+    },
+    "stake": {
+      "address": "0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1",
+      "status": "deployed",
+      "role": "testnet-stake"
+    },
+    "testToken": {
+      "address": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
+      "status": "client-configured-canonicality-pending-verification",
+      "symbol": "zUSD",
+      "warning": "A historical address 0x742227605AF1839683A51A7B74B6EB2C75D37A3e also exists in prior project records. Do not treat either address as canonical for new protocol deployment until the live Swap Lab token() value and deployed bytecode are verified."
+    },
+    "rewardRegistry": {
+      "address": "0xAB1Dd21c529b182191ED84f00A4dF1917652CB10",
+      "status": "deployed-client-reference",
+      "role": "reward-registry"
+    },
+    "questRegistry": {
+      "address": "0x85747F9BdCd758fcfB562c929236CCA6eEB025a9",
+      "status": "deployed-client-reference",
+      "role": "quest-registry"
+    },
+    "questCompletionRegistry": {
+      "address": "0xD371eb7863cA000fF5039e2Db613F2094ba46b15",
+      "status": "deployed-ci-reference",
+      "role": "quest-completion-registry"
+    },
+    "dexV1": {
+      "address": null,
+      "status": "source-created-not-deployed",
+      "source": "zoryq-contracts/src/ZoryqDexV1.sol"
+    },
+    "lending": {
+      "address": null,
+      "status": "source-created-not-deployed",
+      "source": "zoryq-contracts/src/ZoryqLendingLab.sol"
+    },
+    "projectRegistry": {
+      "address": null,
+      "status": "source-created-not-deployed",
+      "source": "zoryq-contracts/src/ZoryqProjectRegistry.sol"
+    }
+  },
+  "policy": {
+    "canonicalAddressRule": "Only mark a contract canonical after receipt, bytecode and intended configuration are independently verified on the current testnet.",
+    "testnetOnly": true,
+    "monetaryValue": false
+  }
+}
