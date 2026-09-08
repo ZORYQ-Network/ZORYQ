@@ -28,6 +28,7 @@ jobs:
           echo "$body" | jq .
           echo "$body" | jq -e '.ok == true and .controlProven == true' >/dev/null
           printf '%s' "$body" > /tmp/deployments.json
+
       - name: Verify every recorded deployment has live code
         shell: bash
         run: |
@@ -40,7 +41,46 @@ jobs:
             test "$code" != '0x'
             echo "$key=$addr codeBytes=$(( (${#code} - 2) / 2 ))"
           done
-      - name: Inspect DEX liquidity and Treasury balances
+
+      - name: Verify DEX liquidity and executable quotes
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm init -y >/dev/null 2>&1
+          npm install ethers@6 --no-audit --no-fund >/dev/null 2>&1
+          node <<'NODE'
+          const {JsonRpcProvider,Contract,formatEther,parseEther}=require('ethers');
+          const fs=require('fs');
+          const state=JSON.parse(fs.readFileSync('/tmp/deployments.json','utf8'));
+          const dex=state.deployments.dexV1?.address;
+          if(!dex) throw new Error('dexV1_not_recorded');
+          const provider=new JsonRpcProvider(process.env.RPC,5919065,{staticNetwork:true});
+          const d=new Contract(dex,[
+            'function reserves() view returns(uint256 zqReserve,uint256 tokenReserve)',
+            'function active() view returns(bool)',
+            'function totalSupply() view returns(uint256)',
+            'function quoteZQForToken(uint256) view returns(uint256 amountOut,uint256 lpFee,uint256 protocolFee)',
+            'function quoteTokenForZQ(uint256) view returns(uint256 amountOut,uint256 lpFee,uint256 protocolFee)'
+          ],provider);
+          (async()=>{
+            const [r,active,supply,q1,q2]=await Promise.all([
+              d.reserves(), d.active(), d.totalSupply(),
+              d.quoteZQForToken(parseEther('1')),
+              d.quoteTokenForZQ(parseEther('100'))
+            ]);
+            console.log(`DEX address: ${dex}`);
+            console.log(`DEX active: ${active}`);
+            console.log(`DEX reserves: ${formatEther(r.zqReserve)} ZQ / ${formatEther(r.tokenReserve)} zUSD`);
+            console.log(`DEX LP total supply: ${formatEther(supply)}`);
+            console.log(`Quote 1 ZQ -> ${formatEther(q1.amountOut)} zUSD`);
+            console.log(`Quote 100 zUSD -> ${formatEther(q2.amountOut)} ZQ`);
+            if(!active) throw new Error('dex_not_active');
+            if(r.zqReserve<=0n || r.tokenReserve<=0n || supply<=0n) throw new Error('dex_liquidity_missing');
+            if(q1.amountOut<=0n || q2.amountOut<=0n) throw new Error('dex_quote_not_executable');
+          })().catch(e=>{console.error(e);process.exit(1)});
+          NODE
+
+      - name: Report Treasury balances
         shell: bash
         run: |
           set -euo pipefail
@@ -48,20 +88,11 @@ jobs:
           npm install ethers@6 --no-audit --no-fund >/dev/null 2>&1
           node <<'NODE'
           const {JsonRpcProvider,Contract,formatEther}=require('ethers');
-          const fs=require('fs');
-          const state=JSON.parse(fs.readFileSync('/tmp/deployments.json','utf8'));
-          const dex=state.deployments.dexV1?.address;
-          if(!dex) throw new Error('dexV1_not_recorded');
           const provider=new JsonRpcProvider(process.env.RPC,5919065,{staticNetwork:true});
-          const d=new Contract(dex,['function reserves() view returns(uint256 zqReserve,uint256 tokenReserve)','function active() view returns(bool)','function totalSupply() view returns(uint256)'],provider);
-          const t=new Contract(process.env.ZUSD,['function balanceOf(address) view returns(uint256)'],provider);
+          const token=new Contract(process.env.ZUSD,['function balanceOf(address) view returns(uint256)'],provider);
           (async()=>{
-            const [r,active,supply,treasuryZq,treasuryZusd]=await Promise.all([d.reserves(),d.active(),d.totalSupply(),provider.getBalance(process.env.TREASURY),t.balanceOf(process.env.TREASURY)]);
-            console.log(`DEX address: ${dex}`);
-            console.log(`DEX active: ${active}`);
-            console.log(`DEX reserves: ${formatEther(r.zqReserve)} ZQ / ${formatEther(r.tokenReserve)} zUSD`);
-            console.log(`DEX LP total supply: ${formatEther(supply)}`);
-            console.log(`Treasury balance: ${formatEther(treasuryZq)} ZQ`);
-            console.log(`Treasury zUSD balance: ${formatEther(treasuryZusd)} zUSD`);
+            const [zq,zusd]=await Promise.all([provider.getBalance(process.env.TREASURY),token.balanceOf(process.env.TREASURY)]);
+            console.log(`Treasury balance: ${formatEther(zq)} ZQ`);
+            console.log(`Treasury zUSD balance: ${formatEther(zusd)} zUSD`);
           })().catch(e=>{console.error(e);process.exit(1)});
           NODE
