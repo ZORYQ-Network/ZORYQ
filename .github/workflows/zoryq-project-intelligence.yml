@@ -7,6 +7,8 @@ on:
     paths:
       - 'zoryq-evm-node/project-intelligence.mjs'
       - 'zoryq-evm-node/project-intelligence.test.mjs'
+      - 'zoryq-evm-node/project-indexer.mjs'
+      - 'zoryq-evm-node/project-indexer.test.mjs'
       - 'zoryq-evm-node/package.json'
       - '.github/workflows/zoryq-project-intelligence.yml'
 
