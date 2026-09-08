@@ -1,11 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
 import "../src/ZoryqDexV1.sol";
 import "../src/ZoryqTestToken.sol";
 
-contract ZoryqDexV1Test is Test {
+interface VmDex {
+    function deal(address who, uint256 newBalance) external;
+    function prank(address who) external;
+    function startPrank(address who) external;
+    function stopPrank() external;
+    function expectRevert(bytes calldata) external;
+}
+
+contract ZoryqDexV1Test {
+    VmDex constant vm = VmDex(address(uint160(uint256(keccak256("hevm cheat code")))));
     ZoryqTestToken token;
     ZoryqDexV1 dex;
     address treasury = address(0xBEEF);
@@ -13,7 +21,7 @@ contract ZoryqDexV1Test is Test {
     address trader = address(0x2222);
 
     function setUp() public {
-        token = new ZoryqTestToken("ZORYQ USD", "zUSD", address(this));
+        token = new ZoryqTestToken("ZORYQ USD", "zUSD", 0, address(this), address(this));
         dex = new ZoryqDexV1(address(token), treasury);
 
         token.mint(lp, 100_000 ether);
@@ -28,21 +36,20 @@ contract ZoryqDexV1Test is Test {
     }
 
     function testInitialLiquidityMintsShares() public view {
-        assertGt(dex.balanceOf(lp), 0);
+        require(dex.balanceOf(lp) > 0, "shares");
         (uint256 zqReserve, uint256 tokenReserve) = dex.reserves();
-        assertEq(zqReserve, 1_000 ether);
-        assertEq(tokenReserve, 1_000 ether);
+        require(zqReserve == 1_000 ether, "zq_reserve");
+        require(tokenReserve == 1_000 ether, "token_reserve");
     }
 
     function testZQSwapPaysTreasuryAndRetainsLpFee() public {
         uint256 treasuryBefore = treasury.balance;
         vm.prank(trader);
         uint256 out = dex.swapZQForToken{value: 100 ether}(0);
-        assertGt(out, 0);
-        assertEq(treasury.balance - treasuryBefore, 0.1 ether);
-
+        require(out > 0, "out");
+        require(treasury.balance - treasuryBefore == 0.1 ether, "treasury_fee");
         (uint256 zqReserve,) = dex.reserves();
-        assertEq(zqReserve, 1_099.9 ether);
+        require(zqReserve == 1_099.9 ether, "reserve_after_fee");
     }
 
     function testTokenSwapPaysTreasuryInToken() public {
@@ -51,18 +58,18 @@ contract ZoryqDexV1Test is Test {
         uint256 beforeFee = token.balanceOf(treasury);
         uint256 out = dex.swapTokenForZQ(100 ether, 0);
         vm.stopPrank();
-        assertGt(out, 0);
-        assertEq(token.balanceOf(treasury) - beforeFee, 0.1 ether);
+        require(out > 0, "out");
+        require(token.balanceOf(treasury) - beforeFee == 0.1 ether, "treasury_token_fee");
     }
 
     function testFeeRecipientCanChangeOnlyByOwner() public {
         address next = address(0xCAFE);
-        vm.prank(trader);
-        vm.expectRevert("not_owner");
+        vm.startPrank(trader);
+        vm.expectRevert(bytes("not_owner"));
         dex.setFeeRecipient(next);
-
+        vm.stopPrank();
         dex.setFeeRecipient(next);
-        assertEq(dex.feeRecipient(), next);
+        require(dex.feeRecipient() == next, "recipient");
     }
 
     function testRemoveLiquidityReturnsAssets() public {
@@ -71,7 +78,7 @@ contract ZoryqDexV1Test is Test {
         uint256 tokenBefore = token.balanceOf(lp);
         vm.prank(lp);
         dex.removeLiquidity(shares, 0, 0);
-        assertGt(lp.balance, zqBefore);
-        assertGt(token.balanceOf(lp), tokenBefore);
+        require(lp.balance > zqBefore, "zq_return");
+        require(token.balanceOf(lp) > tokenBefore, "token_return");
     }
 }
