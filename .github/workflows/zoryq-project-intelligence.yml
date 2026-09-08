@@ -1,0 +1,31 @@
+name: Test ZORYQ Project Intelligence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-evm-node/project-intelligence.mjs'
+      - 'zoryq-evm-node/project-intelligence.test.mjs'
+      - 'zoryq-evm-node/package.json'
+      - '.github/workflows/zoryq-project-intelligence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: zoryq-evm-node
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: zoryq-evm-node/package-lock.json
+      - run: npm ci
+      - run: npm test
