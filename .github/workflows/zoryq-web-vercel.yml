@@ -1,0 +1,56 @@
+name: Deploy ZORYQ Web to Vercel
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/**'
+      - '.github/workflows/zoryq-web-vercel.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: zoryq-web-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: zoryq-web
+    env:
+      VERCEL_ORG_ID: team_2Y0pzJPPode5346QpOXbdFtM
+      VERCEL_PROJECT_ID: prj_SNwO7G3CnGoG7j5kYVtmqevRDmy9
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || secrets.VERCEL_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify Vercel credential is configured
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "Missing VERCEL_TOKEN (or VERCEL_ACCESS_TOKEN) repository secret."
+            exit 1
+          fi
+
+      - name: Link existing ZORYQ Vercel project
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      - name: Deploy static web to existing production project
+        run: npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
+
+      - name: Verify official live routes
+        run: |
+          sleep 5
+          for route in / /start.html /testnet-lab.html /network-clock.html /explorer.html; do
+            code=$(curl -L -sS -o /tmp/zoryq-route -w '%{http_code}' "https://zoryq-testnet.vercel.app${route}")
+            echo "$route -> HTTP $code"
+            test "$code" = "200"
+          done
