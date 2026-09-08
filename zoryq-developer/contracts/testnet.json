@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "network": {
     "name": "ZORYQ EVM Testnet",
     "chainId": 5919065,
@@ -7,26 +7,38 @@
   },
   "contracts": {
     "faucet": {
-      "address": "0x0fB96a10a25499248EC7cE8B1FEd3fF0307E2910",
-      "status": "deployed",
-      "role": "testnet-faucet"
+      "address": null,
+      "status": "service-live-contract-mode-dependent",
+      "role": "testnet-faucet-service",
+      "historicalContractReference": "0x0fB96a10a25499248EC7cE8B1FEd3fF0307E2910",
+      "historicalReferenceHasCode": false,
+      "warning": "The historical faucet address has no bytecode on the current chain. The live service can operate in legacy-balance mode or an environment-configured on-chain mode; /faucet/status is the runtime source of truth."
     },
     "swapLab": {
       "address": "0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE",
-      "status": "deployed",
+      "status": "deployed-live-verified",
       "role": "fixed-quote-testnet-swap-lab",
-      "productionAmm": false
+      "productionAmm": false,
+      "bytecodeVerified": true,
+      "token": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
+      "tokensPerZQ": "100000000000000000000"
     },
     "stake": {
       "address": "0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1",
-      "status": "deployed",
-      "role": "testnet-stake"
+      "status": "deployed-live-verified",
+      "role": "testnet-stake",
+      "bytecodeVerified": true
     },
     "testToken": {
       "address": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
-      "status": "client-configured-canonicality-pending-live-verification",
+      "status": "deployed-live-verified-canonical-for-current-swap-lab",
+      "name": "ZORYQ Test USD",
       "symbol": "zUSD",
-      "warning": "A historical address 0x742227605AF1839683A51A7B74B6EB2C75D37A3e also exists in prior project records. The read-only live-contract verifier must confirm Swap Lab token(), deployed bytecode and metadata before this address is approved for new protocol deployment."
+      "decimals": 18,
+      "totalSupply": "1000000000000000000000000",
+      "canonicalityEvidence": "Live read-only verification confirmed Swap Lab token() equals this address and that deployed ERC-20 bytecode/metadata are present.",
+      "historicalAddress": "0x742227605AF1839683A51A7B74B6EB2C75D37A3e",
+      "historicalAddressHasCode": false
     },
     "rewardRegistry": {
       "address": "0xAB1Dd21c529b182191ED84f00A4dF1917652CB10",
@@ -52,18 +64,28 @@
     "dexV1": {
       "address": null,
       "status": "source-created-not-deployed",
-      "source": "zoryq-contracts/src/ZoryqDexV1.sol"
+      "source": "zoryq-contracts/src/ZoryqDexV1.sol",
+      "deploymentToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
+      "deploymentBlockedBy": ["treasury-control-verification", "contract-test-and-deploy-receipt-verification"]
     },
     "lending": {
       "address": null,
       "status": "source-created-not-deployed",
-      "source": "zoryq-contracts/src/ZoryqLendingLab.sol"
+      "source": "zoryq-contracts/src/ZoryqLendingLab.sol",
+      "deploymentToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
+      "deploymentBlockedBy": ["treasury-or-admin-control-verification", "contract-test-and-deploy-receipt-verification"]
     },
     "projectRegistry": {
       "address": null,
       "status": "source-created-not-deployed",
       "source": "zoryq-contracts/src/ZoryqProjectRegistry.sol"
     }
+  },
+  "verification": {
+    "lastLiveReadOnlyEvidenceAt": "2026-09-08T17:50:47.257Z",
+    "chainIdVerified": 5919065,
+    "source": "GitHub Actions read-only RPC verifier",
+    "limitations": "Privileged account ownership/control is not proven by bytecode checks and must be verified separately."
   },
   "policy": {
     "canonicalAddressRule": "Only mark a contract or privileged account canonical after on-chain state, bytecode/configuration and intended control are independently verified on the current testnet.",
