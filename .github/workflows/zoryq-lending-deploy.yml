@@ -1,0 +1,132 @@
+name: Deploy ZORYQ Lending Lab
+
+'on':
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-contracts/src/ZoryqLendingLab.sol'
+      - '.github/workflows/zoryq-lending-deploy.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: zoryq-lending-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RPC: https://zoryq-evm-node-live-production.up.railway.app/rpc
+      BASE: https://zoryq-evm-node-live-production.up.railway.app
+      ZUSD: 0xd2121E96C6af936c0496fDB499c1D0613d26c2B9
+      SWAP: 0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE
+      ADMIN: 0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: zoryq-evm-testnet-node
+
+      - uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+
+      - name: Verify chain identity
+        run: |
+          test "$(cast chain-id --rpc-url "$RPC")" = "5919065"
+          test "$(curl -fsS "$BASE/health" | jq -r '.chainId')" = "5919065"
+
+      - name: Create transient deployer and fund from public faucet
+        id: wallet
+        shell: bash
+        run: |
+          set -euo pipefail
+          DEPLOYER_KEY="0x$(openssl rand -hex 32)"
+          DEPLOYER=$(cast wallet address --private-key "$DEPLOYER_KEY")
+          echo "deployer=$DEPLOYER" >> "$GITHUB_OUTPUT"
+          echo "DEPLOYER_KEY=$DEPLOYER_KEY" >> "$GITHUB_ENV"
+          curl -fsS "$BASE/faucet" -H 'content-type: application/json' \
+            --data "{\"address\":\"$DEPLOYER\",\"followAttested\":true,\"xHandle\":\"@ZORIQNetwork\"}" > /tmp/faucet.json
+          jq -e '.ok == true' /tmp/faucet.json >/dev/null
+          for i in $(seq 1 20); do
+            B=$(cast balance "$DEPLOYER" --rpc-url "$RPC")
+            if [ "$B" -gt 1000000000000000000 ]; then exit 0; fi
+            sleep 2
+          done
+          echo 'Transient deployer was not funded' >&2
+          exit 1
+
+      - name: Compile Lending Lab
+        run: |
+          forge build --contracts zoryq-contracts/src/ZoryqLendingLab.sol --use 0.8.24
+
+      - name: Deploy Lending Lab
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          forge create zoryq-contracts/src/ZoryqLendingLab.sol:ZoryqLendingLab \
+            --use 0.8.24 \
+            --rpc-url "$RPC" \
+            --private-key "$DEPLOYER_KEY" \
+            --broadcast --json \
+            --constructor-args "$ZUSD" > /tmp/lending-deploy.json
+          LENDING=$(jq -r '.deployedTo // .deployed_to // .contractAddress // empty' /tmp/lending-deploy.json)
+          test -n "$LENDING"
+          test "$(cast code "$LENDING" --rpc-url "$RPC")" != "0x"
+          echo "address=$LENDING" >> "$GITHUB_OUTPUT"
+
+      - name: Seed public zUSD liquidity and transfer ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          LENDING='${{ steps.deploy.outputs.address }}'
+          cast send "$SWAP" 'swapZQForToken(uint256)' 0 \
+            --value 20000000000000000000 --rpc-url "$RPC" --private-key "$DEPLOYER_KEY" >/tmp/swap.txt
+          ZBAL=$(cast call "$ZUSD" 'balanceOf(address)(uint256)' '${{ steps.wallet.outputs.deployer }}' --rpc-url "$RPC" | awk '{print $1}')
+          test "$ZBAL" -gt 0
+          cast send "$ZUSD" 'transfer(address,uint256)(bool)' "$LENDING" "$ZBAL" \
+            --rpc-url "$RPC" --private-key "$DEPLOYER_KEY" >/tmp/seed.txt
+          cast send "$LENDING" 'transferOwnership(address)' "$ADMIN" \
+            --rpc-url "$RPC" --private-key "$DEPLOYER_KEY" >/tmp/owner.txt
+          OWNER=$(cast call "$LENDING" 'owner()(address)' --rpc-url "$RPC" | tr '[:upper:]' '[:lower:]')
+          test "$OWNER" = "$(printf '%s' "$ADMIN" | tr '[:upper:]' '[:lower:]')"
+          LIQ=$(cast call "$LENDING" 'availableLiquidity()(uint256)' --rpc-url "$RPC" | awk '{print $1}')
+          test "$LIQ" -gt 0
+
+      - name: Activate Lending dApp configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          LENDING='${{ steps.deploy.outputs.address }}'
+          python3 - "$LENDING" <<'PY'
+          import pathlib,re,sys
+          address=sys.argv[1]
+          p=pathlib.Path('zoryq-web/defi-common.js')
+          s=p.read_text()
+          s=re.sub(r"lending:(?:null|'0x[0-9A-Fa-f]{40}')",f"lending:'{address}'",s)
+          p.write_text(s)
+          p=pathlib.Path('zoryq-web/config.js')
+          s=p.read_text()
+          if 'lendingContract:' in s:
+              s=re.sub(r"lendingContract:'0x[0-9A-Fa-f]{40}'",f"lendingContract:'{address}'",s)
+          else:
+              s=s.replace("  swapContract:'0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE',", "  swapContract:'0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE',\n  lendingContract:'%s'," % address)
+          p.write_text(s)
+          PY
+          git config user.name 'zoryq-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git add zoryq-web/defi-common.js zoryq-web/config.js
+          git commit -m "feat(defi): activate deployed ZORYQ Lending Lab $LENDING"
+          git push origin HEAD:zoryq-evm-testnet-node
+
+      - name: Summary
+        run: |
+          echo 'ZORYQ Lending Lab deployed and activated'
+          echo 'Chain ID: 5919065'
+          echo 'Contract: ${{ steps.deploy.outputs.address }}'
+          echo 'Owner: treasury admin'
+          echo 'Public dApp: /lending'
