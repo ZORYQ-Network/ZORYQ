@@ -2,7 +2,7 @@ import { JsonRpcProvider, Contract, getAddress } from 'ethers';
 
 const RPC = process.env.ZORYQ_RPC || 'https://zoryq-evm-node-live-production.up.railway.app/rpc';
 const CHAIN_ID = 5919065;
-const SWAP_LAB = '0x8205f34b803edd79ddca414f00e12ecd deddacbe'.replace(/ /g,'');
+const SWAP_LAB = '0x8205f34b803edd79ddca414f00e12ecddeddacbe';
 const STAKE = '0xbb26faadd1e083c7c0dc0a82ddb96cc45253ecb1';
 const FAUCET = '0x0fb96a10a25499248ec7ce8b1fed3ff0307e2910';
 const CLIENT_ZUSD = '0xd2121e96c6af936c0496fdb499c1d0613d26c2b9';
@@ -45,7 +45,7 @@ async function main() {
   const network = await provider.getNetwork();
   if (Number(network.chainId) !== CHAIN_ID) throw new Error(`chain_id_mismatch:${network.chainId}`);
 
-  const swap = new Contract(lower(SWAP_LAB), ['function token() view returns (address)', 'function tokensPerZQ() view returns (uint256)'], provider);
+  const swap = new Contract(SWAP_LAB, ['function token() view returns (address)', 'function tokensPerZQ() view returns (uint256)'], provider);
   const swapToken = await swap.token();
   let tokensPerZQ = null;
   try { tokensPerZQ = (await swap.tokensPerZQ()).toString(); } catch {}
@@ -62,8 +62,8 @@ async function main() {
       historicalZUSD: await tokenMetadata(HISTORICAL_ZUSD)
     },
     canonicality: {
-      swapLabTokenMatchesClientConfig: lower(swapToken) === lower(CLIENT_ZUSD),
-      swapLabTokenMatchesHistorical: lower(swapToken) === lower(HISTORICAL_ZUSD),
+      swapLabTokenMatchesClientConfig: lower(swapToken) === CLIENT_ZUSD,
+      swapLabTokenMatchesHistorical: lower(swapToken) === HISTORICAL_ZUSD,
       swapLabToken: checksum(swapToken)
     }
   };
