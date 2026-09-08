@@ -1,0 +1,28 @@
+name: Verify ZORYQ Live Contracts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-evm-node/scripts/verify-live-contracts.mjs'
+      - '.github/workflows/zoryq-live-contract-verify.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: zoryq-evm-node
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Verify public chain and deployed contract canonicality
+        run: node scripts/verify-live-contracts.mjs
