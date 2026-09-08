@@ -46,7 +46,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for route in /start /developer /docs /explorer /faucet /stake /swap /intelligence /admin-control; do
+          for route in /start /developer /docs /explorer /faucet /stake /swap /intelligence /admin-control /protocol-launch; do
             code="$(curl --silent --show-error --location --output /tmp/zoryq-page --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE$route")"
             test "$code" = '200'
             grep -q 'ZORYQ' /tmp/zoryq-page
@@ -59,10 +59,22 @@ jobs:
           set -euo pipefail
           status="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/status")"
           echo "$status" | jq -e '.ok == true and (.treasury | ascii_downcase) == "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33" and (.proven == true or .proven == false)' >/dev/null
+          deployments="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/deployments")"
+          echo "$deployments" | jq -e '.ok == true and (.controlProven == true or .controlProven == false) and (.deployments | type == "object")' >/dev/null
           code="$(curl --silent --show-error --output /tmp/admin-challenge-reject --write-out '%{http_code}' "$BASE/admin/control/challenge?address=0x000000000000000000000000000000000000dEaD")"
           test "$code" = '403'
           grep -q 'signer_must_equal_configured_treasury' /tmp/admin-challenge-reject
           echo "Treasury control proof service OK"
+
+      - name: Verify CI-built protocol artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for artifact in dexV1 lending projectRegistry; do
+            body="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/protocol-artifacts/$artifact.json")"
+            echo "$body" | jq -e '.bytecode.object | type == "string" and length > 100' >/dev/null
+            echo "$artifact creation artifact OK"
+          done
 
       - name: Verify machine-readable builder surfaces
         shell: bash
