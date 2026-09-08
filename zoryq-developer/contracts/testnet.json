@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.4.0",
+  "schemaVersion": "1.5.0",
   "network": {
     "name": "ZORYQ EVM Testnet",
     "chainId": 5919065,
@@ -33,13 +33,13 @@
     },
     "testToken": {
       "address": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
-      "status": "deployed-live-verified-canonical-for-current-swap-lab",
+      "status": "deployed-live-verified-canonical",
       "name": "ZORYQ Test USD",
       "symbol": "zUSD",
       "decimals": 18,
       "totalSupply": "1000000000000000000000000",
       "owner": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
-      "canonicalityEvidence": "Live read-only verification confirmed Swap Lab token() equals this address and that deployed ERC-20 bytecode/metadata are present.",
+      "canonicalityEvidence": "Live verification confirms both current Swap Lab and DEX v1 reference this deployed ERC-20 address.",
       "historicalAddress": "0x742227605AF1839683A51A7B74B6EB2C75D37A3e",
       "historicalAddressHasCode": false
     },
@@ -60,53 +60,66 @@
     },
     "treasury": {
       "address": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
-      "status": "onchain-owner-alignment-verified-control-proof-required",
+      "status": "control-cryptographically-proven",
       "role": "admin-treasury",
-      "evidence": [
-        "Matches live ZoryqSwapLab.owner()",
-        "Matches live canonical zUSD owner()",
-        "Matches current web client adminTreasury configuration"
-      ],
       "controlProofPage": "/admin-control",
       "controlProofStatusEndpoint": "/admin/control/status",
-      "warning": "Owner alignment does not prove current possession of the signing key. A non-transaction EIP-191 wallet challenge must be completed before privileged protocol deployment is authorized."
+      "lastControlProofAt": "2026-09-08T18:33:03.564Z"
     },
     "dexV1": {
-      "address": null,
-      "status": "source-tested-build-artifact-ready-not-deployed",
+      "address": "0x686Ff70d8D551F0a183DbDc608486De9fA9Aa156",
+      "status": "deployed-live-verified-awaiting-initial-liquidity",
       "source": "zoryq-contracts/src/ZoryqDexV1.sol",
       "deploymentToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
       "feeRecipient": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
-      "deploymentBlockedBy": ["treasury-control-proof", "explicit-wallet-deployment-confirmation", "post-deployment-receipt-code-owner-verification", "initial-liquidity-plan"]
+      "owner": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
+      "deploymentTx": "0xb89514ef0cec3d0ba48f5dbd6759e2b6b50e56df26260a8d120cc227a616ef33",
+      "deploymentBlock": 60928,
+      "bytecodeBytes": 11295,
+      "totalFeeBps": 30,
+      "lpFeeBps": 20,
+      "protocolFeeBps": 10,
+      "active": true,
+      "currentReserves": {"zq": "0", "zusd": "0"},
+      "nextRequiredAction": "seed-initial-liquidity-from-authorized-wallet"
     },
     "lending": {
-      "address": null,
-      "status": "source-tested-build-artifact-ready-not-deployed",
+      "address": "0xA08d491c06a2B01bbe6866CA87302c794aD9fB77",
+      "status": "deployed-live-verified",
       "source": "zoryq-contracts/src/ZoryqLendingLab.sol",
       "deploymentToken": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9",
-      "deploymentBlockedBy": ["treasury-control-proof", "explicit-wallet-deployment-confirmation", "post-deployment-receipt-code-owner-verification", "testnet-liquidity-plan"]
+      "owner": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
+      "deploymentTx": "0x0f212f62f60a23342c408d342db9321dc345143c59ccb9b300fae4b8b110e946",
+      "deploymentBlock": 60931,
+      "bytecodeBytes": 12846,
+      "maxLtvBps": 5000,
+      "liquidationThresholdBps": 7500,
+      "aprBps": 500
     },
     "projectRegistry": {
-      "address": null,
-      "status": "source-tested-build-artifact-ready-not-deployed",
+      "address": "0x180042c92A42f183A67005E8C0968a1F190aab33",
+      "status": "deployed-live-verified",
       "source": "zoryq-contracts/src/ZoryqProjectRegistry.sol",
-      "deploymentBlockedBy": ["treasury-control-proof", "explicit-wallet-deployment-confirmation", "post-deployment-receipt-code-verification"]
+      "deploymentTx": "0x1d81b00649c6f2127cda8dcc956d5e86d61a6e02f79a317693176a039d39c4e2",
+      "deploymentBlock": 60933,
+      "bytecodeBytes": 9694,
+      "projectCount": "0"
     }
   },
   "verification": {
-    "lastLiveReadOnlyEvidenceAt": "2026-09-08T17:53:34.950Z",
+    "lastLiveReadOnlyEvidenceAt": "2026-09-08T19:17:40Z",
     "chainIdVerified": 5919065,
     "contractSuiteCI": "green",
     "projectIntelligenceCI": "green",
     "canonicalProductionSmoke": "green",
-    "contractBuildCommit": "5f997e14919f725ab85faf5d8bcd06bb9d98f030",
-    "contractBuildArtifactDigest": "sha256:9ba28507d7bb4653d0d5114746448be7d1a514918e84d2303d0b9eaad1e0168d",
-    "source": "GitHub Actions + read-only public ZORYQ RPC",
-    "limitations": "Privileged account signer control is separate from owner() alignment and requires the dedicated wallet proof flow."
+    "liveProtocolStateCI": "green",
+    "source": "GitHub Actions + read-only public ZORYQ RPC + persisted deployment verifier",
+    "treasuryBalanceZQ": "99.989554635706234708",
+    "treasuryBalanceZUSD": "900000"
   },
   "policy": {
-    "canonicalAddressRule": "Only mark a contract canonical after current-chain bytecode/state verification. Treat privileged-account signer control as a separate property requiring authorized proof.",
-    "deploymentRule": "No CI job may autonomously broadcast privileged protocol deployments. Require Treasury control proof, explicit wallet confirmation, successful receipt, bytecode verification and ownership/configuration verification.",
+    "canonicalAddressRule": "Only mark a contract canonical after current-chain receipt, bytecode and configuration verification.",
+    "deploymentRule": "Privileged deployments require authorized wallet confirmation and post-deployment verification.",
     "testnetOnly": true,
     "monetaryValue": false
   }
