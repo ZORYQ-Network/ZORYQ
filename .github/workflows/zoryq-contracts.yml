@@ -31,3 +31,17 @@ jobs:
       - name: Test
         working-directory: zoryq-contracts
         run: forge test -vv
+      - name: Package protocol creation artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p protocol-build
+          cp zoryq-contracts/out/ZoryqDexV1.sol/ZoryqDexV1.json protocol-build/
+          cp zoryq-contracts/out/ZoryqLendingLab.sol/ZoryqLendingLab.json protocol-build/
+          cp zoryq-contracts/out/ZoryqProjectRegistry.sol/ZoryqProjectRegistry.json protocol-build/
+      - name: Upload protocol build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Protocol-Build
+          path: protocol-build/*.json
+          if-no-files-found: error
+          retention-days: 7
