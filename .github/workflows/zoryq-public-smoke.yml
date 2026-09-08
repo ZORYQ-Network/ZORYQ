@@ -1,0 +1,84 @@
+name: ZORYQ Public EVM Smoke Test
+
+'on':
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-evm-node/**'
+      - 'zoryq-web/**'
+      - 'Dockerfile'
+      - '.github/workflows/zoryq-public-smoke.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-public-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  public-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE: https://zoryq-evm-node-live-production.up.railway.app
+      TX: 0x23036c7656330368cb8cacee20455c268413085eab31d5f1868c4b042e5eb3f6
+      ADDRESS: 0x509fcfd87c0a3dee40f36b65842aa4ace1fc9ee6
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Wait for Railway deployment
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "$BASE/health" | grep -q '5919065'; then exit 0; fi
+            sleep 10
+          done
+          exit 1
+
+      - name: EVM JSON-RPC compliance
+        run: node zoryq-evm-node/scripts/rpc-compliance.mjs
+
+      - name: Verify EIP-3091 transaction route
+        run: |
+          code=$(curl -sS -o /tmp/tx.html -w '%{http_code}' "$BASE/tx/$TX")
+          test "$code" = '200'
+          grep -q 'ZORYQ Explorer' /tmp/tx.html
+
+      - name: Verify EIP-3091 address route
+        run: |
+          code=$(curl -sS -o /tmp/address.html -w '%{http_code}' "$BASE/address/$ADDRESS")
+          test "$code" = '200'
+          grep -q 'ZORYQ Explorer' /tmp/address.html
+
+      - name: Verify EIP-3091 block route
+        run: |
+          block=$(curl -fsS "$BASE/rpc" -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).result")
+          code=$(curl -sS -o /tmp/block.html -w '%{http_code}' "$BASE/block/$block")
+          test "$code" = '200'
+          grep -q 'ZORYQ Explorer' /tmp/block.html
+
+      - name: Verify public faucet page
+        run: |
+          code=$(curl -sS -o /tmp/faucet.html -w '%{http_code}' "$BASE/faucet")
+          test "$code" = '200'
+          grep -q 'Get 100 ZQ Testnet' /tmp/faucet.html
+          grep -q 'ZORIQNetwork' /tmp/faucet.html
+
+      - name: Verify faucet gate without consuming funds
+        run: |
+          code=$(curl -sS -o /tmp/faucet.json -w '%{http_code}' "$BASE/faucet" -H 'content-type: application/json' --data "{\"address\":\"$ADDRESS\"}")
+          test "$code" = '403'
+          grep -q 'x_follow_attestation_required' /tmp/faucet.json
+
+      - name: Summary
+        run: |
+          echo 'ZORYQ public smoke test PASS'
+          echo 'Chain ID: 5919065'
+          echo 'RPC: PASS'
+          echo 'EIP-3091 /tx /address /block: PASS'
+          echo 'Faucet public UI + anti-abuse gate: PASS'
