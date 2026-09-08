@@ -1,0 +1,37 @@
+name: Package ZORYQ Web
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/**'
+      - '.github/workflows/zoryq-web-package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate required web files
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in index.html start.html testnet-lab.html network-clock.html explorer.html vercel.json; do
+            test -s "zoryq-web/$f" || { echo "Missing zoryq-web/$f"; exit 1; }
+          done
+          grep -q 'https://x.com/ZORIQNetwork' zoryq-web/start.html
+          grep -q 'ZORIQNetwork' zoryq-web/testnet-lab.html
+      - name: Create deployment package
+        run: |
+          cd zoryq-web
+          zip -r ../zoryq-web.zip .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-web-deploy
+          path: zoryq-web.zip
+          if-no-files-found: error
+          retention-days: 3
