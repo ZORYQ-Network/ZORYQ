@@ -62,7 +62,7 @@ assert_chain() {
 
 balance() {
   local out
-  out="$(rpc eth_getBalance \"[\\\"${ADDRESS}\\\",\\\"latest\\\"]\")"
+  out="$(rpc eth_getBalance "[\"${ADDRESS}\",\"latest\"]")"
   OUT="$out" node -e "const x=JSON.parse(process.env.OUT);if(!x.result)throw Error(JSON.stringify(x));process.stdout.write(String(BigInt(x.result)));"
 }
 
@@ -71,13 +71,7 @@ checkpoint() {
 }
 
 assert_persistence_healthy() {
-  docker exec "$CONTAINER" node - <<'NODE'
-const fs=require('fs');
-const x=JSON.parse(fs.readFileSync('/data/zoryq-persistence-status.json','utf8'));
-if(!x.ok || x.source!=='anvil_dumpState' || !x.lastSuccessAt || !x.checkpointSha256) throw Error(JSON.stringify(x));
-if(!fs.existsSync('/data/zoryq-state.current.json.gz')) throw Error('current checkpoint missing');
-console.log(JSON.stringify(x));
-NODE
+  docker exec "$CONTAINER" node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/data/zoryq-persistence-status.json','utf8'));if(!x.ok||x.source!=='anvil_dumpState'||!x.lastSuccessAt||!x.checkpointSha256)throw Error(JSON.stringify(x));if(!fs.existsSync('/data/zoryq-state.current.json.gz'))throw Error('current checkpoint missing');console.log(JSON.stringify(x));"
 }
 
 echo '[chaos] build isolated node image'
