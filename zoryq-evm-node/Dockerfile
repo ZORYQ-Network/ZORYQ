@@ -14,6 +14,9 @@ COPY public-gateway.mjs ./
 COPY admin-control.mjs ./
 COPY edge-gateway.mjs ./
 COPY traffic-gateway.mjs ./
+COPY prepare-reth-genesis.mjs ./
+COPY social-service.mjs ./
+COPY product-gateway.mjs ./
 COPY zoryq-reth-genesis.json ./
 COPY entrypoint.sh ./
 RUN chmod +x /app/entrypoint.sh && mkdir -p /data/reth /app/web /app/protocol-out
