@@ -1,0 +1,61 @@
+name: ZORYQ Transaction Evidence
+
+on:
+  push:
+    branches:
+      - zoryq-p0-performance-evidence
+    paths:
+      - 'zoryq-developer/scripts/zoryq-transaction-benchmark.py'
+      - '.github/workflows/zoryq-transaction-evidence.yml'
+      - 'zoryq-evm-node/**'
+      - 'Dockerfile'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-transactions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install benchmark dependencies
+        run: pip install 'requests==2.32.5' 'eth-account==0.13.7'
+      - name: Build isolated ZORYQ node
+        run: docker build -t zoryq-tx-evidence:${GITHUB_SHA} .
+      - name: Start isolated node
+        run: docker run -d --rm --name zoryq-tx-evidence -p 18080:8080 zoryq-tx-evidence:${GITHUB_SHA}
+      - name: Wait for health and verify chain
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/health > health.json; then break; fi
+            sleep 1
+          done
+          python - <<'PY'
+          import json
+          h=json.load(open('health.json'))
+          assert h['chainId']==5919065, h
+          PY
+      - name: Run signed transaction benchmark
+        run: python zoryq-developer/scripts/zoryq-transaction-benchmark.py --count 50 --concurrency 8 --output zoryq-tx-benchmark.json
+      - name: Capture runtime evidence
+        if: always()
+        run: |
+          docker stats --no-stream --format '{{json .}}' zoryq-tx-evidence > docker-stats.json || true
+          docker inspect zoryq-tx-evidence > docker-inspect.json || true
+          docker logs zoryq-tx-evidence > docker.log 2>&1 || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zoryq-transaction-evidence-${{ github.sha }}
+          path: |
+            zoryq-tx-benchmark.json
+            health.json
+            docker-stats.json
+            docker-inspect.json
+            docker.log
+          retention-days: 30
