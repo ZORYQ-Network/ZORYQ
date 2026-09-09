@@ -31,7 +31,8 @@ http.createServer((req,res)=>{const url=new URL(req.url||'/','http://localhost')
   const htmlRoutes=[
     [['/faucet','/faucet.html'],'faucet.html'],[['/swap','/swap.html'],'swap.html'],[['/stake','/stake.html'],'stake.html'],[['/lending','/lending.html'],'lending.html'],
     [['/developer','/developers','/developer.html'],'developer.html'],[['/build','/quickstart','/build.html'],'build.html'],[['/metrics','/traction','/metrics.html'],'metrics.html'],
-    [['/ecosystem','/builders','/investors','/ecosystem.html'],'ecosystem.html'],[['/intelligence','/genesis-intelligence','/intelligence.html'],'intelligence.html'],
+    [['/ecosystem','/ecosystem.html'],'ecosystem.html'],[['/builders','/challenge','/builder-challenge','/builder-challenge.html'],'builder-challenge.html'],[['/investors','/investor','/investor.html'],'investor.html'],
+    [['/node-operators','/operators','/node-operators.html'],'node-operators.html'],[['/intelligence','/genesis-intelligence','/intelligence.html'],'intelligence.html'],
     [['/admin-control','/admin-control.html'],'admin-control.html'],[['/protocol-launch','/protocol-launch.html'],'protocol-launch.html'],[['/network-maturity','/network-maturity.html'],'network-maturity.html']
   ];
   for(const [routes,file] of htmlRoutes)if(readable&&routes.includes(url.pathname))return serveFile(req,res,file);
