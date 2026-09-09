@@ -6,6 +6,7 @@ COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 COPY server.mjs ./
 COPY explorer-indexer.mjs ./
+COPY explorer-service.mjs ./
 COPY public-gateway.mjs ./
 COPY admin-control.mjs ./
 COPY edge-gateway.mjs ./
