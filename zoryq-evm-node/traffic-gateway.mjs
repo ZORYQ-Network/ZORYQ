@@ -1,5 +1,6 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const PORT = Number(process.env.PORT || 8080);
@@ -14,7 +15,8 @@ const FAUCET_CONCURRENCY = Math.max(1, Number(process.env.ZORYQ_FAUCET_CONCURREN
 const FAUCET_SUCCESS_PER_HOUR = Math.max(10, Number(process.env.ZORYQ_FAUCET_SUCCESS_PER_HOUR || 300));
 const UPSTREAM_TIMEOUT_MS = Math.max(1000, Number(process.env.ZORYQ_UPSTREAM_TIMEOUT_MS || 15_000));
 const PERSISTENCE_STATUS = process.env.ZORYQ_PERSISTENCE_STATUS || '/data/zoryq-persistence-status.json';
-const PERSISTENCE_CURRENT = process.env.ZORYQ_STATE_CURRENT || '/data/zoryq-state.current.json.gz';
+const LEGACY_PERSISTENCE_CURRENT = process.env.ZORYQ_STATE_CURRENT || '/data/zoryq-state.current.json.gz';
+const CHECKPOINT_ROOT = process.env.ZORYQ_CHECKPOINT_ROOT || '/data/zoryq-checkpoints';
 const PERSISTENCE_MAX_AGE_MS = Math.max(300_000, Number(process.env.ZORYQ_PERSISTENCE_MAX_AGE_MS || 7_200_000));
 const PERSISTENCE_GRACE_MS = Math.max(60_000, Number(process.env.ZORYQ_PERSISTENCE_GRACE_MS || 600_000));
 const PERSISTENCE_MAX_FAILURES = Math.max(1, Number(process.env.ZORYQ_PERSISTENCE_MAX_FAILURES || 3));
@@ -33,13 +35,23 @@ let faucetInFlight = 0;
 let faucetSuccess = { window: Math.floor(Date.now() / 3_600_000), count: 0 };
 
 function loadJson(file) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } }
+function nativeGenerationExists(name) {
+  const dir = path.join(CHECKPOINT_ROOT, name);
+  return fs.existsSync(path.join(dir, 'meta.json')) && fs.existsSync(path.join(dir, 'state.hex.gz'));
+}
+function checkpointAvailability(status) {
+  const native = nativeGenerationExists('current') || nativeGenerationExists('previous');
+  const legacy = fs.existsSync(LEGACY_PERSISTENCE_CURRENT);
+  if (status?.source === 'anvil_dumpState_blob') return { exists: native, mode: 'native-rpc-blob', native, legacy };
+  return { exists: legacy || native, mode: native ? 'native-rpc-blob' : 'legacy', native, legacy };
+}
 function persistenceHealth() {
   const now = Date.now();
   const status = loadJson(PERSISTENCE_STATUS);
-  const checkpointExists = fs.existsSync(PERSISTENCE_CURRENT);
+  const availability = checkpointAvailability(status);
   if (!status) {
     const initializing = now - STARTED_AT <= PERSISTENCE_GRACE_MS;
-    return { ready: initializing, state: initializing ? 'initializing' : 'degraded', checkpointExists, reason: initializing ? 'awaiting_persistence_status' : 'persistence_status_missing' };
+    return { ready: initializing, state: initializing ? 'initializing' : 'degraded', checkpointExists: availability.exists, checkpointMode: availability.mode, nativeCurrent: nativeGenerationExists('current'), nativePrevious: nativeGenerationExists('previous'), reason: initializing ? 'awaiting_persistence_status' : 'persistence_status_missing' };
   }
   const lastSuccessAt = Number(status.lastSuccessAt || 0);
   const ageMs = lastSuccessAt ? Math.max(0, now - lastSuccessAt) : null;
@@ -47,8 +59,8 @@ function persistenceHealth() {
   const capacityDeferred = ['disk_critical_checkpoint_deferred', 'memory_critical_checkpoint_deferred'].includes(String(status.message || ''));
   const stale = !lastSuccessAt || ageMs > PERSISTENCE_MAX_AGE_MS;
   const repeatedHardFailure = !capacityDeferred && failures >= PERSISTENCE_MAX_FAILURES;
-  const ready = checkpointExists && !stale && !repeatedHardFailure;
-  return { ready, state: ready ? (failures ? 'degraded' : 'healthy') : 'degraded', checkpointExists, lastSuccessAt: lastSuccessAt || null, ageMs, consecutiveFailures: failures, message: status.message || null, checkpointSha256: status.checkpointSha256 || null, durationMs: status.durationMs ?? null, diskPercent: status.diskPercent ?? null, capacityDeferred };
+  const ready = availability.exists && !stale && !repeatedHardFailure;
+  return { ready, state: ready ? (failures ? 'degraded' : 'healthy') : 'degraded', checkpointExists: availability.exists, checkpointMode: availability.mode, nativeCurrent: nativeGenerationExists('current'), nativePrevious: nativeGenerationExists('previous'), lastSuccessAt: lastSuccessAt || null, ageMs, consecutiveFailures: failures, message: status.message || null, checkpointSha256: status.checkpointSha256 || null, durationMs: status.durationMs ?? null, diskPercent: status.diskPercent ?? null, capacityDeferred };
 }
 function clientIp(req) { return String(req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown').trim(); }
 function windowAllow(map, key, windowMs, limit) { const now = Date.now(); const current = map.get(key); if (!current || now - current.started >= windowMs) { map.set(key, { started: now, count: 1 }); return true; } if (current.count >= limit) return false; current.count++; return true; }
