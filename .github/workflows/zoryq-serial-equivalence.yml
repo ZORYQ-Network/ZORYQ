@@ -1,0 +1,25 @@
+name: ZORYQ Serial Equivalence Oracle
+
+on:
+  push:
+    branches:
+      - zoryq-p0-performance-evidence
+    paths:
+      - 'zoryq-developer/execution/serial-equivalence-oracle.mjs'
+      - 'zoryq-developer/execution/serial-equivalence-oracle.test.mjs'
+      - '.github/workflows/zoryq-serial-equivalence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node --test zoryq-developer/execution/serial-equivalence-oracle.test.mjs
