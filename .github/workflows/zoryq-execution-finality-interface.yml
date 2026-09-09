@@ -1,0 +1,29 @@
+name: ZORYQ Execution Finality Interface
+
+on:
+  push:
+    branches:
+      - zoryq-p0-validator-resilience
+    paths:
+      - 'zoryq-developer/execution/**'
+      - '.github/workflows/zoryq-execution-finality-interface.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  finality-semantics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify explicit finality state machine
+        run: node --test zoryq-developer/execution/finality-tracker.test.mjs
+      - name: Reject accidental production-finality wording
+        run: |
+          grep -q 'development confirmation policy' zoryq-developer/ZORYQ_EXECUTION_INTERFACE.md
+          grep -q 'not consensus finality' zoryq-developer/ZORYQ_EXECUTION_INTERFACE.md
