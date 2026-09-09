@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 
 const PORT = Number(process.env.PORT || 8080);
 const EDGE_PORT = Number(process.env.ZORYQ_INTERNAL_EDGE_PORT || 8084);
+const EDGE_HEAP_MB = Math.max(64, Number(process.env.ZORYQ_EDGE_HEAP_MB || 96));
 const MAX_BODY_BYTES = Math.max(64_000, Number(process.env.ZORYQ_MAX_BODY_BYTES || 1_000_000));
 const MAX_RPC_BATCH = Math.max(1, Number(process.env.ZORYQ_MAX_RPC_BATCH || 50));
 const GLOBAL_RPC_CONCURRENCY = Math.max(4, Number(process.env.ZORYQ_RPC_CONCURRENCY || 64));
@@ -13,10 +14,11 @@ const FAUCET_PER_HOUR_IP = Math.max(1, Number(process.env.ZORYQ_FAUCET_PER_HOUR_
 const FAUCET_CONCURRENCY = Math.max(1, Number(process.env.ZORYQ_FAUCET_CONCURRENCY || 8));
 const FAUCET_SUCCESS_PER_HOUR = Math.max(10, Number(process.env.ZORYQ_FAUCET_SUCCESS_PER_HOUR || 300));
 const UPSTREAM_TIMEOUT_MS = Math.max(1000, Number(process.env.ZORYQ_UPSTREAM_TIMEOUT_MS || 15_000));
+const MAX_RATE_KEYS = Math.max(1000, Number(process.env.ZORYQ_MAX_RATE_KEYS || 20_000));
 const PERSISTENCE_STATUS = process.env.ZORYQ_PERSISTENCE_STATUS || '/data/zoryq-persistence-status.json';
 const RETH_DATA_DIR = process.env.ZORYQ_RETH_DATA_DIR || '/data/reth';
 
-const edge = spawn(process.execPath, ['edge-gateway.mjs'], { stdio: 'inherit', env: { ...process.env, PORT: String(EDGE_PORT) } });
+const edge = spawn(process.execPath, [`--max-old-space-size=${EDGE_HEAP_MB}`, 'edge-gateway.mjs'], { stdio: 'inherit', env: { ...process.env, PORT: String(EDGE_PORT) } });
 edge.on('exit', (code, signal) => { console.error('ZORYQ edge gateway exited', { code, signal }); process.exit(code || 1); });
 process.on('SIGTERM', () => edge.kill('SIGTERM'));
 process.on('SIGINT', () => edge.kill('SIGINT'));
@@ -40,7 +42,23 @@ function persistenceHealth() {
   return { ready, readyForTraffic:ready, mode:'reth-native-db', state:ready?'healthy':'degraded', databaseExists, lastSuccessAt:status.lastSuccessAt||null, clientVersion:status.clientVersion||null, blockNumber:status.blockNumber??null, message:status.message||null, diskPercent:diskPercent(), reason:ready?null:(!rethNative?'unexpected_persistence_mode':'reth_database_not_ready') };
 }
 function clientIp(req) { return String(req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown').trim(); }
-function windowAllow(map, key, windowMs, limit) { const now = Date.now(); const current = map.get(key); if (!current || now - current.started >= windowMs) { map.set(key, { started: now, count: 1 }); return true; } if (current.count >= limit) return false; current.count++; return true; }
+function pruneWindowMap(map, cutoff) { for (const [key,value] of map) if (!value || Number(value.started||0) < cutoff) map.delete(key); }
+function windowAllow(map, key, windowMs, limit) {
+  const now = Date.now();
+  const current = map.get(key);
+  if (!current || now - current.started >= windowMs) {
+    if (!current && map.size >= MAX_RATE_KEYS) {
+      pruneWindowMap(map, now - windowMs);
+      if (map.size >= MAX_RATE_KEYS) return false;
+    }
+    map.set(key, { started: now, count: 1 });
+    return true;
+  }
+  if (current.count >= limit) return false;
+  current.count++;
+  return true;
+}
+setInterval(()=>{const now=Date.now();pruneWindowMap(rpcMinute,now-60_000);pruneWindowMap(faucetHour,now-3_600_000);},300_000).unref?.();
 function sendJson(res, status, body, headers = {}) { res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*', ...headers }); res.end(JSON.stringify(body)); }
 async function readBody(req) { const chunks = []; let size = 0; for await (const chunk of req) { size += chunk.length; if (size > MAX_BODY_BYTES) throw Object.assign(new Error('request_too_large'), { status: 413 }); chunks.push(chunk); } return Buffer.concat(chunks); }
 function faucetSuccessWindow() { const window = Math.floor(Date.now() / 3_600_000); if (faucetSuccess.window !== window) faucetSuccess = { window, count: 0 }; return faucetSuccess; }
@@ -48,7 +66,7 @@ function faucetIssuanceAvailable() { return faucetSuccessWindow().count < FAUCET
 function markFaucetSuccess() { faucetSuccessWindow().count++; }
 function releaseRpc(ip) { rpcInFlight = Math.max(0, rpcInFlight - 1); const n = Math.max(0, Number(rpcInFlightByIp.get(ip) || 0) - 1); if (n) rpcInFlightByIp.set(ip, n); else rpcInFlightByIp.delete(ip); }
 function proxy(req, res, body, ip, isRpc = false) { const headers = { ...req.headers, host: `127.0.0.1:${EDGE_PORT}` }; if (body) headers['content-length'] = String(body.length); let released = false; const release = () => { if (released) return; released = true; if (isRpc) releaseRpc(ip); }; const upstream = http.request({ hostname: '127.0.0.1', port: EDGE_PORT, path: req.url, method: req.method, headers }, (u) => { res.writeHead(u.statusCode || 502, u.headers); u.pipe(res); u.on('end', release); }); upstream.setTimeout(UPSTREAM_TIMEOUT_MS, () => upstream.destroy(new Error('upstream_timeout'))); upstream.on('error', (error) => { release(); if (!res.headersSent) sendJson(res, error.message === 'upstream_timeout' ? 504 : 503, { ok: false, error: error.message === 'upstream_timeout' ? 'upstream_timeout' : 'gateway_unavailable' }); else res.destroy(); }); upstream.on('close', release); if (body) upstream.end(body); else req.pipe(upstream); }
-function proxyFaucet(req, res, body) { const headers = { ...req.headers, host: `127.0.0.1:${EDGE_PORT}`, 'content-length': String(body.length) }; faucetInFlight++; let released = false; const release = () => { if (released) return; released = true; faucetInFlight = Math.max(0, faucetInFlight - 1); }; const upstream = http.request({ hostname: '127.0.0.1', port: EDGE_PORT, path: req.url, method: req.method, headers }, (u) => { const chunks = []; let size = 0; u.on('data', (chunk) => { size += chunk.length; if (size <= MAX_BODY_BYTES) chunks.push(chunk); }); u.on('end', () => { release(); const status = u.statusCode || 502; if (status >= 200 && status < 300) markFaucetSuccess(); res.writeHead(status, u.headers); res.end(Buffer.concat(chunks)); }); }); upstream.setTimeout(UPSTREAM_TIMEOUT_MS, () => upstream.destroy(new Error('upstream_timeout'))); upstream.on('error', (error) => { release(); if (!res.headersSent) sendJson(res, error.message === 'upstream_timeout' ? 504 : 503, { ok: false, error: error.message === 'upstream_timeout' ? 'upstream_timeout' : 'gateway_unavailable' }); else res.destroy(); }); upstream.on('close', release); upstream.end(body); }
+function proxyFaucet(req, res, body) { const headers = { ...req.headers, host: `127.0.0.1:${EDGE_PORT}`, 'content-length': String(body.length) }; faucetInFlight++; let released = false; const release = () => { if (released) return; released = true; faucetInFlight = Math.max(0, faucetInFlight - 1); }; const upstream = http.request({ hostname: '127.0.0.1', port: EDGE_PORT, path: req.url, method:req.method, headers }, (u) => { const chunks = []; let size = 0; u.on('data', (chunk) => { size += chunk.length; if (size <= MAX_BODY_BYTES) chunks.push(chunk); }); u.on('end', () => { release(); const status = u.statusCode || 502; if (status >= 200 && status < 300) markFaucetSuccess(); res.writeHead(status, u.headers); res.end(Buffer.concat(chunks)); }); }); upstream.setTimeout(UPSTREAM_TIMEOUT_MS, () => upstream.destroy(new Error('upstream_timeout'))); upstream.on('error', (error) => { release(); if (!res.headersSent) sendJson(res, error.message === 'upstream_timeout' ? 504 : 503, { ok: false, error: error.message === 'upstream_timeout' ? 'upstream_timeout' : 'gateway_unavailable' }); else res.destroy(); }); upstream.on('close', release); upstream.end(body); }
 function handleHealth(res) {
   const upstream = http.request({ hostname: '127.0.0.1', port: EDGE_PORT, path: '/health', method: 'GET' }, (u) => {
     let raw = ''; u.on('data', c => { if (raw.length < MAX_BODY_BYTES) raw += c; }); u.on('end', () => {
@@ -91,6 +109,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`ZORYQ traffic gateway listening on :${PORT}; protected edge :${EDGE_PORT}`);
-  console.log('ZORYQ public protection enabled', { MAX_BODY_BYTES, MAX_RPC_BATCH, GLOBAL_RPC_CONCURRENCY, PER_IP_RPC_CONCURRENCY, RPC_PER_MINUTE, FAUCET_PER_HOUR_IP, FAUCET_CONCURRENCY, FAUCET_SUCCESS_PER_HOUR, UPSTREAM_TIMEOUT_MS, persistence:'reth-native-db' });
+  console.log(`ZORYQ traffic gateway listening on :${PORT}; protected edge :${EDGE_PORT}; edgeHeapMb=${EDGE_HEAP_MB}`);
+  console.log('ZORYQ public protection enabled', { MAX_BODY_BYTES, MAX_RPC_BATCH, GLOBAL_RPC_CONCURRENCY, PER_IP_RPC_CONCURRENCY, RPC_PER_MINUTE, FAUCET_PER_HOUR_IP, FAUCET_CONCURRENCY, FAUCET_SUCCESS_PER_HOUR, UPSTREAM_TIMEOUT_MS, MAX_RATE_KEYS, persistence:'reth-native-db' });
 });
