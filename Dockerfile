@@ -22,6 +22,7 @@ COPY zoryq-evm-node/edge-gateway.mjs ./edge-gateway.mjs
 COPY zoryq-evm-node/traffic-gateway.mjs ./traffic-gateway.mjs
 COPY zoryq-evm-node/persistence-validator.mjs ./persistence-validator.mjs
 COPY zoryq-evm-node/atomic-checkpoint.sh ./atomic-checkpoint.sh
+COPY zoryq-evm-node/rpc-state-checkpoint.mjs ./rpc-state-checkpoint.mjs
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY --from=protocol-builder /build/zoryq-contracts/out ./protocol-out
 COPY zoryq-web ./web
