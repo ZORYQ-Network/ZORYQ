@@ -1,4 +1,4 @@
-# Product Requirements — KYVO
+# Product Requirements — ZORYQ
 
 ## P0 — obrigatório antes de beta público
 ### Conta e onboarding
@@ -14,7 +14,7 @@
 - Simular transação e mostrar destino, valor, rede e gas antes de assinar.
 
 ### Swap
-- Quote real, slippage, price impact, gas, rota e fee KYVO.
+- Quote real, slippage, price impact, gas, rota e fee ZORYQ.
 - Cross-chain quando houver rota suportada.
 - Aprovação exata por padrão quando tecnicamente possível.
 - Bloqueio de execução quando quote expirar.
@@ -24,16 +24,16 @@
 - Rate limiting, anti-spam e moderação.
 - Privacidade por usuário.
 
-### Spotify
-- OAuth Authorization Code + PKCE.
-- Now Playing e controles apenas conforme scopes/permissões oficiais.
-- Desconectar conta e revogar sessão no app.
+### Integrações
+- OAuth Authorization Code + PKCE quando necessário.
+- Scopes mínimos e revogação de sessão.
+- Integrações externas devem ser opcionais e isoladas da custódia da wallet.
 
-### XP
+### XP e quests
 - Ledger append-only de eventos.
 - Regras versionadas.
 - Anti-sybil/anti-farming.
-- `Airdrop Coming Soon` sem promessa de alocação.
+- Nenhuma promessa de token, alocação ou retorno financeiro sem decisão formal e documentação específica.
 
 ## P1 — pós-beta
 - WalletConnect/Reown.
@@ -44,7 +44,7 @@
 - Referral revenue share.
 
 ## P2 — expansão
-- Token, somente após decisão formal.
+- Token somente após decisão formal.
 - Governança progressiva.
 - SDK/partner API.
 - Marketplace de itens digitais.
@@ -55,9 +55,12 @@
 - wallets criadas/verificadas;
 - MAU/WAU;
 - retenção D7/D30;
-- swap volume e receita líquida;
+- atividade on-chain e receita líquida;
 - posts/engajamento saudável;
 - conclusão de quests;
 - fraude/sybil rate;
 - crash-free sessions;
-- latência de quote e assinatura.
+- latência de RPC, quote e assinatura.
+
+## Identidade
+Toda interface, documentação, artefato e identificador novo deve usar exclusivamente `ZORYQ` ou `zoryq` conforme o contexto técnico.
