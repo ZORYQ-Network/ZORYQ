@@ -19,6 +19,7 @@ RUN sed -i "s/const args=\['--host'/const args=['--silent','--host'/" ./server.m
 COPY zoryq-evm-node/public-gateway.mjs ./public-gateway.mjs
 COPY zoryq-evm-node/admin-control.mjs ./admin-control.mjs
 COPY zoryq-evm-node/edge-gateway.mjs ./edge-gateway.mjs
+COPY zoryq-evm-node/traffic-gateway.mjs ./traffic-gateway.mjs
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY --from=protocol-builder /build/zoryq-contracts/out ./protocol-out
 COPY zoryq-web ./web
