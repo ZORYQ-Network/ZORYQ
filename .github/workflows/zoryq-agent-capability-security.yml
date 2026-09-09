@@ -1,0 +1,38 @@
+name: ZORYQ Agent Capability Security
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - zoryq-p0-agent-security
+    paths:
+      - 'zoryq-developer/agent-security/**'
+      - '.github/workflows/zoryq-agent-capability-security.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  negative-security-suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Run scoped capability security tests
+        run: node --test zoryq-developer/agent-security/capability.test.mjs
+      - name: Verify required denial coverage
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const t=fs.readFileSync('zoryq-developer/agent-security/capability.test.mjs','utf8');
+          const required=[
+            'target_not_allowed','method_not_allowed','asset_not_allowed',
+            'per_action_budget_exceeded','permission_expired','rate_limit_exceeded',
+            'replay_detected','permission_revoked','slippage_exceeded',
+            'simulation_mismatch','sponsorship_quota_exceeded','cumulative_budget_exceeded'
+          ];
+          const missing=required.filter(x=>!t.includes(x));
+          if(missing.length) throw new Error('missing denial coverage: '+missing.join(','));
+          console.log('All required denial classes are covered.');
+          NODE
