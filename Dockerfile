@@ -20,10 +20,12 @@ COPY zoryq-evm-node/public-gateway.mjs ./public-gateway.mjs
 COPY zoryq-evm-node/admin-control.mjs ./admin-control.mjs
 COPY zoryq-evm-node/edge-gateway.mjs ./edge-gateway.mjs
 COPY zoryq-evm-node/traffic-gateway.mjs ./traffic-gateway.mjs
+COPY zoryq-evm-node/persistence-validator.mjs ./persistence-validator.mjs
+COPY zoryq-evm-node/atomic-checkpoint.sh ./atomic-checkpoint.sh
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY --from=protocol-builder /build/zoryq-contracts/out ./protocol-out
 COPY zoryq-web ./web
-RUN chmod +x /app/entrypoint.sh && mkdir -p /data
+RUN chmod +x /app/entrypoint.sh /app/atomic-checkpoint.sh && mkdir -p /data
 ENV PORT=8080
 EXPOSE 8080
 CMD ["/app/entrypoint.sh"]
