@@ -2,11 +2,14 @@ name: ZORYQ State Recovery
 
 on:
   push:
-    branches: [zoryq-evm-testnet-node]
+    branches: [zoryq-evm-testnet-node, zoryq-p0-soak-chaos]
     paths:
       - 'zoryq-evm-node/**'
       - '.github/workflows/zoryq-state-recovery.yml'
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   recovery-drill:
@@ -20,17 +23,17 @@ jobs:
 
       - name: Start node with persistent test volume
         run: |
+          set -euo pipefail
           docker volume create zoryq-recovery-state
           docker run -d --name zoryq-recovery \
-            -p 8080:8080 \
+            -p 18081:8080 \
             -v zoryq-recovery-state:/data \
-            -e ZORYQ_STATE_INTERVAL=30 \
-            -e ZORYQ_STATE_BACKUP_INTERVAL=5 \
-            -e ZORYQ_STATE_SNAPSHOT_RETRIES=5 \
-            -e ZORYQ_STATE_SNAPSHOT_RETRY_DELAY=1 \
+            -e ZORYQ_STATE_INTERVAL=3600 \
+            -e ZORYQ_STATE_INITIAL_CHECKPOINT_DELAY=3600 \
+            -e ZORYQ_STATE_BACKUP_INTERVAL=3600 \
             zoryq-recovery
           for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8080/health >/tmp/health.json; then
+            if curl -fsS http://127.0.0.1:18081/health >/tmp/health.json; then
               test "$(jq -r .chainId /tmp/health.json)" = "5919065"
               exit 0
             fi
@@ -39,65 +42,63 @@ jobs:
           docker logs zoryq-recovery
           exit 1
 
-      - name: Create deterministic local-only state
+      - name: Create deterministic state and native checkpoint
         run: |
+          set -euo pipefail
           ADDRESS=0x1000000000000000000000000000000000000001
-          curl -fsS -X POST http://127.0.0.1:8080/faucet \
+          curl -fsS -X POST http://127.0.0.1:18081/faucet \
             -H 'content-type: application/json' \
-            -H 'x-real-ip: 127.0.0.1' \
             -d "{\"address\":\"$ADDRESS\"}" >/tmp/faucet.json
-          EXPECTED=$(curl -fsS -X POST http://127.0.0.1:8080/rpc \
+          EXPECTED=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
             -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBalance\",\"params\":[\"$ADDRESS\",\"latest\"]}" | jq -r .result)
           test "$EXPECTED" != "0x0"
           echo "$EXPECTED" >/tmp/expected-balance
+          docker exec zoryq-recovery node /app/rpc-state-checkpoint.mjs | tee /tmp/checkpoint.log
+          docker exec zoryq-recovery node - <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync('/data/zoryq-persistence-status.json','utf8'));
+          if(!x.ok||x.source!=='anvil_dumpState_blob'||!x.checkpointSha256) throw Error(JSON.stringify(x));
+          if(!fs.existsSync('/data/zoryq-checkpoints/current/state.hex.gz')) throw Error('state blob missing');
+          if(!fs.existsSync('/data/zoryq-checkpoints/current/meta.json')) throw Error('metadata missing');
+          NODE
 
-      - name: Wait for persisted state and verified compressed snapshot
+      - name: Hard-kill and remove legacy primary state
         run: |
-          sleep 42
-          for i in $(seq 1 12); do
-            if docker exec zoryq-recovery sh -c 'test -s /data/zoryq-state.json && test -s /data/zoryq-state.json.bak.gz'; then
-              if docker logs zoryq-recovery 2>&1 | grep -q 'verified compressed recovery snapshot updated'; then
-                exit 0
-              fi
-            fi
-            sleep 5
-          done
-          docker logs zoryq-recovery
-          exit 1
-
-      - name: Stop node and corrupt only primary state
-        run: |
-          docker stop zoryq-recovery
+          set -euo pipefail
+          docker kill -s KILL zoryq-recovery
           docker rm zoryq-recovery
-          docker run --rm -v zoryq-recovery-state:/data alpine:3.20 sh -c "printf '{corrupted' > /data/zoryq-state.json"
+          docker run --rm -v zoryq-recovery-state:/data alpine:3.22 sh -c 'rm -f /data/zoryq-state.json /data/zoryq-state.json.bak /data/zoryq-state.json.bak.gz'
 
-      - name: Restart from the same volume and prove recovery
+      - name: Restart and require boot-gated native recovery
         run: |
+          set -euo pipefail
           docker run -d --name zoryq-recovered \
-            -p 8080:8080 \
+            -p 18081:8080 \
             -v zoryq-recovery-state:/data \
-            -e ZORYQ_STATE_INTERVAL=30 \
-            -e ZORYQ_STATE_BACKUP_INTERVAL=5 \
+            -e ZORYQ_STATE_INTERVAL=3600 \
+            -e ZORYQ_STATE_INITIAL_CHECKPOINT_DELAY=3600 \
+            -e ZORYQ_STATE_BACKUP_INTERVAL=3600 \
             zoryq-recovery
           for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:8080/health >/tmp/recovered-health.json; then
-              test "$(jq -r .chainId /tmp/recovered-health.json)" = "5919065"
-              break
-            fi
+            if curl -fsS http://127.0.0.1:18081/health >/tmp/recovered-health.json; then break; fi
+            if ! docker inspect -f '{{.State.Running}}' zoryq-recovered 2>/dev/null | grep -q true; then docker logs zoryq-recovered; exit 1; fi
             sleep 1
           done
-          docker logs zoryq-recovered 2>&1 | grep -q 'restored last verified compressed backup'
-          docker exec zoryq-recovered node -e "JSON.parse(require('fs').readFileSync('/data/zoryq-state.json','utf8'))"
+          jq -e '.ok == true and .chainId == 5919065 and .readyForTraffic == true and .persistence.mode == "native-rpc-blob" and .persistence.readyForTraffic == true' /tmp/recovered-health.json >/dev/null
+          docker logs zoryq-recovered 2>&1 | grep -q 'RPC blob checkpoint restored from current'
+          docker logs zoryq-recovered 2>&1 | grep -q 'public readiness released'
 
-      - name: Verify funded state survived restore
+      - name: Verify funded state survived exact restore
         run: |
+          set -euo pipefail
           ADDRESS=0x1000000000000000000000000000000000000001
           EXPECTED=$(cat /tmp/expected-balance)
-          ACTUAL=$(curl -fsS -X POST http://127.0.0.1:8080/rpc \
+          ACTUAL=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
             -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBalance\",\"params\":[\"$ADDRESS\",\"latest\"]}" | jq -r .result)
           test "$ACTUAL" = "$EXPECTED"
+          test "$(curl -fsS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"eth_chainId","params":[]}' | jq -r .result)" = "0x5a5159"
 
       - name: Show recovery logs on failure
         if: failure()

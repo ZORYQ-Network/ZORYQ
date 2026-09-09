@@ -1,0 +1,99 @@
+name: ZORYQ Atomic Persistence
+
+on:
+  push:
+    branches: [zoryq-p0-soak-chaos]
+    paths:
+      - 'zoryq-evm-node/**'
+      - '.github/workflows/zoryq-atomic-persistence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  atomic-persistence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build isolated node
+        run: docker build -t zoryq-atomic ./zoryq-evm-node
+
+      - name: Start node
+        run: |
+          set -euo pipefail
+          docker volume create zoryq-atomic-state
+          docker run -d --name zoryq-atomic \
+            -p 18082:8080 \
+            -v zoryq-atomic-state:/data \
+            -e ZORYQ_STATE_INITIAL_CHECKPOINT_DELAY=3600 \
+            -e ZORYQ_STATE_BACKUP_INTERVAL=3600 \
+            zoryq-atomic
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:18082/health >/tmp/health.json && exit 0
+            sleep 1
+          done
+          docker logs zoryq-atomic
+          exit 1
+
+      - name: Commit generation one
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST http://127.0.0.1:18082/faucet -H 'content-type: application/json' \
+            -d '{"address":"0x1000000000000000000000000000000000000001"}' >/tmp/faucet-1.json
+          docker exec zoryq-atomic node /app/rpc-state-checkpoint.mjs
+          docker exec zoryq-atomic node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto'),zlib=require('zlib');
+          const root='/data/zoryq-checkpoints/current';
+          const meta=JSON.parse(fs.readFileSync(root+'/meta.json','utf8'));
+          const blob=fs.readFileSync(root+'/state.hex.gz');
+          const digest=crypto.createHash('sha256').update(blob).digest('hex');
+          if(meta.version!==1||meta.format!=='anvil_dumpState_hex_gzip_v1'||meta.chainId!==5919065||meta.chainIdHex!=='0x5a5159') throw Error(JSON.stringify(meta));
+          if(meta.checkpointSha256!==digest||meta.compressedBytes!==blob.length) throw Error('digest/size mismatch');
+          const hex=zlib.gunzipSync(blob).toString('ascii');
+          if(!/^[0-9a-f]+$/.test(hex)||hex.length!==meta.hexChars||hex.length%2) throw Error('invalid payload');
+          fs.writeFileSync('/tmp/first-sha',digest);
+          console.log(JSON.stringify({blockNumber:meta.blockNumber,blockHash:meta.blockHash,digest}));
+          NODE
+
+      - name: Commit generation two and verify atomic rotation
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST http://127.0.0.1:18082/faucet -H 'content-type: application/json' \
+            -d '{"address":"0x2000000000000000000000000000000000000002"}' >/tmp/faucet-2.json
+          docker exec zoryq-atomic node /app/rpc-state-checkpoint.mjs
+          docker exec zoryq-atomic node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const cur='/data/zoryq-checkpoints/current',prev='/data/zoryq-checkpoints/previous';
+          for(const root of [cur,prev]) for(const file of ['meta.json','state.hex.gz']) if(!fs.existsSync(root+'/'+file)) throw Error(root+'/'+file+' missing');
+          const c=JSON.parse(fs.readFileSync(cur+'/meta.json','utf8')),p=JSON.parse(fs.readFileSync(prev+'/meta.json','utf8'));
+          const cd=crypto.createHash('sha256').update(fs.readFileSync(cur+'/state.hex.gz')).digest('hex');
+          const pd=crypto.createHash('sha256').update(fs.readFileSync(prev+'/state.hex.gz')).digest('hex');
+          if(c.checkpointSha256!==cd||p.checkpointSha256!==pd) throw Error('generation digest mismatch');
+          if(c.checkpointSha256===p.checkpointSha256) throw Error('rotation did not create distinct generation');
+          const status=JSON.parse(fs.readFileSync('/data/zoryq-persistence-status.json','utf8'));
+          if(!status.ok||status.source!=='anvil_dumpState_blob'||status.checkpointSha256!==c.checkpointSha256) throw Error(JSON.stringify(status));
+          const names=fs.readdirSync('/data/zoryq-checkpoints');
+          if(names.some(n=>n.startsWith('.tmp-'))||names.includes('.writer-lock')) throw Error('temporary persistence residue found');
+          console.log(JSON.stringify({current:c.blockNumber,previous:p.blockNumber,currentSha:cd,previousSha:pd}));
+          NODE
+
+      - name: Verify public health exposes persistence readiness
+        run: |
+          set -euo pipefail
+          curl -fsS http://127.0.0.1:18082/health >/tmp/health-final.json
+          jq -e '.ok == true and .chainId == 5919065 and .readyForTraffic == true and .persistence.mode == "native-rpc-blob" and .persistence.readyForTraffic == true and .persistence.consecutiveFailures == 0' /tmp/health-final.json >/dev/null
+
+      - name: Show evidence on failure
+        if: failure()
+        run: |
+          docker logs zoryq-atomic 2>/dev/null || true
+          docker exec zoryq-atomic sh -c 'find /data -maxdepth 4 -print | sort; cat /data/zoryq-persistence-status.json 2>/dev/null || true' 2>/dev/null || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f zoryq-atomic 2>/dev/null || true
+          docker volume rm zoryq-atomic-state 2>/dev/null || true
