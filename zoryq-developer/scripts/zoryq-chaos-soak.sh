@@ -13,9 +13,8 @@ mkdir -p "$ARTIFACT_DIR"
 capture() {
   docker logs "$CONTAINER" >"$ARTIFACT_DIR/container-final.log" 2>&1 || true
   docker inspect "$CONTAINER" >"$ARTIFACT_DIR/container-final.inspect.json" 2>&1 || true
-  docker exec "$CONTAINER" sh -c 'ls -lah /data; echo ---; cat /data/zoryq-persistence-status.json 2>/dev/null || true' >"$ARTIFACT_DIR/data-final.txt" 2>&1 || true
+  docker exec "$CONTAINER" sh -c 'find /data -maxdepth 4 -type f -o -type d | sort; echo ---; cat /data/zoryq-persistence-status.json 2>/dev/null || true' >"$ARTIFACT_DIR/data-final.txt" 2>&1 || true
 }
-
 cleanup() {
   capture
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
@@ -35,31 +34,25 @@ run_node() {
     -e ZORYQ_STATE_BACKUP_INTERVAL=3600 \
     "$IMAGE" >/dev/null
 }
-
 wait_health() {
   for _ in $(seq 1 120); do
-    if curl -fsS "http://127.0.0.1:${PORT}/health" >"$ARTIFACT_DIR/health-latest.json" 2>/dev/null; then
-      return 0
-    fi
+    if curl -fsS "http://127.0.0.1:${PORT}/health" >"$ARTIFACT_DIR/health-latest.json" 2>/dev/null; then return 0; fi
     sleep 1
   done
   docker logs "$CONTAINER" >&2 || true
   return 1
 }
-
 rpc() {
   local method="$1" params="${2:-[]}" id="${3:-1}"
   curl -fsS -H 'content-type: application/json' \
     --data "{\"jsonrpc\":\"2.0\",\"id\":${id},\"method\":\"${method}\",\"params\":${params}}" \
     "http://127.0.0.1:${PORT}/rpc"
 }
-
 assert_chain() {
   local out
   out="$(rpc eth_chainId '[]')"
   OUT="$out" node -e "const x=JSON.parse(process.env.OUT);if(x.result!=='0x5a5159')throw Error('unexpected chain id '+JSON.stringify(x));"
 }
-
 balance() {
   ADDRESS="$ADDRESS" PORT="$PORT" node - <<'NODE'
 const body={jsonrpc:'2.0',id:1,method:'eth_getBalance',params:[process.env.ADDRESS,'latest']};
@@ -69,21 +62,21 @@ if(!x.result) throw Error(JSON.stringify(x));
 process.stdout.write(String(BigInt(x.result)));
 NODE
 }
-
-checkpoint() {
-  docker exec "$CONTAINER" node /app/rpc-state-checkpoint.mjs
-}
-
+checkpoint() { docker exec "$CONTAINER" node /app/rpc-state-checkpoint.mjs; }
+restore_checkpoint() { docker exec -e ZORYQ_BOOT_RECOVERY=true "$CONTAINER" node /app/rpc-state-restore.mjs; }
 assert_persistence_healthy() {
-  docker exec "$CONTAINER" node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/data/zoryq-persistence-status.json','utf8'));if(!x.ok||x.source!=='anvil_dumpState'||!x.lastSuccessAt||!x.checkpointSha256)throw Error(JSON.stringify(x));if(!fs.existsSync('/data/zoryq-state.current.json.gz'))throw Error('current checkpoint missing');console.log(JSON.stringify(x));"
+  docker exec "$CONTAINER" node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync('/data/zoryq-persistence-status.json','utf8'));if(!x.ok||x.source!=='anvil_dumpState_blob'||!x.lastSuccessAt||!x.checkpointSha256)throw Error(JSON.stringify(x));const root='/data/zoryq-checkpoints/current';if(!fs.existsSync(root+'/state.hex.gz')||!fs.existsSync(root+'/meta.json'))throw Error('current blob checkpoint missing');console.log(JSON.stringify(x));"
+}
+remove_primary_state() {
+  docker run --rm -v "${VOLUME}:/data" alpine:3.22 sh -c 'rm -f /data/zoryq-state.json /data/zoryq-state.json.bak /data/zoryq-state.json.bak.gz'
 }
 
 echo '[chaos] build isolated node image'
 docker build -t "$IMAGE" .
 docker volume create "$VOLUME" >/dev/null
 
-# Phase 1: establish state and capture it directly from Anvil memory.
-echo '[chaos] phase 1: in-memory state -> RPC checkpoint'
+# Phase 1: establish state and capture the live Anvil memory image.
+echo '[chaos] phase 1: live in-memory state -> native RPC blob checkpoint'
 run_node
 wait_health
 assert_chain
@@ -96,28 +89,42 @@ printf '%s\n' "$EXPECTED_BALANCE" >"$ARTIFACT_DIR/balance-before-checkpoint.txt"
 checkpoint | tee "$ARTIFACT_DIR/checkpoint-first.log"
 assert_persistence_healthy >"$ARTIFACT_DIR/persistence-before-kill.json"
 
-# Phase 2: immediate SIGKILL after a committed RPC checkpoint must preserve exact state.
-echo '[chaos] phase 2: immediate SIGKILL and restore'
+# Phase 2: immediate SIGKILL, start a clean private Anvil, load the blob, and prove exact state.
+echo '[chaos] phase 2: immediate SIGKILL and native blob restore'
 docker kill -s KILL "$CONTAINER" >/dev/null
 docker rm "$CONTAINER" >/dev/null
+remove_primary_state
 run_node
+restore_checkpoint | tee "$ARTIFACT_DIR/restore-after-kill.log"
 wait_health
 assert_chain
 RECOVERED_BALANCE="$(balance)"
 [ "$RECOVERED_BALANCE" = "$EXPECTED_BALANCE" ] || { echo "balance mismatch after SIGKILL: expected=$EXPECTED_BALANCE actual=$RECOVERED_BALANCE" >&2; exit 1; }
 
-# Phase 3: corrupt the live primary file. Boot must restore current/previous and never genesis-reset.
-echo '[chaos] phase 3: corrupt primary state and recover transactionally'
-docker stop "$CONTAINER" >/dev/null
+# Create a second committed generation so fallback can be tested independently.
+checkpoint | tee "$ARTIFACT_DIR/checkpoint-second.log"
+assert_persistence_healthy >"$ARTIFACT_DIR/persistence-second.json"
+
+# Phase 3: corrupt current checkpoint; restore must reject it and fall back to previous.
+echo '[chaos] phase 3: corrupt current checkpoint and recover from previous'
+docker kill -s KILL "$CONTAINER" >/dev/null
 docker rm "$CONTAINER" >/dev/null
-docker run --rm -v "${VOLUME}:/data" alpine:3.22 sh -c "printf '{broken' > /data/zoryq-state.json"
+remove_primary_state
+docker run --rm -v "${VOLUME}:/data" alpine:3.22 sh -c "printf 'corrupt' > /data/zoryq-checkpoints/current/state.hex.gz"
 run_node
+restore_checkpoint 2>&1 | tee "$ARTIFACT_DIR/restore-fallback.log"
 wait_health
 assert_chain
 RECOVERED_AFTER_CORRUPTION="$(balance)"
-[ "$RECOVERED_AFTER_CORRUPTION" = "$EXPECTED_BALANCE" ] || { echo 'balance mismatch after corrupt-state recovery' >&2; exit 1; }
+[ "$RECOVERED_AFTER_CORRUPTION" = "$EXPECTED_BALANCE" ] || { echo 'balance mismatch after previous-checkpoint recovery' >&2; exit 1; }
+grep -q 'candidate current rejected' "$ARTIFACT_DIR/restore-fallback.log" || { echo 'corrupt current was not explicitly rejected' >&2; exit 1; }
+grep -q 'restored from previous' "$ARTIFACT_DIR/restore-fallback.log" || { echo 'previous checkpoint was not used' >&2; exit 1; }
 
-# Phase 4: concurrent checkpoint requests must coalesce behind exactly one writer.
+# Re-establish a valid current after fallback.
+checkpoint | tee "$ARTIFACT_DIR/checkpoint-after-fallback.log"
+assert_persistence_healthy >"$ARTIFACT_DIR/persistence-after-fallback.json"
+
+# Phase 4: concurrent requests must coalesce behind one writer.
 echo '[chaos] phase 4: concurrent RPC checkpoint coalescing'
 : >"$ARTIFACT_DIR/checkpoint-concurrency.log"
 pids=()
@@ -130,13 +137,13 @@ assert_persistence_healthy >"$ARTIFACT_DIR/persistence-after-concurrency.json"
 COALESCED="$(grep -c 'coalesced' "$ARTIFACT_DIR/checkpoint-concurrency.log" || true)"
 [ "$COALESCED" -ge 1 ] || { echo 'concurrent checkpoints did not coalesce' >&2; exit 1; }
 
-# Phase 5: force a crash after a fully validated temp snapshot but before atomic rename.
+# Phase 5: crash after temp checkpoint is validated but before directory rename.
 echo '[chaos] phase 5: crash inside atomic commit window'
 : >"$ARTIFACT_DIR/checkpoint-crash.log"
 docker exec -e ZORYQ_RPC_CHECKPOINT_TEST_DELAY_MS=8000 "$CONTAINER" node /app/rpc-state-checkpoint.mjs >>"$ARTIFACT_DIR/checkpoint-crash.log" 2>&1 &
 CHECKPOINT_PID=$!
 OPEN=0
-for _ in $(seq 1 40); do
+for _ in $(seq 1 60); do
   if grep -q 'test crash window open' "$ARTIFACT_DIR/checkpoint-crash.log"; then OPEN=1; break; fi
   sleep 0.25
 done
@@ -144,17 +151,19 @@ done
 docker kill -s KILL "$CONTAINER" >/dev/null || true
 wait "$CHECKPOINT_PID" || true
 docker rm "$CONTAINER" >/dev/null || true
+remove_primary_state
 run_node
+restore_checkpoint | tee "$ARTIFACT_DIR/restore-after-checkpoint-crash.log"
 wait_health
 assert_chain
 POST_CRASH_BALANCE="$(balance)"
 [ "$POST_CRASH_BALANCE" = "$EXPECTED_BALANCE" ] || { echo 'balance mismatch after checkpoint-time crash' >&2; exit 1; }
 
-# Phase 6: cleanup must remove partial temp/lock; retention remains current + previous only.
-echo '[chaos] phase 6: bounded retention and clean restart'
-docker exec "$CONTAINER" sh -c 'ls -lah /data' >"$ARTIFACT_DIR/data-listing.txt"
-docker exec "$CONTAINER" sh -c 'test ! -e /data/zoryq-state.checkpoint.tmp.gz && test ! -e /data/zoryq-persistence.lock'
-COUNT="$(docker exec "$CONTAINER" sh -c 'find /data -maxdepth 1 -type f \( -name "zoryq-state.current.json.gz" -o -name "zoryq-state.previous.json.gz" \) | wc -l')"
+# Phase 6: boot recovery removes only stale temp/lock; retained generations remain bounded.
+echo '[chaos] phase 6: bounded retention and clean boot recovery'
+docker exec "$CONTAINER" sh -c 'find /data/zoryq-checkpoints -maxdepth 3 -print | sort' >"$ARTIFACT_DIR/data-listing.txt"
+docker exec "$CONTAINER" sh -c 'test ! -e /data/zoryq-checkpoints/.writer-lock && ! find /data/zoryq-checkpoints -maxdepth 1 -name ".tmp-*" | grep -q .'
+COUNT="$(docker exec "$CONTAINER" sh -c 'find /data/zoryq-checkpoints -maxdepth 1 -type d \( -name current -o -name previous \) | wc -l')"
 [ "$COUNT" -le 2 ]
 
 curl -fsS "http://127.0.0.1:${PORT}/health" >"$ARTIFACT_DIR/health-final.json"
@@ -162,4 +171,4 @@ rpc eth_chainId '[]' >"$ARTIFACT_DIR/chain-id-final.json"
 rpc eth_blockNumber '[]' >"$ARTIFACT_DIR/block-final.json"
 docker stats --no-stream --format '{{json .}}' "$CONTAINER" >"$ARTIFACT_DIR/docker-stats.json"
 
-echo '[chaos] PASS: live in-memory checkpoint survived SIGKILL, primary corruption, concurrency, and crash-before-rename'
+echo '[chaos] PASS: native live-state checkpoint survived SIGKILL, corrupt-current fallback, concurrency, and crash-before-rename'
