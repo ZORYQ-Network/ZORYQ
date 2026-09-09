@@ -1,31 +1,32 @@
-# KYVO — Visão do Projeto
+# ZORYQ — Visão do Projeto
 
 ## Missão
-KYVO é um aplicativo mobile crypto-first que combina wallet self-custody, swap multi-chain, SocialFi, música via Spotify, progressão por XP e uma infraestrutura preparada para um eventual token futuro.
+ZORYQ é um ecossistema Web3 com foco em wallet self-custody, infraestrutura EVM, swap, SocialFi, reputação, quests, XP e ferramentas para desenvolvedores.
 
 ## Proposta de valor
-O usuário não deve precisar alternar entre cinco aplicativos para guardar ativos, trocar tokens, acompanhar comunidades, ouvir música e construir reputação on-chain/social. A KYVO reúne essas experiências em uma interface única, rápida e gamificada.
+O objetivo é reduzir a fragmentação da experiência Web3: identidade, wallet, atividade on-chain, social, descoberta de projetos e participação na rede devem funcionar dentro de uma experiência coerente, rápida e verificável.
 
 ## Pilares
-1. **Own** — wallet própria e não custodial.
-2. **Move** — swap/cross-chain com rotas transparentes.
-3. **Connect** — SocialFi com identidade e reputação.
-4. **Play** — Spotify e experiências culturais dentro do app.
-5. **Progress** — XP, quests, streaks, badges e referrals.
-6. **Earn later, never promise early** — infraestrutura para futuro airdrop sem promessa antecipada de token.
+1. **Own** — wallet e identidade sob controle do usuário.
+2. **Move** — transações, swap e interoperabilidade com rotas transparentes.
+3. **Connect** — SocialFi com identidade, reputação e provas verificáveis.
+4. **Build** — ferramentas, contratos, SDKs e infraestrutura para desenvolvedores.
+5. **Progress** — quests, XP, badges e reputação baseada em atividade útil.
+6. **Verify** — explorer, provas on-chain, métricas e transparência de rede.
 
 ## Experiência principal
-Navegação mobile: `Home | Swap | Social | XP | Profile`.
-
-A Home consolida portfólio, redes, ações rápidas, atividade recente, nível/XP e teaser `Airdrop — Coming Soon`.
+ZORYQ combina interfaces web/mobile com uma testnet EVM pública, explorer, faucet, módulos DeFi, SocialFi e ferramentas para builders.
 
 ## Diferenciais pretendidos
-- Wallet e SocialFi no mesmo produto.
-- XP transversal: atividade útil em qualquer módulo contribui para progresso.
-- Multi-chain como arquitetura, não como lista fixa.
-- Spotify como elemento social, não apenas player isolado.
-- Taxas do produto explicitadas antes de qualquer assinatura.
-- Segurança tratada como requisito de lançamento.
+- Wallet, SocialFi e infraestrutura de rede dentro do mesmo ecossistema.
+- Chain ID e endpoints públicos estáveis para integração EVM.
+- Reputação e atividade verificáveis em vez de métricas puramente sociais.
+- Experiência orientada a builders e usuários finais.
+- Segurança, transparência de taxas e verificabilidade como requisitos de produto.
+- Arquitetura preparada para evolução progressiva sem prometer capacidades ainda não entregues.
 
-## Estado de produto
-A versão atual é MVP de desenvolvimento. Nenhuma tela de saldo, reward ou airdrop deve ser interpretada como ativo financeiro real até os providers e backends de produção estarem configurados, auditados e ativados.
+## Estado atual
+ZORYQ está em desenvolvimento ativo com testnet pública. Recursos, métricas e claims devem refletir apenas capacidades efetivamente disponíveis e verificadas.
+
+## Regra de identidade
+`ZORYQ` é o único nome oficial do projeto. Use `ZORYQ` em comunicação e `zoryq` em identificadores técnicos quando lowercase for necessário.
