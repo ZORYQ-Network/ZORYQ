@@ -15,8 +15,11 @@ const TMP = process.env.ZORYQ_STATE_TMP || '/data/zoryq-state.rpc-checkpoint.tmp
 const STATUS = process.env.ZORYQ_PERSISTENCE_STATUS || '/data/zoryq-persistence-status.json';
 const LOCK = process.env.ZORYQ_PERSISTENCE_LOCK || '/data/zoryq-persistence.lock';
 const VALIDATOR = process.env.ZORYQ_STREAM_VALIDATOR || '/app/persistence-validator.mjs';
+const TEST_DELAY_MS = Math.max(0, Number(process.env.ZORYQ_RPC_CHECKPOINT_TEST_DELAY_MS || 0));
 const RESULT_PREFIX = '"result":"0x';
 let lockOwned = false;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function atomicJson(file, value) {
   const tmp = `${file}.tmp`;
@@ -183,6 +186,12 @@ async function main() {
     if (!validateCheckpoint(TMP)) throw new Error('RPC checkpoint JSON validation failed');
     durableFile(TMP);
     const digest = await sha256(TMP);
+
+    // Test-only crash injection point. Production leaves this at zero.
+    if (TEST_DELAY_MS > 0) {
+      console.log(`[zoryq-state] test crash window open for ${TEST_DELAY_MS}ms`);
+      await sleep(TEST_DELAY_MS);
+    }
 
     // At high disk pressure preserve only one known-good checkpoint. Otherwise keep one previous.
     if (disk >= 80) fs.rmSync(PREVIOUS, { force: true });
