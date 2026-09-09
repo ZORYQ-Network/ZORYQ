@@ -1,0 +1,34 @@
+name: ZORYQ Chaos Soak
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - zoryq-p0-soak-chaos
+    paths:
+      - 'zoryq-evm-node/**'
+      - 'Dockerfile'
+      - 'zoryq-developer/scripts/zoryq-chaos-soak.sh'
+      - '.github/workflows/zoryq-chaos-soak.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  crash-recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run isolated crash/recovery soak
+        run: |
+          chmod +x zoryq-developer/scripts/zoryq-chaos-soak.sh
+          zoryq-developer/scripts/zoryq-chaos-soak.sh
+      - name: Upload reliability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-chaos-evidence-${{ github.sha }}
+          path: artifacts/zoryq-chaos/
+          if-no-files-found: warn
+          retention-days: 30
