@@ -51,7 +51,7 @@ function persistenceHealth() {
   const availability = checkpointAvailability(status);
   if (!status) {
     const initializing = now - STARTED_AT <= PERSISTENCE_GRACE_MS;
-    return { ready: initializing, state: initializing ? 'initializing' : 'degraded', checkpointExists: availability.exists, checkpointMode: availability.mode, nativeCurrent: nativeGenerationExists('current'), nativePrevious: nativeGenerationExists('previous'), reason: initializing ? 'awaiting_persistence_status' : 'persistence_status_missing' };
+    return { ready: initializing, readyForTraffic: initializing, mode: availability.mode, state: initializing ? 'initializing' : 'degraded', checkpointExists: availability.exists, checkpointMode: availability.mode, nativeCurrent: nativeGenerationExists('current'), nativePrevious: nativeGenerationExists('previous'), reason: initializing ? 'awaiting_persistence_status' : 'persistence_status_missing' };
   }
   const lastSuccessAt = Number(status.lastSuccessAt || 0);
   const ageMs = lastSuccessAt ? Math.max(0, now - lastSuccessAt) : null;
@@ -60,7 +60,7 @@ function persistenceHealth() {
   const stale = !lastSuccessAt || ageMs > PERSISTENCE_MAX_AGE_MS;
   const repeatedHardFailure = !capacityDeferred && failures >= PERSISTENCE_MAX_FAILURES;
   const ready = availability.exists && !stale && !repeatedHardFailure;
-  return { ready, state: ready ? (failures ? 'degraded' : 'healthy') : 'degraded', checkpointExists: availability.exists, checkpointMode: availability.mode, nativeCurrent: nativeGenerationExists('current'), nativePrevious: nativeGenerationExists('previous'), lastSuccessAt: lastSuccessAt || null, ageMs, consecutiveFailures: failures, message: status.message || null, checkpointSha256: status.checkpointSha256 || null, durationMs: status.durationMs ?? null, diskPercent: status.diskPercent ?? null, capacityDeferred };
+  return { ready, readyForTraffic: ready, mode: availability.mode, state: ready ? (failures ? 'degraded' : 'healthy') : 'degraded', checkpointExists: availability.exists, checkpointMode: availability.mode, nativeCurrent: nativeGenerationExists('current'), nativePrevious: nativeGenerationExists('previous'), lastSuccessAt: lastSuccessAt || null, ageMs, consecutiveFailures: failures, message: status.message || null, checkpointSha256: status.checkpointSha256 || null, durationMs: status.durationMs ?? null, diskPercent: status.diskPercent ?? null, capacityDeferred };
 }
 function clientIp(req) { return String(req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown').trim(); }
 function windowAllow(map, key, windowMs, limit) { const now = Date.now(); const current = map.get(key); if (!current || now - current.started >= windowMs) { map.set(key, { started: now, count: 1 }); return true; } if (current.count >= limit) return false; current.count++; return true; }
