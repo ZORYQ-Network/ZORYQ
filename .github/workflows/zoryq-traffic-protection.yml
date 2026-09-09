@@ -69,17 +69,37 @@ jobs:
             STATUS=$(curl -sS -o /tmp/faucet-$i.json -w '%{http_code}' \
               -X POST http://127.0.0.1:8080/faucet \
               -H 'content-type: application/json' \
-              -H 'x-forwarded-for: 203.0.113.77' \
+              -H 'x-real-ip: 203.0.113.77' \
+              -H "x-forwarded-for: 198.51.100.$i" \
               -d '{"address":"invalid"}')
             test "$STATUS" = "400"
           done
           STATUS=$(curl -sS -o /tmp/faucet-6.json -w '%{http_code}' \
             -X POST http://127.0.0.1:8080/faucet \
             -H 'content-type: application/json' \
-            -H 'x-forwarded-for: 203.0.113.77' \
+            -H 'x-real-ip: 203.0.113.77' \
+            -H 'x-forwarded-for: 198.51.100.250' \
             -d '{"address":"invalid"}')
           test "$STATUS" = "429"
           grep -q 'faucet_ip_rate_limit' /tmp/faucet-6.json
+
+      - name: Verify invalid faucet traffic does not consume issuance budget
+        run: |
+          for i in $(seq 1 20); do
+            STATUS=$(curl -sS -o /tmp/invalid-$i.json -w '%{http_code}' \
+              -X POST http://127.0.0.1:8080/faucet \
+              -H 'content-type: application/json' \
+              -H "x-real-ip: 192.0.2.$i" \
+              -d '{"address":"invalid"}')
+            test "$STATUS" = "400"
+          done
+          STATUS=$(curl -sS -o /tmp/final-invalid.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:8080/faucet \
+            -H 'content-type: application/json' \
+            -H 'x-real-ip: 192.0.2.250' \
+            -d '{"address":"invalid"}')
+          test "$STATUS" = "400"
+          ! grep -q 'faucet_issuance_budget_exhausted' /tmp/final-invalid.json
 
       - name: Verify privileged RPC remains blocked
         run: |
