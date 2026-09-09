@@ -1,6 +1,5 @@
 import http from 'node:http';
 import fs from 'node:fs';
-import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const PORT = Number(process.env.PORT || 8080);
@@ -15,12 +14,7 @@ const FAUCET_CONCURRENCY = Math.max(1, Number(process.env.ZORYQ_FAUCET_CONCURREN
 const FAUCET_SUCCESS_PER_HOUR = Math.max(10, Number(process.env.ZORYQ_FAUCET_SUCCESS_PER_HOUR || 300));
 const UPSTREAM_TIMEOUT_MS = Math.max(1000, Number(process.env.ZORYQ_UPSTREAM_TIMEOUT_MS || 15_000));
 const PERSISTENCE_STATUS = process.env.ZORYQ_PERSISTENCE_STATUS || '/data/zoryq-persistence-status.json';
-const LEGACY_PERSISTENCE_CURRENT = process.env.ZORYQ_STATE_CURRENT || '/data/zoryq-state.current.json.gz';
-const CHECKPOINT_ROOT = process.env.ZORYQ_CHECKPOINT_ROOT || '/data/zoryq-checkpoints';
-const PERSISTENCE_MAX_AGE_MS = Math.max(300_000, Number(process.env.ZORYQ_PERSISTENCE_MAX_AGE_MS || 7_200_000));
-const PERSISTENCE_GRACE_MS = Math.max(60_000, Number(process.env.ZORYQ_PERSISTENCE_GRACE_MS || 600_000));
-const PERSISTENCE_MAX_FAILURES = Math.max(1, Number(process.env.ZORYQ_PERSISTENCE_MAX_FAILURES || 3));
-const STARTED_AT = Date.now();
+const RETH_DATA_DIR = process.env.ZORYQ_RETH_DATA_DIR || '/data/reth';
 
 const edge = spawn(process.execPath, ['edge-gateway.mjs'], { stdio: 'inherit', env: { ...process.env, PORT: String(EDGE_PORT) } });
 edge.on('exit', (code, signal) => { console.error('ZORYQ edge gateway exited', { code, signal }); process.exit(code || 1); });
@@ -35,32 +29,15 @@ let faucetInFlight = 0;
 let faucetSuccess = { window: Math.floor(Date.now() / 3_600_000), count: 0 };
 
 function loadJson(file) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } }
-function nativeGenerationExists(name) {
-  const dir = path.join(CHECKPOINT_ROOT, name);
-  return fs.existsSync(path.join(dir, 'meta.json')) && fs.existsSync(path.join(dir, 'state.hex.gz'));
-}
-function checkpointAvailability(status) {
-  const native = nativeGenerationExists('current') || nativeGenerationExists('previous');
-  const legacy = fs.existsSync(LEGACY_PERSISTENCE_CURRENT);
-  if (status?.source === 'anvil_dumpState_blob') return { exists: native, mode: 'native-rpc-blob', native, legacy };
-  return { exists: legacy || native, mode: native ? 'native-rpc-blob' : 'legacy', native, legacy };
-}
+function dirHasEntries(dir) { try { return fs.readdirSync(dir).length > 0; } catch { return false; } }
+function diskPercent() { try { const s=fs.statfsSync(RETH_DATA_DIR); const total=Number(s.blocks)*Number(s.bsize); const free=Number(s.bavail)*Number(s.bsize); return total>0?Math.round((1-free/total)*10000)/100:null; } catch { return null; } }
 function persistenceHealth() {
-  const now = Date.now();
   const status = loadJson(PERSISTENCE_STATUS);
-  const availability = checkpointAvailability(status);
-  if (!status) {
-    const initializing = now - STARTED_AT <= PERSISTENCE_GRACE_MS;
-    return { ready: initializing, readyForTraffic: initializing, mode: availability.mode, state: initializing ? 'initializing' : 'degraded', checkpointExists: availability.exists, checkpointMode: availability.mode, nativeCurrent: nativeGenerationExists('current'), nativePrevious: nativeGenerationExists('previous'), reason: initializing ? 'awaiting_persistence_status' : 'persistence_status_missing' };
-  }
-  const lastSuccessAt = Number(status.lastSuccessAt || 0);
-  const ageMs = lastSuccessAt ? Math.max(0, now - lastSuccessAt) : null;
-  const failures = Number(status.consecutiveFailures || 0);
-  const capacityDeferred = ['disk_critical_checkpoint_deferred', 'memory_critical_checkpoint_deferred'].includes(String(status.message || ''));
-  const stale = !lastSuccessAt || ageMs > PERSISTENCE_MAX_AGE_MS;
-  const repeatedHardFailure = !capacityDeferred && failures >= PERSISTENCE_MAX_FAILURES;
-  const ready = availability.exists && !stale && !repeatedHardFailure;
-  return { ready, readyForTraffic: ready, mode: availability.mode, state: ready ? (failures ? 'degraded' : 'healthy') : 'degraded', checkpointExists: availability.exists, checkpointMode: availability.mode, nativeCurrent: nativeGenerationExists('current'), nativePrevious: nativeGenerationExists('previous'), lastSuccessAt: lastSuccessAt || null, ageMs, consecutiveFailures: failures, message: status.message || null, checkpointSha256: status.checkpointSha256 || null, durationMs: status.durationMs ?? null, diskPercent: status.diskPercent ?? null, capacityDeferred };
+  const databaseExists = dirHasEntries(RETH_DATA_DIR);
+  if (!status) return { ready:false, readyForTraffic:false, mode:'reth-native-db', state:'initializing', databaseExists, reason:'awaiting_reth_readiness', diskPercent:diskPercent() };
+  const rethNative = status.source === 'reth_native_db' && status.mode === 'reth-native-db';
+  const ready = rethNative && status.ok === true && databaseExists;
+  return { ready, readyForTraffic:ready, mode:'reth-native-db', state:ready?'healthy':'degraded', databaseExists, lastSuccessAt:status.lastSuccessAt||null, clientVersion:status.clientVersion||null, blockNumber:status.blockNumber??null, message:status.message||null, diskPercent:diskPercent(), reason:ready?null:(!rethNative?'unexpected_persistence_mode':'reth_database_not_ready') };
 }
 function clientIp(req) { return String(req.headers['x-real-ip'] || req.socket.remoteAddress || 'unknown').trim(); }
 function windowAllow(map, key, windowMs, limit) { const now = Date.now(); const current = map.get(key); if (!current || now - current.started >= windowMs) { map.set(key, { started: now, count: 1 }); return true; } if (current.count >= limit) return false; current.count++; return true; }
@@ -77,9 +54,9 @@ function handleHealth(res) {
     let raw = ''; u.on('data', c => { if (raw.length < MAX_BODY_BYTES) raw += c; }); u.on('end', () => {
       let chain = null; try { chain = JSON.parse(raw); } catch {}
       const persistence = persistenceHealth();
-      const chainReady = (u.statusCode || 500) < 300 && chain?.ok === true && Number(chain?.chainId) === 5919065 && Number.isFinite(Number(chain?.block));
+      const chainReady = (u.statusCode || 500) < 300 && chain?.ok === true && Number(chain?.chainId) === 5919065 && Number.isFinite(Number(chain?.block)) && chain?.executionClient === 'reth';
       const ready = chainReady && persistence.ready;
-      return sendJson(res, ready ? 200 : 503, { ok: ready, status: ready ? (persistence.state === 'healthy' ? 'healthy' : 'degraded') : 'not_ready', chain, persistence });
+      return sendJson(res, ready ? 200 : 503, { ok: ready, status: ready ? 'healthy' : 'not_ready', chain, persistence });
     });
   });
   upstream.setTimeout(UPSTREAM_TIMEOUT_MS, () => upstream.destroy(new Error('upstream_timeout')));
@@ -115,5 +92,5 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`ZORYQ traffic gateway listening on :${PORT}; protected edge :${EDGE_PORT}`);
-  console.log('ZORYQ public protection enabled', { MAX_BODY_BYTES, MAX_RPC_BATCH, GLOBAL_RPC_CONCURRENCY, PER_IP_RPC_CONCURRENCY, RPC_PER_MINUTE, FAUCET_PER_HOUR_IP, FAUCET_CONCURRENCY, FAUCET_SUCCESS_PER_HOUR, UPSTREAM_TIMEOUT_MS, PERSISTENCE_MAX_AGE_MS, PERSISTENCE_MAX_FAILURES });
+  console.log('ZORYQ public protection enabled', { MAX_BODY_BYTES, MAX_RPC_BATCH, GLOBAL_RPC_CONCURRENCY, PER_IP_RPC_CONCURRENCY, RPC_PER_MINUTE, FAUCET_PER_HOUR_IP, FAUCET_CONCURRENCY, FAUCET_SUCCESS_PER_HOUR, UPSTREAM_TIMEOUT_MS, persistence:'reth-native-db' });
 });
