@@ -2,7 +2,7 @@ name: ZORYQ EVM Testnet Node
 
 on:
   push:
-    branches: [zoryq-evm-testnet-node]
+    branches: [zoryq-evm-testnet-node, zoryq-p0-reth-explorer]
     paths:
       - 'zoryq-evm-node/**'
       - '.github/workflows/zoryq-evm-testnet.yml'
@@ -11,17 +11,25 @@ on:
 jobs:
   smoke-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build node image
+      - name: Build Reth node image
         run: docker build -t zoryq-evm-node ./zoryq-evm-node
 
-      - name: Start node
+      - name: Start node with persistent database
         run: |
-          docker run -d --name zoryq-evm-node -p 8080:8080 zoryq-evm-node
-          for i in $(seq 1 60); do
+          set -euo pipefail
+          docker volume create zoryq-reth-ci
+          docker run -d --name zoryq-evm-node \
+            -p 8080:8080 \
+            -v zoryq-reth-ci:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-evm-node
+          for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:8080/health >/tmp/health.json; then
               cat /tmp/health.json
               exit 0
@@ -31,26 +39,46 @@ jobs:
           docker logs zoryq-evm-node
           exit 1
 
-      - name: Verify chain ID
+      - name: Verify Reth execution, chain ID and native database readiness
         run: |
-          test "$(curl -fsS http://127.0.0.1:8080/health | jq -r .chainId)" = "5919065"
+          set -euo pipefail
+          HEALTH=$(curl -fsS http://127.0.0.1:8080/health)
+          test "$(echo "$HEALTH" | jq -r '.chain.chainId // .chainId')" = "5919065"
+          test "$(echo "$HEALTH" | jq -r '.chain.executionClient // .executionClient')" = "reth"
+          test "$(echo "$HEALTH" | jq -r '.persistence.mode // .chain.persistence.mode')" = "reth-native-db"
+          test "$(echo "$HEALTH" | jq -r '.persistence.readyForTraffic // .chain.persistence.readyForTraffic')" = "true"
           test "$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -r .result)" = "0x5a5159"
+          CLIENT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"web3_clientVersion","params":[]}' | jq -r .result)
+          echo "$CLIENT" | grep -qi reth
 
-      - name: Verify public RPC guard and mixed batch
+      - name: Verify public signing and administrative RPC guards
         run: |
-          BLOCKED=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"anvil_setBalance","params":["0x0000000000000000000000000000000000000001","0x1"]}')
-          test "$(echo "$BLOCKED" | jq -r .error.code)" = "-32601"
-          BATCH=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '[{"jsonrpc":"2.0","id":3,"method":"eth_chainId","params":[]},{"jsonrpc":"2.0","id":4,"method":"anvil_setBalance","params":["0x0000000000000000000000000000000000000001","0x1"]}]')
+          set -euo pipefail
+          for METHOD in anvil_setBalance eth_accounts eth_sendTransaction debug_traceTransaction; do
+            BODY=$(printf '{"jsonrpc":"2.0","id":7,"method":"%s","params":[]}' "$METHOD")
+            OUT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "$BODY")
+            test "$(echo "$OUT" | jq -r .error.code)" = "-32601"
+          done
+          BATCH=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '[{"jsonrpc":"2.0","id":3,"method":"eth_chainId","params":[]},{"jsonrpc":"2.0","id":4,"method":"eth_accounts","params":[]}]')
           test "$(echo "$BATCH" | jq -r '.[] | select(.id==3) | .result')" = "0x5a5159"
           test "$(echo "$BATCH" | jq -r '.[] | select(.id==4) | .error.code')" = "-32601"
 
-      - name: Verify faucet
+      - name: Verify faucet creates a real transaction
         run: |
+          set -euo pipefail
           ADDR=0x000000000000000000000000000000000000dEaD
           CLAIM=$(curl -fsS -X POST http://127.0.0.1:8080/faucet -H 'content-type: application/json' -d "{\"address\":\"$ADDR\"}")
+          echo "$CLAIM"
           test "$(echo "$CLAIM" | jq -r .ok)" = "true"
-          BALANCE=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"eth_getBalance\",\"params\":[\"$ADDR\",\"latest\"]}" | jq -r .result)
+          test "$(echo "$CLAIM" | jq -r .mode)" = "signed-transfer"
+          TX=$(echo "$CLAIM" | jq -r .txHash)
+          test "$TX" != "null"
+          echo "$TX" >/tmp/faucet-tx
+          RECEIPT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX\"]}")
+          test "$(echo "$RECEIPT" | jq -r .result.status)" = "0x1"
+          BALANCE=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"eth_getBalance\",\"params\":[\"$ADDR\",\"latest\"]}" | jq -r .result)
           test "$BALANCE" != "0x0"
+          echo "$BALANCE" >/tmp/dead-balance
 
       - name: Verify native transfers, Solidity deploys, ERC-20, ERC-721, calls and logs
         working-directory: zoryq-evm-node
@@ -68,12 +96,13 @@ jobs:
           const bob = Wallet.createRandom().connect(provider);
 
           const faucet = await fetch('http://127.0.0.1:8080/faucet', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ address: aliceAddress })
+            method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: aliceAddress })
           });
           assert.equal(faucet.status, 200);
-          assert.equal((await faucet.json()).ok, true);
+          const faucetJson=await faucet.json();
+          assert.equal(faucetJson.ok, true);
+          assert.equal(faucetJson.mode, 'signed-transfer');
+          assert(/^0x[0-9a-f]{64}$/i.test(faucetJson.txHash));
           assert((await provider.getBalance(aliceAddress)) >= parseEther('100'));
 
           const nativeTx = await alice.sendTransaction({ to: bob.address, value: parseEther('1') });
@@ -143,18 +172,54 @@ jobs:
           assert.equal((await erc721.ownerOf(1n)).toLowerCase(), bob.address.toLowerCase());
           const nftLogs = await provider.getLogs({ address: await erc721.getAddress(), fromBlock: mintReceipt.blockNumber, toBlock: mintReceipt.blockNumber });
           assert(nftLogs.length >= 1);
-
-          console.log(JSON.stringify({
-            nativeTransfer: 'ok',
-            probe: await probe.getAddress(),
-            erc20: await erc20.getAddress(),
-            erc721: await erc721.getAddress(),
-            ethCall: 'ok',
-            receipts: 'ok',
-            logs: 'ok'
-          }, null, 2));
           NODE
+
+      - name: Verify explorer indexes individual transactions chronologically
+        run: |
+          set -euo pipefail
+          TX=$(cat /tmp/faucet-tx)
+          for i in $(seq 1 30); do
+            DATA=$(curl -fsS 'http://127.0.0.1:8080/explorer/transactions?limit=50&order=desc')
+            if echo "$DATA" | jq -e --arg tx "$TX" '.transactions | any(.hash == $tx)' >/dev/null; then
+              echo "$DATA" >/tmp/explorer.json
+              break
+            fi
+            sleep 2
+          done
+          test -s /tmp/explorer.json
+          jq -e '.transactions | length > 0' /tmp/explorer.json >/dev/null
+          jq -e '[.transactions[] | [.blockNumber,.transactionIndex]] as $x | reduce range(1; $x|length) as $i (true; . and (($x[$i-1][0] > $x[$i][0]) or ($x[$i-1][0] == $x[$i][0] and $x[$i-1][1] >= $x[$i][1])))' /tmp/explorer.json >/dev/null
+          STATS=$(curl -fsS http://127.0.0.1:8080/explorer/stats)
+          test "$(echo "$STATS" | jq -r .ok)" = "true"
+
+      - name: Verify Reth database survives hard restart
+        run: |
+          set -euo pipefail
+          EXPECTED=$(cat /tmp/dead-balance)
+          docker kill -s KILL zoryq-evm-node
+          docker rm zoryq-evm-node
+          docker run -d --name zoryq-evm-node \
+            -p 8080:8080 \
+            -v zoryq-reth-ci:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-evm-node
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8080/health >/tmp/restart-health.json; then break; fi
+            sleep 2
+          done
+          test "$(jq -r '.chain.executionClient // .executionClient' /tmp/restart-health.json)" = "reth"
+          ACTUAL=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":9,"method":"eth_getBalance","params":["0x000000000000000000000000000000000000dEaD","latest"]}' | jq -r .result)
+          test "$ACTUAL" = "$EXPECTED"
+          TX=$(cat /tmp/faucet-tx)
+          RECEIPT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX\"]}")
+          test "$(echo "$RECEIPT" | jq -r .result.status)" = "0x1"
 
       - name: Show node logs on failure
         if: failure()
         run: docker logs zoryq-evm-node || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f zoryq-evm-node 2>/dev/null || true
+          docker volume rm zoryq-reth-ci 2>/dev/null || true
