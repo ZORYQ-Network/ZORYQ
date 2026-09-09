@@ -2,11 +2,18 @@
 set -eu
 
 STATE="${ZORYQ_STATE_PATH:-/data/zoryq-state.json}"
-BACKUP="${STATE}.bak"
-TMP="${STATE}.snapshot.tmp"
+LEGACY_BACKUP="${STATE}.bak"
+BACKUP="${STATE}.bak.gz"
+TMP="${STATE}.snapshot.tmp.gz"
+SNAPSHOT_RETRIES="${ZORYQ_STATE_SNAPSHOT_RETRIES:-3}"
+SNAPSHOT_RETRY_DELAY="${ZORYQ_STATE_SNAPSHOT_RETRY_DELAY:-2}"
 
 valid_json() {
   FILE="$1" node -e "const fs=require('fs'); JSON.parse(fs.readFileSync(process.env.FILE,'utf8'));" >/dev/null 2>&1
+}
+
+valid_gzip_json() {
+  FILE="$1" node -e "const fs=require('fs'),z=require('zlib'); JSON.parse(z.gunzipSync(fs.readFileSync(process.env.FILE)).toString('utf8'));" >/dev/null 2>&1
 }
 
 recover_state() {
@@ -17,29 +24,67 @@ recover_state() {
   fi
 
   echo "[zoryq-state] primary state is corrupted; attempting recovery"
-  if [ -f "$BACKUP" ] && valid_json "$BACKUP"; then
-    cp "$BACKUP" "$STATE"
-    echo "[zoryq-state] restored last verified backup"
-  else
-    CORRUPT="${STATE}.corrupt.$(date +%s)"
-    mv "$STATE" "$CORRUPT"
-    echo "[zoryq-state] no valid backup; quarantined corrupt state at $CORRUPT"
+  if [ -f "$BACKUP" ] && valid_gzip_json "$BACKUP"; then
+    gzip -dc "$BACKUP" > "${STATE}.recover.tmp"
+    if valid_json "${STATE}.recover.tmp"; then
+      mv "${STATE}.recover.tmp" "$STATE"
+      echo "[zoryq-state] restored last verified compressed backup"
+      return 0
+    fi
+    rm -f "${STATE}.recover.tmp"
   fi
+
+  if [ -f "$LEGACY_BACKUP" ] && valid_json "$LEGACY_BACKUP"; then
+    cp "$LEGACY_BACKUP" "$STATE"
+    echo "[zoryq-state] restored last verified legacy backup"
+    return 0
+  fi
+
+  CORRUPT="${STATE}.corrupt.$(date +%s)"
+  mv "$STATE" "$CORRUPT"
+  echo "[zoryq-state] no valid backup; quarantined corrupt state at $CORRUPT"
+}
+
+snapshot_once() {
+  rm -f "$TMP"
+  if gzip -c "$STATE" > "$TMP" 2>/dev/null && valid_gzip_json "$TMP"; then
+    mv "$TMP" "$BACKUP"
+    # Remove the old uncompressed backup only after a verified compressed backup exists.
+    rm -f "$LEGACY_BACKUP"
+    echo "[zoryq-state] verified compressed recovery snapshot updated"
+    return 0
+  fi
+  rm -f "$TMP"
+  return 1
 }
 
 snapshot_state() {
   [ -f "$STATE" ] || return 0
-  rm -f "$TMP"
-  if cp "$STATE" "$TMP" 2>/dev/null && valid_json "$TMP"; then
-    mv "$TMP" "$BACKUP"
-    echo "[zoryq-state] verified recovery snapshot updated"
-  else
-    rm -f "$TMP"
-    echo "[zoryq-state] skipped snapshot because state copy was incomplete"
-  fi
+  attempt=1
+  while [ "$attempt" -le "$SNAPSHOT_RETRIES" ]; do
+    if snapshot_once; then
+      return 0
+    fi
+    if [ "$attempt" -lt "$SNAPSHOT_RETRIES" ]; then
+      sleep "$SNAPSHOT_RETRY_DELAY"
+    fi
+    attempt=$((attempt + 1))
+  done
+  echo "[zoryq-state] snapshot deferred: no consistent state image after ${SNAPSHOT_RETRIES} attempts"
+  return 1
 }
 
+cleanup_stale_artifacts() {
+  rm -f "$TMP" "${STATE}.recover.tmp"
+  # Keep at most two quarantined corrupt states to prevent unbounded disk growth.
+  ls -1t "${STATE}.corrupt."* 2>/dev/null | awk 'NR>2' | xargs -r rm -f -- 2>/dev/null || true
+}
+
+cleanup_stale_artifacts
 recover_state
+# At boot the node is not writing STATE yet, so this is the safest time to create
+# a compact, verified recovery image and retire any legacy full-size backup.
+snapshot_state || echo "[zoryq-state] boot snapshot unavailable; starting with verified primary state"
 
 npm start &
 APP_PID=$!
