@@ -2,13 +2,45 @@
 
 Status: architecture roadmap, not a claim of current capability.
 
-ZORYQ should optimize for **verifiable security, permissionless operation, developer velocity and agent-native UX** rather than marketing numbers. The current ZORYQ EVM Testnet is a centralized public testing environment; this roadmap defines the gates required to evolve it into a production-grade L1.
+ZORYQ should optimize for **verifiable security, permissionless operation, developer velocity, real-time perceived UX and agent-native execution** rather than unverifiable marketing numbers. The current ZORYQ EVM Testnet is a centralized public testing environment; this roadmap defines the gates required to evolve it into a production-grade L1.
 
 ## Core architecture principle
 
 **ZORYQ = secure permissionless L1 + EVM-grade compatibility + native smart-account UX + agent-native execution + identity/reputation + embedded financial primitives.**
 
 The chain itself must remain small, deterministic and auditable. SocialFi, DEX, lending, PerpDEX, reputation and agent products should use protocol primitives where they materially improve safety/UX, but product complexity must not become consensus-critical without a strong reason.
+
+## Performance ambition: real-time UX first, 1M+ TPS only as a measured aggregate target
+
+ZORYQ should pursue two separate goals and never confuse them:
+
+1. **Real-time perceived interaction**
+   - target p50 inclusion below 250 ms where network conditions permit;
+   - target p95 inclusion below 500 ms and p99 below 1 s in controlled geographically distributed benchmarks;
+   - finality target below 1 s only after the selected BFT/finality design proves safety at that cadence;
+   - wallets and apps may use safe optimistic/pre-confirmation UX only when explicit rollback/failure semantics exist.
+
+2. **1,000,000+ TPS aggregate research target**
+   - this is **not** a current capability and must never be marketed as measured TPS before independent reproducible benchmarks exist;
+   - a single serial EVM execution lane is not expected to sustain this target safely;
+   - the architecture should therefore remain compatible with deterministic parallel execution plus horizontal execution lanes/shards/domains or equivalent scale-out execution;
+   - each execution lane must preserve deterministic state transition and isolated resource accounting;
+   - cross-lane messages require ordered receipts, replay protection, bounded finality assumptions and explicit failure semantics;
+   - publish both single-lane TPS and aggregate TPS so horizontal scaling is not disguised as single-chain serial performance.
+
+### Benchmark policy
+
+Every performance claim must publish:
+- hardware model, CPU/RAM/storage/network;
+- validator/operator count and geographic placement;
+- transaction mix and state-conflict ratio;
+- signature verification cost and payload size;
+- p50/p95/p99 inclusion and finality;
+- single-lane TPS, aggregate TPS and failed/retried transactions;
+- state growth, disk I/O, bandwidth, CPU utilization and memory use;
+- fault/no-fault results under the same workload.
+
+A benchmark that disables signature verification, persistence, consensus, receipts, networking or realistic state access must be labeled synthetic and cannot be used as production TPS.
 
 ## The improved priority order
 
@@ -42,9 +74,11 @@ The original 35-item list is directionally strong, but several items have hard d
    - Public bootstrap, peer discovery, validator registration/removal, key rotation and non-custodial operator flow.
    - No privileged sequencer or hidden allowlist in the steady state.
 
-7. **Parallel execution**
+7. **Parallel execution + horizontal scale-out research**
    - Prefer deterministic optimistic or access-list/conflict-graph scheduling rather than speculative TPS claims.
-   - Benchmark both ideal independent workloads and adversarial hot-state workloads.
+   - Benchmark ideal independent workloads, adversarial hot-state workloads and cross-lane messaging.
+   - Preserve a deterministic serial fallback/reference path for equivalence testing.
+   - Treat 1M+ TPS as an aggregate scale-out research target, not a single-lane promise.
 
 8. **Fast finality with explicit safety envelope**
    - Target sub-second perceived confirmation only if network assumptions support it.
@@ -115,8 +149,9 @@ Existing ZORYQ DEX and lending deployments are useful testnet applications, but 
 
 ## What ZORYQ should try to beat competitors on
 
-ZORYQ should not optimize for a single headline such as TPS. The technical wedge should be measurable across four dimensions:
+ZORYQ should not optimize for a single headline such as TPS. The technical wedge should be measurable across five dimensions:
 
+- **Real-time interaction**: low inclusion/finality latency with p95/p99 evidence, not animation hiding slow settlement.
 - **Fast path from idea to verified on-chain product**: excellent EVM compatibility, SDKs, devkit, local simulation, explorer traces and reproducible examples.
 - **Human + agent account model**: passkeys, scoped session keys, paymasters and explicit machine-action permissions.
 - **Evidence-first decentralization**: public validator/node procedures, multi-client convergence, published fault tests and network-maturity telemetry.
@@ -131,6 +166,8 @@ A roadmap item is **not complete** because code exists. It is complete only when
 | Permissionless testnet | Unaffiliated operator joins from public docs with no manual allowlist |
 | BFT | Documented fault threshold + automated partition/outage tests |
 | Parallel execution | Deterministic state-root equivalence vs serial execution + conflict benchmarks |
+| 1M+ TPS aggregate | Reproducible benchmark across all execution lanes with realistic signatures, persistence, consensus, networking and state access; publish single-lane and aggregate figures separately |
+| Real-time UX | Sustained p95/p99 inclusion/finality under geographic latency and realistic load |
 | Decentralized | Multiple independent operators + no single privileged block producer/control path |
 | Multi-client | Two independent implementations produce identical canonical results |
 | Sub-second finality | Sustained p95/p99 measurements under geographic latency and load |
@@ -163,7 +200,7 @@ Any critical safety failure caps the release at **NOT MAINNET READY**, regardles
 
 Allowed claims: public EVM-compatible testing environment, live RPC/explorer/faucet, agent-native developer tooling and testnet DeFi primitives.
 
-Not allowed: decentralized, permissionless validator set, BFT-proven, multi-client, censorship-resistant or production-ready.
+Not allowed: decentralized, permissionless validator set, BFT-proven, multi-client, censorship-resistant, 1M TPS or production-ready.
 
 ### ZORYQ M1 — reproducible network
 
@@ -188,6 +225,7 @@ Exit criteria:
 
 Exit criteria:
 - deterministic parallel execution with equivalence testing;
+- initial horizontal execution-lane research harness with cross-lane receipt tests;
 - smart accounts/passkeys/session keys;
 - bounded paymaster/gas sponsorship;
 - MEV/censorship-defense prototype with adversarial tests;
@@ -217,17 +255,18 @@ Exit criteria:
 
 1. Consensus/state-transition ADR and protocol spec.
 2. Replace single-node testing architecture with reproducible peerable nodes.
-3. Build deterministic 3-node harness and automated fault injection.
+3. Build deterministic multi-node harness and automated fault injection.
 4. Add state-root convergence and replay tests.
-5. Design parallel execution only on top of the deterministic state model.
-6. Publish permissionless node bootstrap after private multi-node safety gates pass.
-7. Add redundant RPC and network health telemetry.
-8. Implement smart-account/paymaster prototype with bounded policies.
-9. Begin second-client specification/differential harness before mainnet.
-10. Formalize audit, bounty and governance gates.
+5. Design deterministic parallel execution on top of the reference serial state model.
+6. Add a scale-out execution-lane benchmark harness while preserving explicit single-lane metrics.
+7. Publish permissionless node bootstrap after private multi-node safety gates pass.
+8. Add redundant RPC and network health telemetry.
+9. Implement smart-account/paymaster prototype with bounded policies.
+10. Begin second-client specification/differential harness before mainnet.
+11. Formalize audit, bounty and governance gates.
 
 ## Product-layer sequencing
 
 The current agent-native, DEX, lending, identity/reputation and SocialFi direction remains valuable, but the L1 progression takes priority. Product work should continue in parallel only when it does not create false decentralization/security claims or harden temporary centralized architecture into permanent protocol debt.
 
-The long-term goal is not “the chain with the most features.” It is **the chain where security assumptions are explicit, decentralization is reproducible, execution is deterministic and fast, and humans plus AI agents can transact with less friction and better control than on legacy wallet flows.**
+The long-term goal is not “the chain with the most features.” It is **the chain where security assumptions are explicit, decentralization is reproducible, execution is deterministic and fast, and humans plus AI agents can transact with real-time perceived responsiveness and better control than on legacy wallet flows.**
