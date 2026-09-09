@@ -3,7 +3,7 @@ name: Build ZORYQ Wallet APK
 'on':
   workflow_dispatch:
   push:
-    branches: [zoryq-evm-testnet-node]
+    branches: [zoryq-release-candidate-full-product]
     paths:
       - 'zoryq-mobile/**'
       - '.github/workflows/zoryq-mobile-apk.yml'
@@ -23,13 +23,6 @@ jobs:
       NODE_ENV: 'production'
       EXPO_PUBLIC_ZORYQ_BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
       EXPO_PUBLIC_ZORYQ_RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
-      EXPO_PUBLIC_ZORYQ_EXPLORER: 'https://zoryq-testnet.vercel.app/explorer.html'
-      EXPO_PUBLIC_REWARD_REGISTRY: '0xAB1Dd21c529b182191ED84f00A4dF1917652CB10'
-      EXPO_PUBLIC_QUEST_REGISTRY: '0x85747F9BdCd758fcfB562c929236CCA6eEB025a9'
-      EXPO_PUBLIC_QUEST_COMPLETION_REGISTRY: '0xD371eb7863cA000fF5039e2Db613F2094ba46b15'
-      EXPO_PUBLIC_STAKE_CONTRACT: '0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1'
-      EXPO_PUBLIC_TEST_TOKEN: '0xd2121E96C6af936c0496fDB499c1D0613d26c2B9'
-      EXPO_PUBLIC_SWAP_CONTRACT: '0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE'
     steps:
       - uses: actions/checkout@v4
 
@@ -64,38 +57,19 @@ jobs:
           mkdir -p zoryq-mobile/assets
           python - <<'PY'
           from PIL import Image, ImageDraw, ImageFilter
-          import math
           S=1024
-          im=Image.new('RGB',(S,S),(5,6,9))
-          px=im.load()
+          im=Image.new('RGB',(S,S),(5,6,9)); px=im.load()
           for y in range(S):
               for x in range(S):
-                  dx=(x-S/2)/(S/2); dy=(y-S/2)/(S/2)
-                  r=min(1,(dx*dx+dy*dy)**0.5)
-                  t=(x+y)/(2*S)
+                  dx=(x-S/2)/(S/2); dy=(y-S/2)/(S/2); r=min(1,(dx*dx+dy*dy)**0.5); t=(x+y)/(2*S)
                   px[x,y]=(int(5+4*(1-r)),int(7+15*(1-r)),int(15+34*t*(1-r)))
           glow=Image.new('RGBA',(S,S),(0,0,0,0)); gd=ImageDraw.Draw(glow)
           for w,a in [(70,20),(40,45),(18,110)]:
-              gd.ellipse((145,330,885,720),outline=(70,30,255,a),width=w)
-              gd.arc((115,260,910,790),200,340,fill=(0,230,255,a),width=max(8,w//2))
+              gd.ellipse((145,330,885,720),outline=(70,30,255,a),width=w); gd.arc((115,260,910,790),200,340,fill=(0,230,255,a),width=max(8,w//2))
           glow=glow.filter(ImageFilter.GaussianBlur(10)); im=Image.alpha_composite(im.convert('RGBA'),glow)
-          z=Image.new('RGBA',(S,S),(0,0,0,0)); d=ImageDraw.Draw(z)
-          poly=[(245,245),(780,245),(665,385),(430,385),(735,385),(430,770),(245,770),(360,630),(505,630),(275,630),(590,245)]
-          # cleaner folded ribbon Z
-          poly=[(250,250),(785,250),(665,390),(425,390),(745,390),(430,775),(245,775),(360,635),(530,635),(315,635),(625,250)]
-          d.polygon(poly,fill=(65,92,255,255))
-          d.line([(250,250),(785,250),(665,390),(425,390)],fill=(73,231,255,255),width=14)
-          d.line([(745,390),(430,775),(245,775)],fill=(198,73,255,255),width=14)
-          d.polygon([(430,390),(745,390),(430,775),(535,635),(315,635)],fill=(30,46,195,255))
-          d.line([(430,390),(745,390),(430,775)],fill=(118,61,255,255),width=12)
-          z=z.filter(ImageFilter.GaussianBlur(0.6)); im=Image.alpha_composite(im,z)
-          flare=Image.new('RGBA',(S,S),(0,0,0,0)); fd=ImageDraw.Draw(flare)
-          cx,cy=820,470
-          for rad,a in [(65,20),(35,60),(14,220)]: fd.ellipse((cx-rad,cy-rad,cx+rad,cy+rad),fill=(120,230,255,a))
-          fd.line((cx-95,cy,cx+95,cy),fill=(210,245,255,190),width=5); fd.line((cx,cy-95,cx,cy+95),fill=(210,245,255,190),width=5)
-          flare=flare.filter(ImageFilter.GaussianBlur(8)); im=Image.alpha_composite(im,flare)
-          im=im.convert('RGB')
-          im.save('zoryq-mobile/assets/zoryq-icon.png','PNG',optimize=True)
+          z=Image.new('RGBA',(S,S),(0,0,0,0)); d=ImageDraw.Draw(z); poly=[(250,250),(785,250),(665,390),(425,390),(745,390),(430,775),(245,775),(360,635),(530,635),(315,635),(625,250)]
+          d.polygon(poly,fill=(65,92,255,255)); d.line([(250,250),(785,250),(665,390),(425,390)],fill=(73,231,255,255),width=14); d.line([(745,390),(430,775),(245,775)],fill=(198,73,255,255),width=14); d.polygon([(430,390),(745,390),(430,775),(535,635),(315,635)],fill=(30,46,195,255)); d.line([(430,390),(745,390),(430,775)],fill=(118,61,255,255),width=12)
+          im=Image.alpha_composite(im,z.filter(ImageFilter.GaussianBlur(0.6))).convert('RGB'); im.save('zoryq-mobile/assets/zoryq-icon.png','PNG',optimize=True)
           PY
 
       - name: Generate Android project
@@ -112,24 +86,29 @@ jobs:
           NODE_ENV: 'production'
         run: ./gradlew :app:assembleRelease --no-daemon
 
-      - name: Verify JS bundle is packaged
+      - name: Verify packaged wallet bundle and identity
         run: |
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
           test -n "$APK"
           unzip -l "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' >/dev/null
+          grep -q '"version": "1.0.0"' zoryq-mobile/app.json
+          grep -q '"versionCode": 2' zoryq-mobile/app.json
+          grep -q "type Tab='wallet'|'send'|'social'|'activity'|'settings'" zoryq-mobile/App.tsx
+          grep -q "socialCommit('post'" zoryq-mobile/App.tsx
+          grep -q "socialCommit(action" zoryq-mobile/App.tsx
 
       - name: Package artifact
         run: |
           mkdir -p dist
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
-          cp "$APK" dist/ZORYQ-Wallet-${{ github.run_number }}.apk
+          cp "$APK" dist/ZORYQ-Wallet-1.0.0.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ZORYQ-Wallet-APK-${{ github.run_number }}
+          name: ZORYQ-Wallet-1.0.0-APK
           path: |
-            dist/*.apk
+            dist/ZORYQ-Wallet-1.0.0.apk
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
