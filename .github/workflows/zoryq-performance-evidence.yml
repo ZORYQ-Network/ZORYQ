@@ -1,0 +1,103 @@
+name: ZORYQ Performance Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - zoryq-p0-performance-evidence
+    paths:
+      - 'zoryq-developer/scripts/zoryq-rpc-benchmark.mjs'
+      - '.github/workflows/zoryq-performance-evidence.yml'
+      - 'Dockerfile'
+      - 'zoryq-evm-node/**'
+
+permissions:
+  contents: read
+
+jobs:
+  rpc-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build isolated ZORYQ node
+        run: docker build -t zoryq-performance-evidence:${GITHUB_SHA} .
+
+      - name: Start isolated node
+        run: |
+          docker run -d --name zoryq-bench-node \
+            -p 8080:8080 \
+            -e ZORYQ_STATE_PATH=/data/zoryq-state.json \
+            -e ZORYQ_STATE_BACKUP_INTERVAL=60 \
+            zoryq-performance-evidence:${GITHUB_SHA}
+
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:8080/health > health.json; then
+              node -e "const h=require('./health.json'); if(h.chainId!==5919065||!h.ok) process.exit(1); console.log(h)"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs zoryq-bench-node
+          exit 1
+
+      - name: Capture pre-benchmark resources
+        run: |
+          docker stats --no-stream --format '{{json .}}' zoryq-bench-node > docker-stats-before.jsonl
+          docker inspect zoryq-bench-node > docker-inspect.json
+
+      - name: Run stepped RPC saturation benchmark
+        env:
+          ZORYQ_BENCH_RPC: http://127.0.0.1:8080/rpc
+          ZORYQ_BENCH_CHAIN_ID: '0x5a5159'
+          ZORYQ_BENCH_STEP_SECONDS: '8'
+          ZORYQ_BENCH_CONCURRENCY: '1,4,8,16,32,64'
+          ZORYQ_BENCH_TIMEOUT_MS: '10000'
+          ZORYQ_BENCH_WARMUP: '30'
+          ZORYQ_BENCH_OUTPUT: zoryq-benchmark-results.json
+        run: node zoryq-developer/scripts/zoryq-rpc-benchmark.mjs
+
+      - name: Capture post-benchmark evidence
+        if: always()
+        run: |
+          curl --silent http://127.0.0.1:8080/health > health-after.json || true
+          docker stats --no-stream --format '{{json .}}' zoryq-bench-node > docker-stats-after.jsonl || true
+          docker logs zoryq-bench-node > node.log 2>&1 || true
+
+      - name: Validate evidence manifest
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const r=JSON.parse(fs.readFileSync('zoryq-benchmark-results.json','utf8'));
+          if(r.target.expectedChainId!=='0x5a5159') throw new Error('wrong chain id');
+          if(!r.steps?.length) throw new Error('missing benchmark steps');
+          if(!(r.summary.totalSubmitted>0)) throw new Error('no requests submitted');
+          if(!(r.summary.totalSucceeded>0)) throw new Error('no requests succeeded');
+          if(!r.environment.gitSha) throw new Error('missing commit sha');
+          if(!r.claimPolicy.includes('does not represent executed transaction TPS')) throw new Error('claim guard missing');
+          console.log(JSON.stringify(r.summary,null,2));
+          NODE
+
+      - name: Upload raw benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-performance-evidence-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            zoryq-benchmark-results.json
+            health.json
+            health-after.json
+            docker-stats-before.jsonl
+            docker-stats-after.jsonl
+            docker-inspect.json
+            node.log
+
+      - name: Stop isolated node
+        if: always()
+        run: docker rm -f zoryq-bench-node || true
