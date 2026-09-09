@@ -1,0 +1,29 @@
+name: ZORIQ Social Runtime E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-p0-wallet-superapp]
+    paths:
+      - 'zoryq-evm-node/social-service.mjs'
+      - 'zoryq-evm-node/scripts/social-superapp-e2e.mjs'
+      - '.github/workflows/zoriq-social-runtime-e2e.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - name: Install node dependencies
+        working-directory: zoryq-evm-node
+        run: npm install --no-audit --no-fund
+      - name: Run signed SocialFi runtime E2E
+        working-directory: zoryq-evm-node
+        run: node scripts/social-superapp-e2e.mjs
