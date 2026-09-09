@@ -1,22 +1,22 @@
-name: ZORIQ Social Readiness
+name: ZORYQ Social Readiness
 
 on:
   pull_request:
     paths:
-      - 'zoryq-web/zoriq-social.html'
+      - 'zoryq-web/zoryq-social.html'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
-      - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
-      - '.github/workflows/zoriq-social-readiness.yml'
+      - 'zoryq-developer/scripts/check-zoryq-social-readiness.mjs'
+      - '.github/workflows/zoryq-social-readiness.yml'
   push:
     branches:
       - zoryq-evm-testnet-node
     paths:
-      - 'zoryq-web/zoriq-social.html'
+      - 'zoryq-web/zoryq-social.html'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
-      - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
-      - '.github/workflows/zoriq-social-readiness.yml'
+      - 'zoryq-developer/scripts/check-zoryq-social-readiness.mjs'
+      - '.github/workflows/zoryq-social-readiness.yml'
   workflow_dispatch:
 
 permissions:
@@ -34,5 +34,5 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate ZORIQ Social deployment package
-        run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs
+      - name: Validate ZORYQ Social deployment package
+        run: node zoryq-developer/scripts/check-zoryq-social-readiness.mjs
