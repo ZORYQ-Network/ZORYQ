@@ -30,12 +30,15 @@ http.createServer((req,res)=>{const url=new URL(req.url||'/','http://localhost')
   if(readable&&(txRoute.test(url.pathname)||addressRoute.test(url.pathname)||blockRoute.test(url.pathname)||tokenRoute.test(url.pathname)))return serveFile(req,res,'explorer.html');
   const htmlRoutes=[
     [['/faucet','/faucet.html'],'faucet.html'],[['/swap','/swap.html'],'swap.html'],[['/stake','/stake.html'],'stake.html'],[['/lending','/lending.html'],'lending.html'],
-    [['/developer','/developers','/developer.html'],'developer.html'],[['/ideas','/build-ideas','/ideas.html'],'ideas.html'],[['/build','/quickstart','/build.html'],'build.html'],[['/metrics','/traction','/metrics.html'],'metrics.html'],
+    [['/developer','/developers','/developer.html'],'developer.html'],[['/ideas','/build-ideas','/ideas.html'],'ideas.html'],[['/devkit','/devkit.html'],'devkit.html'],[['/build','/quickstart','/build.html'],'build.html'],[['/metrics','/traction','/metrics.html'],'metrics.html'],
     [['/ecosystem','/ecosystem.html'],'ecosystem.html'],[['/builders','/challenge','/builder-challenge','/builder-challenge.html'],'builder-challenge.html'],[['/investors','/investor','/investor.html'],'investor.html'],
     [['/node-operators','/operators','/node-operators.html'],'node-operators.html'],[['/intelligence','/genesis-intelligence','/intelligence.html'],'intelligence.html'],
     [['/admin-control','/admin-control.html'],'admin-control.html'],[['/protocol-launch','/protocol-launch.html'],'protocol-launch.html'],[['/network-maturity','/network-maturity.html'],'network-maturity.html']
   ];
   for(const [routes,file] of htmlRoutes)if(readable&&routes.includes(url.pathname))return serveFile(req,res,file);
+  if(readable&&url.pathname==='/devkit/network.json')return serveFile(req,res,'devkit-network.json','application/json; charset=utf-8');
+  if(readable&&url.pathname==='/devkit/viem.mjs')return serveFile(req,res,'devkit-viem.mjs','application/javascript; charset=utf-8');
+  if(readable&&url.pathname==='/devkit/HelloZoryq.sol')return serveFile(req,res,'devkit-HelloZoryq.sol','text/plain; charset=utf-8');
   if(readable&&url.pathname==='/network-maturity.json')return serveFile(req,res,'network-maturity.json','application/json; charset=utf-8');
   if(readable&&url.pathname==='/defi-common.js')return serveFile(req,res,'defi-common.js','application/javascript; charset=utf-8');
   if(readable&&url.pathname==='/i18n.js')return serveFile(req,res,'i18n.js','application/javascript; charset=utf-8');
