@@ -31,19 +31,29 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Wait for live deployment
+      - name: Wait for release-specific live surfaces
         shell: bash
         run: |
           set -euo pipefail
-          for i in $(seq 1 36); do
+          for i in $(seq 1 48); do
             health="$(curl -fsS "$BASE/health" || true)"
-            if printf '%s' "$health" | grep -q '5919065'; then
-              echo 'Live ZORYQ gateway is healthy.'
+            problems_code=$(curl -sS -o /tmp/problems.html -w '%{http_code}' "$BASE/problems" || true)
+            proof_code=$(curl -sS -o /tmp/proof.html -w '%{http_code}' "$BASE/proof" || true)
+            execution_schema="$(curl -fsS "$BASE/agent/execution-schema.json" || true)"
+
+            if printf '%s' "$health" | grep -q '5919065' \
+              && test "$problems_code" = '200' \
+              && test "$proof_code" = '200' \
+              && printf '%s' "$execution_schema" | grep -q 'successfulStatusRequired'; then
+              echo 'Release-specific ZORYQ surfaces are live.'
               exit 0
             fi
+
+            echo "Waiting for current release... attempt $i/48 (problems=$problems_code proof=$proof_code schema=$([ -n "$execution_schema" ] && echo present || echo missing))"
             sleep 10
           done
-          echo 'Timed out waiting for ZORYQ health endpoint.'
+
+          echo 'Timed out waiting for the current ZORYQ release surfaces.'
           exit 1
 
       - name: Verify chain identity
