@@ -15,12 +15,20 @@ permissions:
 jobs:
   negative-security-suite:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Run scoped capability security tests
-        run: node --test zoryq-developer/agent-security/capability.test.mjs
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install isolated agent-security dependencies
+        working-directory: zoryq-developer/agent-security
+        run: npm install --no-audit --no-fund
+      - name: Run scoped + signed capability security tests
+        working-directory: zoryq-developer/agent-security
+        run: npm test
       - name: Verify required denial coverage
         run: |
           node - <<'NODE'
@@ -36,3 +44,8 @@ jobs:
           if(missing.length) throw new Error('missing denial coverage: '+missing.join(','));
           console.log('All required denial classes are covered.');
           NODE
+      - name: Verify signature/domain separation coverage
+        run: |
+          grep -q 'signature by non-owner is rejected' zoryq-developer/agent-security/signed-capability.test.mjs
+          grep -q 'another chain domain' zoryq-developer/agent-security/signed-capability.test.mjs
+          grep -q 'permission_wrong_domain_chain' zoryq-developer/agent-security/signed-capability.mjs
