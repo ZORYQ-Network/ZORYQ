@@ -1,0 +1,15 @@
+{
+  "name": "zoryq-developer-kit",
+  "version": "0.1.0",
+  "private": false,
+  "type": "module",
+  "description": "Minimal zero-secret starter kit for ZORYQ EVM Testnet",
+  "license": "MIT",
+  "scripts": {
+    "rpc": "node examples/rpc.mjs",
+    "dex": "node examples/dex-reserves.mjs"
+  },
+  "dependencies": {
+    "viem": "^2.37.6"
+  }
+}
