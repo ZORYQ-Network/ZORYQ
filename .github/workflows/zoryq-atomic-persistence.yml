@@ -8,6 +8,7 @@ on:
     paths:
       - 'zoryq-developer/scripts/zoryq-persistence-atomic.sh'
       - 'zoryq-developer/scripts/zoryq-persistence-atomic.test.sh'
+      - 'zoryq-developer/scripts/zoryq-json-stream-validate.mjs'
       - '.github/workflows/zoryq-atomic-persistence.yml'
 
 permissions:
@@ -19,6 +20,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+      - name: Install isolated streaming parser
+        run: npm install --no-save --no-package-lock stream-json@1.9.1
       - name: Run atomic persistence tests
         run: |
           chmod +x zoryq-developer/scripts/zoryq-persistence-atomic.sh
@@ -29,9 +32,11 @@ jobs:
           node - <<'NODE'
           const fs=require('fs');
           const s=fs.readFileSync('zoryq-developer/scripts/zoryq-persistence-atomic.sh','utf8');
+          const v=fs.readFileSync('zoryq-developer/scripts/zoryq-json-stream-validate.mjs','utf8');
           const required=['kill -STOP','kill -CONT','sha256sum','mv "$TMP" "$CURRENT"','mv "$CURRENT" "$PREVIOUS"','mkdir "$LOCK"'];
           const missing=required.filter(x=>!s.includes(x));
           if(missing.length) throw new Error('missing crash-consistency primitive(s): '+missing.join(', '));
+          if(!v.includes('highWaterMark: 64 * 1024') || !v.includes('pipeline(')) throw new Error('streaming validator missing bounded stream');
           if(/readFileSync\([^)]*STATE/.test(s)) throw new Error('checkpoint path must not duplicate live state into Node memory');
-          console.log('Atomic persistence primitives verified.');
+          console.log('Atomic persistence and bounded-memory validation primitives verified.');
           NODE
