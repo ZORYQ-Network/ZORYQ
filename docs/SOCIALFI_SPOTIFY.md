@@ -1,7 +1,7 @@
-# SocialFi + Spotify
+# ZORYQ SocialFi + Spotify
 
 ## SocialFi
-A KYVO combina identidade social e contexto crypto sem transformar o feed em canal de spam financeiro.
+A ZORYQ combina identidade social e contexto crypto sem transformar o feed em canal de spam financeiro.
 
 ### Recursos
 - For You / Following / Discover;
@@ -35,3 +35,6 @@ No mobile, usar Authorization Code with PKCE. O app não deve embutir client sec
 
 ## XP social
 Recompensar qualidade e participação saudável, não spam. XP social deve ter limites diários, deduplicação e sinais de abuso.
+
+## Identidade
+Toda experiência social deve usar exclusivamente `ZORYQ Social` como nome de produto.

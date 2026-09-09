@@ -1,1 +1,0 @@
-ZORYQ Web production deploy trigger — 2026-09-09. Deploy full zoryq-web from branch zoryq-evm-testnet-node after ZORIQ Social readiness gate.

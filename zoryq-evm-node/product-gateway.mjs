@@ -8,7 +8,7 @@ const PORT=Number(process.env.PORT||8080);
 const CHAIN_PORT=8090;
 const SOCIAL_PORT=8086;
 const WEB_ROOT='/app/web';
-const SOCIAL_HTML=path.join(WEB_ROOT,'zoriq-social.html');
+const SOCIAL_HTML=path.join(WEB_ROOT,'zoryq-social.html');
 const EFFECTIVE_GENESIS=process.env.ZORYQ_RETH_CHAIN_SPEC||'/data/zoryq-reth-effective-genesis.json';
 const MIGRATION_FILE=process.env.ZORYQ_RETH_MIGRATION_STATUS||'/data/zoryq-reth-migration.json';
 
@@ -35,5 +35,5 @@ function socialPage(res){if(!fs.existsSync(SOCIAL_HTML))return json(res,404,{ok:
 async function getJson(url){const r=await fetch(url,{cache:'no-store'});let j={};try{j=await r.json()}catch{}return {ok:r.ok,status:r.status,json:j}}
 async function health(res){const [c,s]=await Promise.allSettled([getJson(`http://127.0.0.1:${CHAIN_PORT}/health`),getJson(`http://127.0.0.1:${SOCIAL_PORT}/status`)]);const chainResult=c.status==='fulfilled'?c.value:{ok:false,status:503,json:{error:'chain_unreachable'}},socialResult=s.status==='fulfilled'?s.value:{ok:false,status:503,json:{error:'social_unreachable'}};const ok=chainResult.ok&&socialResult.ok&&socialResult.json?.chainReady===true;const base=chainResult.json||{};return json(res,ok?200:503,{...base,ok,readyForTraffic:ok&&base.readyForTraffic!==false,product:{wallet:'ZORYQ Wallet',social:{ok:socialResult.ok,...socialResult.json},explorer:true,faucet:true},release:'full-product-rc-memory-optimized'});}
 
-const server=http.createServer(async(req,res)=>{const url=new URL(req.url||'/','http://localhost');if(req.method==='OPTIONS')return json(res,204,{});if(req.method==='GET'&&url.pathname==='/health')return health(res);if(req.method==='GET'&&['/social','/zoriq','/zoriq-social','/zoriq-social.html'].includes(url.pathname))return socialPage(res);if(url.pathname.startsWith('/api/social'))return proxy(req,res,SOCIAL_PORT,p=>p.replace(/^\/api\/social/,'')||'/');return proxy(req,res,CHAIN_PORT)});
+const server=http.createServer(async(req,res)=>{const url=new URL(req.url||'/','http://localhost');if(req.method==='OPTIONS')return json(res,204,{});if(req.method==='GET'&&url.pathname==='/health')return health(res);if(req.method==='GET'&&['/social','/zoryq','/zoryq-social','/zoryq-social.html'].includes(url.pathname))return socialPage(res);if(url.pathname.startsWith('/api/social'))return proxy(req,res,SOCIAL_PORT,p=>p.replace(/^\/api\/social/,'')||'/');return proxy(req,res,CHAIN_PORT)});
 server.listen(PORT,'0.0.0.0',()=>console.log(`[zoryq-product] gateway listening on :${PORT}; chain=:${CHAIN_PORT}; social=:${SOCIAL_PORT}`));
