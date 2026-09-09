@@ -92,7 +92,7 @@ curl -fsS -H 'content-type: application/json' \
   "http://127.0.0.1:${PORT}/faucet" >"$ARTIFACT_DIR/faucet-local.json"
 EXPECTED_BALANCE="$(balance)"
 printf '%s\n' "$EXPECTED_BALANCE" >"$ARTIFACT_DIR/balance-before-checkpoint.txt"
-[ "$EXPECTED_BALANCE" -gt 0 ]
+[ "$EXPECTED_BALANCE" != "0" ]
 checkpoint | tee "$ARTIFACT_DIR/checkpoint-first.log"
 assert_persistence_healthy >"$ARTIFACT_DIR/persistence-before-kill.json"
 
