@@ -7,6 +7,9 @@ function safeLower(v){return typeof v==='string'?v.toLowerCase():null}
 
 export function createExplorerIndexer({rpc,stateFile='/data/explorer-index.json',maxTransactions=50000,maxBlocksPerPass=100,pollMs=2000}={}){
   if(typeof rpc!=='function')throw new Error('explorer indexer requires rpc function');
+  maxTransactions=Math.max(1000,Math.min(50000,Number.isFinite(Number(maxTransactions))?Math.floor(Number(maxTransactions)):10000));
+  maxBlocksPerPass=Math.max(1,Math.min(100,Number.isFinite(Number(maxBlocksPerPass))?Math.floor(Number(maxBlocksPerPass)):25));
+  pollMs=Math.max(2000,Number.isFinite(Number(pollMs))?Math.floor(Number(pollMs)):4000);
   let state=loadJson(stateFile,{version:1,genesisHash:null,lastIndexedBlock:-1,totalSeen:0,transactions:[]});
   let running=false;
   let timer=null;
@@ -17,6 +20,8 @@ export function createExplorerIndexer({rpc,stateFile='/data/explorer-index.json'
     state.lastIndexedBlock=Number.isFinite(Number(state.lastIndexedBlock))?Number(state.lastIndexedBlock):-1;
     state.totalSeen=Number.isFinite(Number(state.totalSeen))?Number(state.totalSeen):0;
     state.transactions=Array.isArray(state.transactions)?state.transactions:[];
+    state.transactions.sort((a,b)=>(Number(b?.blockNumber||0)-Number(a?.blockNumber||0))||(Number(b?.transactionIndex||0)-Number(a?.transactionIndex||0)));
+    if(state.transactions.length>maxTransactions)state.transactions.length=maxTransactions;
   }
   normalizeState();
 

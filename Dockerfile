@@ -23,6 +23,7 @@ COPY zoryq-evm-node/public-gateway.mjs ./public-gateway.mjs
 COPY zoryq-evm-node/admin-control.mjs ./admin-control.mjs
 COPY zoryq-evm-node/edge-gateway.mjs ./edge-gateway.mjs
 COPY zoryq-evm-node/traffic-gateway.mjs ./traffic-gateway.mjs
+COPY zoryq-evm-node/runtime-memory.mjs ./runtime-memory.mjs
 COPY zoryq-evm-node/prepare-reth-genesis.mjs ./prepare-reth-genesis.mjs
 COPY zoryq-evm-node/social-service.mjs ./social-service.mjs
 COPY zoryq-evm-node/product-gateway.mjs ./product-gateway.mjs
