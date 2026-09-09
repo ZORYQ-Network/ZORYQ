@@ -6,7 +6,7 @@ COPY --from=reth /usr/local/bin/reth /usr/local/bin/reth
 COPY --from=node /usr/local /usr/local
 WORKDIR /app
 COPY package.json ./
-RUN npm install --omit=dev --no-audit --no-fund
+RUN npm install --omit=dev --no-audit --no-fund && mkdir -p /app/reth-bin
 COPY server.mjs ./
 COPY explorer-indexer.mjs ./
 COPY explorer-service.mjs ./
