@@ -11,8 +11,10 @@ const ROOT = process.env.ZORYQ_CHECKPOINT_ROOT || '/data/zoryq-checkpoints';
 const STATUS = process.env.ZORYQ_PERSISTENCE_STATUS || '/data/zoryq-persistence-status.json';
 const EXPECTED_CHAIN_ID = '0x5a5159';
 const EXPECTED_CHAIN_ID_DEC = 5919065;
+const BOOT_RECOVERY = String(process.env.ZORYQ_BOOT_RECOVERY || 'false').toLowerCase() === 'true';
 const candidates = [path.join(ROOT, 'current'), path.join(ROOT, 'previous')];
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+let restoreInterval = null;
 
 function durableStatus(value) {
   const tmp = `${STATUS}.tmp-${process.pid}`;
@@ -20,6 +22,13 @@ function durableStatus(value) {
   const fd = fs.openSync(tmp, 'r');
   try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
   fs.renameSync(tmp, STATUS);
+}
+function cleanupBootResidue() {
+  if (!BOOT_RECOVERY || !fs.existsSync(ROOT)) return;
+  fs.rmSync(path.join(ROOT, '.writer-lock'), { recursive: true, force: true });
+  for (const name of fs.readdirSync(ROOT)) {
+    if (name.startsWith('.tmp-')) fs.rmSync(path.join(ROOT, name), { recursive: true, force: true });
+  }
 }
 async function sha256(file) {
   const hash = createHash('sha256');
@@ -56,6 +65,16 @@ async function waitRpc() {
     await sleep(250);
   }
   throw new Error('internal Anvil RPC not ready');
+}
+async function pauseMining() {
+  restoreInterval = await jsonRpc('anvil_getIntervalMining', []);
+  await jsonRpc('evm_setIntervalMining', [0]);
+  await sleep(100);
+}
+async function resumeMining() {
+  const interval = Math.max(1, Number(restoreInterval ?? 2));
+  restoreInterval = null;
+  try { await jsonRpc('evm_setIntervalMining', [interval]); } catch (error) { console.error('[zoryq-state] failed to resume interval mining after restore', error?.message || error); }
 }
 function loadMeta(dir) {
   const file = path.join(dir, 'meta.json');
@@ -126,38 +145,45 @@ async function verifyHead(meta) {
 }
 
 async function main() {
+  cleanupBootResidue();
   await waitRpc();
+  await pauseMining();
   let lastError = null;
-  for (const dir of candidates) {
-    try {
-      const info = await validateCandidate(dir);
-      if (!info) continue;
-      await loadBlob(info);
-      await verifyHead(info.meta);
-      durableStatus({
-        version: 4,
-        chainId: EXPECTED_CHAIN_ID_DEC,
-        ok: true,
-        message: 'boot_checkpoint_restored',
-        source: 'anvil_dumpState_blob',
-        restoredFrom: path.basename(dir),
-        lastAttemptAt: Date.now(),
-        lastSuccessAt: Date.now(),
-        consecutiveFailures: 0,
-        checkpointSha256: info.meta.checkpointSha256,
-        blockNumber: info.meta.blockNumber,
-        blockHash: info.meta.blockHash,
-        rawStateBytes: info.meta.rawStateBytes,
-        compressedBytes: info.meta.compressedBytes,
-      });
-      console.log(`[zoryq-state] RPC blob checkpoint restored from ${path.basename(dir)} block=${info.meta.blockNumber} hash=${info.meta.blockHash} sha256=${info.meta.checkpointSha256}`);
-      return;
-    } catch (error) {
-      lastError = error;
-      console.error(`[zoryq-state] checkpoint candidate ${path.basename(dir)} rejected:`, error?.message || error);
+  try {
+    for (const dir of candidates) {
+      try {
+        const info = await validateCandidate(dir);
+        if (!info) continue;
+        await loadBlob(info);
+        await verifyHead(info.meta);
+        const now = Date.now();
+        durableStatus({
+          version: 4,
+          chainId: EXPECTED_CHAIN_ID_DEC,
+          ok: true,
+          message: 'boot_checkpoint_restored',
+          source: 'anvil_dumpState_blob',
+          restoredFrom: path.basename(dir),
+          lastAttemptAt: now,
+          lastSuccessAt: now,
+          consecutiveFailures: 0,
+          checkpointSha256: info.meta.checkpointSha256,
+          blockNumber: info.meta.blockNumber,
+          blockHash: info.meta.blockHash,
+          rawStateBytes: info.meta.rawStateBytes,
+          compressedBytes: info.meta.compressedBytes,
+        });
+        console.log(`[zoryq-state] RPC blob checkpoint restored from ${path.basename(dir)} block=${info.meta.blockNumber} hash=${info.meta.blockHash} sha256=${info.meta.checkpointSha256}`);
+        return;
+      } catch (error) {
+        lastError = error;
+        console.error(`[zoryq-state] checkpoint candidate ${path.basename(dir)} rejected:`, error?.message || error);
+      }
     }
+    throw lastError || new Error('no valid RPC blob checkpoint available');
+  } finally {
+    await resumeMining();
   }
-  throw lastError || new Error('no valid RPC blob checkpoint available');
 }
 
 await main();
