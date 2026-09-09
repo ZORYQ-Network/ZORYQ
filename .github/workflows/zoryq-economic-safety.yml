@@ -1,0 +1,31 @@
+name: ZORYQ Economic Safety
+
+on:
+  push:
+    branches:
+      - zoryq-p0-mev-economic-safety
+    paths:
+      - 'zoryq-developer/economic-safety/**'
+      - 'zoryq-developer/ZORYQ_MEV_ECONOMIC_SAFETY.md'
+      - '.github/workflows/zoryq-economic-safety.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fail-closed-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run economic safety tests
+        run: node --test zoryq-developer/economic-safety/economic-safety-policy.test.mjs
+      - name: Preserve claim boundary
+        run: |
+          grep -q 'do not say `MEV protected`' zoryq-developer/ZORYQ_MEV_ECONOMIC_SAFETY.md
+          grep -q 'private_orderflow_unavailable' zoryq-developer/economic-safety/economic-safety-policy.mjs
+          grep -q 'sandwich_protection_unverified' zoryq-developer/economic-safety/economic-safety-policy.mjs
