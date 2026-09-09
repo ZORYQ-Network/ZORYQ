@@ -86,3 +86,5 @@ jobs:
           grep -Fq 'ZORIQ Social' /tmp/zoriq-social
           grep -Fq 'Demo/local' /tmp/zoriq-social
           echo 'Official production is serving the advanced Genesis UI and ZORIQ Social.'
+
+# Recovery trigger: deploy and verify the complete static product bundle.
