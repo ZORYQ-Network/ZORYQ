@@ -61,9 +61,13 @@ assert_chain() {
 }
 
 balance() {
-  local out
-  out="$(rpc eth_getBalance "[\"${ADDRESS}\",\"latest\"]")"
-  OUT="$out" node -e "const x=JSON.parse(process.env.OUT);if(!x.result)throw Error(JSON.stringify(x));process.stdout.write(String(BigInt(x.result)));"
+  ADDRESS="$ADDRESS" PORT="$PORT" node - <<'NODE'
+const body={jsonrpc:'2.0',id:1,method:'eth_getBalance',params:[process.env.ADDRESS,'latest']};
+const r=await fetch(`http://127.0.0.1:${process.env.PORT}/rpc`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+const x=await r.json();
+if(!x.result) throw Error(JSON.stringify(x));
+process.stdout.write(String(BigInt(x.result)));
+NODE
 }
 
 checkpoint() {
@@ -87,6 +91,7 @@ curl -fsS -H 'content-type: application/json' \
   --data "{\"address\":\"${ADDRESS}\"}" \
   "http://127.0.0.1:${PORT}/faucet" >"$ARTIFACT_DIR/faucet-local.json"
 EXPECTED_BALANCE="$(balance)"
+printf '%s\n' "$EXPECTED_BALANCE" >"$ARTIFACT_DIR/balance-before-checkpoint.txt"
 [ "$EXPECTED_BALANCE" -gt 0 ]
 checkpoint | tee "$ARTIFACT_DIR/checkpoint-first.log"
 assert_persistence_healthy >"$ARTIFACT_DIR/persistence-before-kill.json"
