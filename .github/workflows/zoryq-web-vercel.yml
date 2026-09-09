@@ -5,6 +5,7 @@ on:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-web/**'
+      - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
       - '.github/workflows/zoryq-web-vercel.yml'
   workflow_dispatch:
 
@@ -47,6 +48,19 @@ jobs:
           grep -Fq '@ZORIQNetwork' start.html
           grep -Fq '/genesis/action' start.html
 
+      - name: Verify ZORIQ Social readiness before deploy
+        working-directory: .
+        run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs
+
+      - name: Verify ZORIQ Social deployment files
+        run: |
+          test -f zoriq-social.html
+          test -f config.js
+          test -f vercel.json
+          grep -Fq 'ZORIQ Social' zoriq-social.html
+          grep -Fq 'Demo/local' zoriq-social.html
+          grep -Fq '5919065' config.js
+
       - name: Link existing ZORYQ Vercel project
         run: |
           mkdir -p .vercel
@@ -55,17 +69,20 @@ jobs:
       - name: Deploy static web to existing production project
         run: npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
 
-      - name: Verify official live routes and Genesis version
+      - name: Verify official live routes and ZORIQ Social
         run: |
           sleep 8
-          for route in / /start /lab /clock /explorer /docs /genesis-client.js; do
+          for route in / /start /lab /clock /explorer /docs /genesis-client.js /zoriq /social /zoriq-social; do
             code=$(curl -L -sS -o /tmp/zoryq-route -w '%{http_code}' "https://zoryq-testnet.vercel.app${route}")
             echo "$route -> HTTP $code"
             test "$code" = "200"
           done
           curl -L -sS https://zoryq-testnet.vercel.app/start -o /tmp/zoryq-start
           curl -L -sS https://zoryq-testnet.vercel.app/genesis-client.js -o /tmp/zoryq-genesis-client
+          curl -L -sS https://zoryq-testnet.vercel.app/zoriq -o /tmp/zoriq-social
           grep -Fq 'Genesis Score' /tmp/zoryq-start
           grep -Fq '@ZORIQNetwork' /tmp/zoryq-start
           grep -Fq 'Share Genesis' /tmp/zoryq-genesis-client
-          echo 'Official production is serving the advanced Genesis UI.'
+          grep -Fq 'ZORIQ Social' /tmp/zoriq-social
+          grep -Fq 'Demo/local' /tmp/zoriq-social
+          echo 'Official production is serving the advanced Genesis UI and ZORIQ Social.'
