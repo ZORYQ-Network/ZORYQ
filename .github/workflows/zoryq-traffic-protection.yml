@@ -1,0 +1,93 @@
+name: ZORYQ Traffic Protection
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-evm-node/**'
+      - '.github/workflows/zoryq-traffic-protection.yml'
+  workflow_dispatch:
+
+jobs:
+  protection-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build protected node image
+        run: docker build -t zoryq-protected ./zoryq-evm-node
+
+      - name: Start protected node
+        run: |
+          docker run -d --name zoryq-protected -p 8080:8080 zoryq-protected
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/health >/tmp/health.json; then
+              test "$(jq -r .chainId /tmp/health.json)" = "5919065"
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs zoryq-protected
+          exit 1
+
+      - name: Verify normal RPC remains compatible
+        run: |
+          RESULT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}')
+          test "$(echo "$RESULT" | jq -r .result)" = "0x5a5159"
+
+      - name: Reject oversized JSON-RPC batch
+        run: |
+          node - <<'NODE' >/tmp/batch.json
+          const batch = Array.from({length: 51}, (_, i) => ({jsonrpc:'2.0',id:i+1,method:'eth_chainId',params:[]}));
+          process.stdout.write(JSON.stringify(batch));
+          NODE
+          STATUS=$(curl -sS -o /tmp/batch-response.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:8080/rpc \
+            -H 'content-type: application/json' \
+            --data-binary @/tmp/batch.json)
+          test "$STATUS" = "413"
+          grep -q 'batch limit' /tmp/batch-response.json
+
+      - name: Reject oversized request body
+        run: |
+          node - <<'NODE' >/tmp/large.json
+          process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:['x'.repeat(1001000)]}));
+          NODE
+          STATUS=$(curl -sS -o /tmp/large-response.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:8080/rpc \
+            -H 'content-type: application/json' \
+            --data-binary @/tmp/large.json)
+          test "$STATUS" = "413"
+          grep -q 'request_too_large' /tmp/large-response.json
+
+      - name: Verify faucet per-IP abuse protection without issuing funds
+        run: |
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -sS -o /tmp/faucet-$i.json -w '%{http_code}' \
+              -X POST http://127.0.0.1:8080/faucet \
+              -H 'content-type: application/json' \
+              -H 'x-forwarded-for: 203.0.113.77' \
+              -d '{"address":"invalid"}')
+            test "$STATUS" = "400"
+          done
+          STATUS=$(curl -sS -o /tmp/faucet-6.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:8080/faucet \
+            -H 'content-type: application/json' \
+            -H 'x-forwarded-for: 203.0.113.77' \
+            -d '{"address":"invalid"}')
+          test "$STATUS" = "429"
+          grep -q 'faucet_ip_rate_limit' /tmp/faucet-6.json
+
+      - name: Verify privileged RPC remains blocked
+        run: |
+          BLOCKED=$(curl -fsS -X POST http://127.0.0.1:8080/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":9,"method":"anvil_setBalance","params":["0x0000000000000000000000000000000000000001","0x1"]}')
+          test "$(echo "$BLOCKED" | jq -r .error.code)" = "-32601"
+
+      - name: Show protected node logs on failure
+        if: failure()
+        run: docker logs zoryq-protected || true
