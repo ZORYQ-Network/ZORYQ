@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "network": {
     "name": "ZORYQ EVM Testnet",
     "chainId": 5919065,
@@ -15,12 +15,22 @@
     "adminNamespacesPubliclyBlocked": true,
     "status": "live"
   },
+  "operations": {
+    "publicSurfaceSmokeWorkflowDefined": true,
+    "canonicalContractBytecodeChecksDefined": true,
+    "chainIdentitySmokeCheckDefined": true,
+    "conservativeClaimsRegressionCheckDefined": true,
+    "workflowPath": ".github/workflows/zoryq-public-surface-smoke.yml",
+    "note": "Scheduled GitHub workflow execution depends on the workflow existing on the repository default branch; definition alone is not a successful run."
+  },
   "consensus": {
     "decentralized": false,
     "independentValidators": 0,
     "multiValidatorConsensus": false,
     "faultToleranceVerified": false,
     "status": "not-implemented",
+    "independentNodeSpecDocumented": true,
+    "specPath": "zoryq-developer/INDEPENDENT_NODE_SPEC.md",
     "disclosure": "The current public Testnet is a centralized execution environment. It must not be described as decentralized or production-ready."
   },
   "rpcTopology": {
@@ -67,22 +77,22 @@
   "roadmap": [
     {
       "milestone": "independent-node-spec",
-      "status": "next",
+      "status": "documented-not-validated-by-independent-operator",
       "exitCriteria": [
-        "document reproducible node bootstrap",
-        "define validator identity and peer discovery",
-        "define persistent chain-data lifecycle",
-        "define upgrades and rollback policy"
+        "fresh external operator reproduces bootstrap without private infrastructure credentials",
+        "node identity and configuration fingerprint are documented",
+        "restart from persistent data is verified",
+        "full resync path is verified"
       ]
     },
     {
       "milestone": "multi-node-devnet",
       "status": "planned",
       "exitCriteria": [
-        "minimum three independently operated nodes",
+        "independent validator keys and operators",
         "verified deterministic chain head agreement",
         "node restart and catch-up tests",
-        "single-node failure does not halt RPC availability"
+        "consensus continues under the documented fault assumption"
       ]
     },
     {
@@ -92,7 +102,8 @@
         "network partition test",
         "validator outage test",
         "state recovery test",
-        "documented threat model and incident playbook"
+        "documented threat model and incident playbook",
+        "public RPC failover test"
       ]
     }
   ],
@@ -102,12 +113,14 @@
       "centralized testing environment",
       "agent-native developer tooling",
       "verifiable contract and project activity",
-      "live native DEX with verified testnet liquidity and swap event"
+      "live native DEX with verified testnet liquidity and swap event",
+      "independent-node requirements documented but not externally validated"
     ],
     "prohibitedUntilEvidenceExists": [
       "decentralized network",
       "production-ready Mainnet",
       "multi-validator consensus",
+      "Byzantine fault tolerant network",
       "audited protocol suite",
       "finalized on-chain Genesis Score"
     ]
