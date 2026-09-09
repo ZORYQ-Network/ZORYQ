@@ -1,5 +1,6 @@
 import http from 'node:http';
 import fs from 'node:fs';
+import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Contract, JsonRpcProvider, Wallet, getAddress, keccak256, parseEther, toBeHex, toUtf8Bytes, verifyMessage } from 'ethers';
@@ -9,6 +10,8 @@ const RPC_PORT=8545;
 const CHAIN_ID=5919065;
 const CHAIN_HEX='0x5a5159';
 const STATE=process.env.ZORYQ_STATE_PATH||'/data/zoryq-state.json';
+const CHECKPOINT_ROOT=process.env.ZORYQ_CHECKPOINT_ROOT||'/data/zoryq-checkpoints';
+const PERSISTENCE_STATUS=process.env.ZORYQ_PERSISTENCE_STATUS||'/data/zoryq-persistence-status.json';
 const FAUCET_FILE=process.env.ZORYQ_FAUCET_STATE||'/data/faucet.json';
 const VALIDATOR_FILE=process.env.ZORYQ_VALIDATOR_STATE||'/data/validators.json';
 const FAUCET_AMOUNT=process.env.ZORYQ_FAUCET_AMOUNT||'100';
@@ -16,7 +19,7 @@ const FAUCET_CONTRACT=String(process.env.ZORYQ_FAUCET_CONTRACT||'').trim();
 const FAUCET_OPERATOR_KEY=String(process.env.ZORYQ_FAUCET_OPERATOR_KEY||'').trim();
 const REQUIRE_X_ATTESTATION=String(process.env.ZORYQ_REQUIRE_X_ATTESTATION||'false').toLowerCase()==='true';
 const OFFICIAL_X_HANDLE='ZORIQNetwork';
-const STATE_INTERVAL=String(Math.max(30,Number(process.env.ZORYQ_STATE_INTERVAL||60)));
+const STATE_INTERVAL=String(Math.max(3600,Number(process.env.ZORYQ_STATE_INTERVAL||3600)));
 const BLOCKED_PREFIXES=['anvil_','hardhat_','evm_','debug_'];
 const CHALLENGE_TTL=10*60*1000;
 const HEARTBEAT_MAX_SKEW=5*60*1000;
@@ -24,9 +27,14 @@ const HEARTBEAT_HEALTHY_WINDOW=3*60*1000;
 const FAUCET_ABI=['function fulfill(bytes32 claimId,address recipient)','function claimAmount() view returns(uint256)','function cooldown() view returns(uint256)','function paused() view returns(bool)'];
 
 fs.mkdirSync('/data',{recursive:true});
-// Keep only the latest chain state. --preserve-historical-states made Anvil snapshots grow
-// rapidly on an always-on 2s block chain and could exhaust container memory during persistence.
-const args=['--host','127.0.0.1','--port',String(RPC_PORT),'--chain-id',String(CHAIN_ID),'--block-time','2','--accounts','0','--state',STATE,'--state-interval',STATE_INTERVAL];
+function loadJson(file,fallback={}){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
+function hasNativeCheckpoint(){return ['current','previous'].some(d=>fs.existsSync(path.join(CHECKPOINT_ROOT,d,'meta.json'))&&fs.existsSync(path.join(CHECKPOINT_ROOT,d,'state.hex.gz')))}
+const nativeCheckpointAtBoot=hasNativeCheckpoint();
+// Once the native RPC checkpoint exists it is the source of truth. --state is kept only
+// for the one-time legacy/genesis migration path; this stops Anvil from continuously
+// rewriting a large JSON state file after migration.
+const args=['--host','127.0.0.1','--port',String(RPC_PORT),'--chain-id',String(CHAIN_ID),'--block-time','2','--accounts','0'];
+if(!nativeCheckpointAtBoot)args.push('--state',STATE,'--state-interval',STATE_INTERVAL);
 const anvil=spawn('anvil',args,{stdio:['ignore','pipe','pipe']});
 anvil.stdout.on('data',d=>process.stdout.write('[anvil] '+d));
 anvil.stderr.on('data',d=>process.stderr.write('[anvil] '+d));
@@ -41,13 +49,40 @@ const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function rpcLocal(method,params=[]){const r=await fetch(localRpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});const j=await r.json();if(j.error)throw Error(j.error.message||'rpc_error');return j.result}
 async function rpcProxy(payload){const r=await fetch(localRpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload)});return {status:r.status,text:await r.text()}}
 async function ready(){for(let i=0;i<120;i++){try{const id=await rpcLocal('eth_chainId');if(id===CHAIN_HEX){provider=new JsonRpcProvider(localRpc,CHAIN_ID,{staticNetwork:true});return}}catch{}await sleep(500)}throw Error('EVM node did not become ready')}
-const nodeReady=ready();
+async function runBootRestore(){
+  await new Promise((resolve,reject)=>{
+    const child=spawn(process.execPath,['rpc-state-restore.mjs'],{stdio:'inherit',env:{...process.env,ZORYQ_BOOT_RECOVERY:'true',ZORYQ_INTERNAL_RPC_PORT:String(RPC_PORT)}});
+    child.once('error',reject);
+    child.once('exit',(code,signal)=>code===0?resolve():reject(new Error(`native checkpoint restore failed code=${code} signal=${signal||''}`)));
+  });
+}
+async function initializeNode(){
+  await ready();
+  if(nativeCheckpointAtBoot){
+    console.log('[zoryq-state] native checkpoint detected; public readiness blocked until verified restore');
+    await runBootRestore();
+    const id=await rpcLocal('eth_chainId');
+    if(id!==CHAIN_HEX)throw Error(`post-restore chain id mismatch ${id}`);
+    provider=new JsonRpcProvider(localRpc,CHAIN_ID,{staticNetwork:true});
+    // A verified native restore is durable; legacy full-size state is no longer needed.
+    for(const file of [STATE,`${STATE}.bak`,`${STATE}.bak.gz`]){try{fs.rmSync(file,{force:true})}catch{}}
+    console.log('[zoryq-state] verified native recovery complete; public readiness released');
+  }
+}
+const nodeReady=initializeNode();
+function persistenceInfo(){
+  const status=loadJson(PERSISTENCE_STATUS,null);
+  const native=hasNativeCheckpoint();
+  if(!status)return {mode:native?'native-rpc-blob':'legacy-or-genesis',nativeCheckpoint:native,readyForTraffic:!native,status:'not-yet-checkpointed'};
+  const nativeStatus=status.source==='anvil_dumpState_blob';
+  const readyForTraffic=!native||(nativeStatus&&status.ok===true&&Number(status.consecutiveFailures||0)===0&&!!status.lastSuccessAt);
+  return {mode:nativeStatus?'native-rpc-blob':'legacy',nativeCheckpoint:native,readyForTraffic,status:status.message||null,lastSuccessAt:status.lastSuccessAt||null,consecutiveFailures:Number(status.consecutiveFailures||0),blockNumber:status.blockNumber||null,blockHash:status.blockHash||null,diskPercent:Number(status.diskPercent||0)};
+}
 function cors(res){res.setHeader('access-control-allow-origin','*');res.setHeader('access-control-allow-headers','content-type');res.setHeader('access-control-allow-methods','GET,POST,OPTIONS')}
 function send(res,status,obj){cors(res);res.writeHead(status,{'content-type':'application/json; charset=utf-8'});res.end(JSON.stringify(obj))}
 async function body(req){let s='';for await(const c of req){s+=c;if(s.length>2_000_000)throw Error('request too large')}return s?JSON.parse(s):{}}
 function blocked(q){return !!q&&typeof q.method==='string'&&BLOCKED_PREFIXES.some(p=>q.method.startsWith(p))}
 function blockedReply(q){if(q?.id===undefined||q?.id===null)return null;return {jsonrpc:'2.0',id:q.id,error:{code:-32601,message:'Administrative RPC method disabled on public ZORYQ endpoint'}}}
-function loadJson(file,fallback={}){try{return JSON.parse(fs.readFileSync(file,'utf8'))}catch{return fallback}}
 function saveJson(file,x){const tmp=`${file}.tmp`;fs.writeFileSync(tmp,JSON.stringify(x,null,2));fs.renameSync(tmp,file)}
 function registrationMessage(operator,nonce){return `ZORYQ Testnet Node Registration\nOperator: ${operator}\nNonce: ${nonce}\nChain ID: ${CHAIN_ID}`}
 function cleanChallenges(){const now=Date.now();for(const [k,v] of challenges)if(now-v.createdAt>CHALLENGE_TTL)challenges.delete(k)}
@@ -61,7 +96,7 @@ const server=http.createServer(async(req,res)=>{try{
  if(req.method==='OPTIONS'){cors(res);res.writeHead(204);return res.end()}
  await nodeReady;
  const url=new URL(req.url,'http://localhost');
- if(req.method==='GET'&&url.pathname==='/health'){const block=await provider.getBlockNumber();const vals=Object.values(loadJson(VALIDATOR_FILE,{}));const healthy=vals.filter(v=>Date.now()-Number(v.lastHeartbeat||0)<=HEARTBEAT_HEALTHY_WINDOW).length;return send(res,200,{ok:true,name:'ZORYQ EVM Testnet',chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,symbol:'ZQ',block,evm:true,contracts:true,erc20:true,erc721:true,rpc:true,registeredNodes:vals.length,healthyNodes:healthy,faucetMode:onchainFaucetConfigured()?'onchain':'legacy-balance',xFaucetGate:REQUIRE_X_ATTESTATION})}
+ if(req.method==='GET'&&url.pathname==='/health'){const block=await provider.getBlockNumber();const vals=Object.values(loadJson(VALIDATOR_FILE,{}));const healthy=vals.filter(v=>Date.now()-Number(v.lastHeartbeat||0)<=HEARTBEAT_HEALTHY_WINDOW).length;const persistence=persistenceInfo();return send(res,200,{ok:true,name:'ZORYQ EVM Testnet',chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,symbol:'ZQ',block,evm:true,contracts:true,erc20:true,erc721:true,rpc:true,registeredNodes:vals.length,healthyNodes:healthy,faucetMode:onchainFaucetConfigured()?'onchain':'legacy-balance',xFaucetGate:REQUIRE_X_ATTESTATION,readyForTraffic:persistence.readyForTraffic,persistence})}
  if(req.method==='GET'&&url.pathname==='/network'){return send(res,200,{chainName:'ZORYQ EVM Testnet',chainId:CHAIN_HEX,nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},rpcUrls:[process.env.PUBLIC_RPC_URL||'SET_PUBLIC_RPC_URL'],blockExplorerUrls:[process.env.PUBLIC_EXPLORER_URL||'https://zoryq-testnet.vercel.app/explorer']})}
  if(req.method==='GET'&&url.pathname==='/faucet/status'){return send(res,200,await faucetStatus())}
  if(req.method==='POST'&&url.pathname==='/faucet'){
@@ -109,4 +144,12 @@ const server=http.createServer(async(req,res)=>{try{
  }
  return send(res,404,{ok:false,error:'not_found'});
  }catch(e){console.error(e);return send(res,500,{ok:false,error:e?.message||'internal_error'})}});
-server.listen(PORT,'0.0.0.0',()=>console.log(`ZORYQ EVM gateway listening on :${PORT}`));
+
+try{
+ await nodeReady;
+ server.listen(PORT,'0.0.0.0',()=>console.log(`ZORYQ EVM gateway listening on :${PORT}; persistence=${hasNativeCheckpoint()?'native-rpc-blob':'legacy-or-genesis'}`));
+}catch(error){
+ console.error('[zoryq-state] FATAL: boot readiness failed',error?.message||error);
+ anvil.kill('SIGTERM');
+ process.exit(70);
+}
