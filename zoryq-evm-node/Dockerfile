@@ -18,8 +18,10 @@ COPY prepare-reth-genesis.mjs ./
 COPY social-service.mjs ./
 COPY product-gateway.mjs ./
 COPY zoryq-reth-genesis.json ./
+COPY reth-lowmem.sh /app/reth-bin/reth
 COPY entrypoint.sh ./
-RUN chmod +x /app/entrypoint.sh && mkdir -p /data/reth /app/web /app/protocol-out
+RUN chmod +x /app/entrypoint.sh /app/reth-bin/reth && mkdir -p /data/reth /app/web /app/protocol-out
+ENV PATH="/app/reth-bin:${PATH}"
 ENV PORT=8080
 EXPOSE 8080
 CMD ["/app/entrypoint.sh"]
