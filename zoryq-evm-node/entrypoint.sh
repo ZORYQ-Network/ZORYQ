@@ -82,6 +82,9 @@ cleanup_stale_artifacts() {
 
 cleanup_stale_artifacts
 recover_state
+# At boot the node is not writing STATE yet, so this is the safest time to create
+# a compact, verified recovery image and retire any legacy full-size backup.
+snapshot_state || echo "[zoryq-state] boot snapshot unavailable; starting with verified primary state"
 
 npm start &
 APP_PID=$!
