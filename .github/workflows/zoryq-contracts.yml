@@ -3,7 +3,7 @@ name: Test ZORYQ Contracts
 on:
   workflow_dispatch:
   push:
-    branches: [zoryq-evm-testnet-node]
+    branches: [zoryq-evm-testnet-node, zoryq-p0-wallet-superapp]
     paths:
       - 'zoryq-contracts/**'
       - '.github/workflows/zoryq-contracts.yml'
@@ -31,6 +31,13 @@ jobs:
       - name: Test
         working-directory: zoryq-contracts
         run: forge test -vv
+      - name: Verify scoped agent policy tests exist
+        run: |
+          test -f zoryq-contracts/src/ZoryqAgentVault.sol
+          test -f zoryq-contracts/test/ZoryqAgentVault.t.sol
+          grep -q 'maxPerTx' zoryq-contracts/src/ZoryqAgentVault.sol
+          grep -q 'maxPerPeriod' zoryq-contracts/src/ZoryqAgentVault.sol
+          grep -q 'revokePermission' zoryq-contracts/src/ZoryqAgentVault.sol
       - name: Package protocol creation artifacts
         run: |
           set -euo pipefail
@@ -38,6 +45,7 @@ jobs:
           cp zoryq-contracts/out/ZoryqDexV1.sol/ZoryqDexV1.json protocol-build/
           cp zoryq-contracts/out/ZoryqLendingLab.sol/ZoryqLendingLab.json protocol-build/
           cp zoryq-contracts/out/ZoryqProjectRegistry.sol/ZoryqProjectRegistry.json protocol-build/
+          cp zoryq-contracts/out/ZoryqAgentVault.sol/ZoryqAgentVault.json protocol-build/
       - name: Upload protocol build artifacts
         uses: actions/upload-artifact@v4
         with:
