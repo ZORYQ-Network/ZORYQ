@@ -15,6 +15,7 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev --no-audit --no-fund
 COPY server.mjs ./
+COPY ai-ceo.mjs ./
 COPY prepare-reth-genesis.mjs ./
 COPY zoryq-reth-genesis.json ./
 COPY entrypoint.sh ./
