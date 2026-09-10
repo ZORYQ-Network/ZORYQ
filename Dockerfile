@@ -7,7 +7,7 @@ RUN cd zoryq-contracts && \
     (test -f foundry.toml || printf '[profile.default]\nsrc = "src"\ntest = "test"\nout = "out"\nsolc_version = "0.8.24"\n' > foundry.toml) && \
     forge build
 
-FROM rust:1.89-bookworm AS rust-gateway-builder
+FROM rust:1.94-bookworm AS rust-gateway-builder
 WORKDIR /build/zoryq-gateway
 COPY zoryq-evm-node/rust-gateway/Cargo.toml ./Cargo.toml
 COPY zoryq-evm-node/rust-gateway/src ./src
