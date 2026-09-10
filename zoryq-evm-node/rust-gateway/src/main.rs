@@ -77,7 +77,7 @@ async fn handler(axum::extract::State(state):axum::extract::State<State>,req:Req
  if p.starts_with("/api/social"){return json_response(StatusCode::NOT_FOUND,json!({"ok":false,"error":"not_found"}))}
  if method==Method::GET&&p=="/explorer/stats"{return json_response(StatusCode::OK,state.explorer.stats(memory_band().2).await)}
  if method==Method::GET&&p=="/explorer/transactions"{let page=query_param(uri.query(),"page").and_then(|v|v.parse().ok()).unwrap_or(1);let limit=query_param(uri.query(),"limit").and_then(|v|v.parse::<u64>().ok()).unwrap_or(50);let address=query_param(uri.query(),"address").unwrap_or_default();let order=query_param(uri.query(),"order").unwrap_or_else(||"desc".into());return json_response(StatusCode::OK,state.explorer.list(page,limit,&address,&order).await)}
- if (method==Method::GET||method==Method::HEAD)&&(p.starts_with("/tx/")||p.starts_with("/address/")||p.starts_with("/block/")){return serve(WEB_ROOT,"explorer.html")}
+ if (method==Method::GET||method==Method::HEAD)&&(p.starts_with("/tx/")||p.starts_with("/address/")||p.starts_with("/token/")||p.starts_with("/block/")){return serve(WEB_ROOT,"explorer.html")}
  if method==Method::GET&&p.starts_with("/protocol-artifacts/"){let f=match p.as_str(){"/protocol-artifacts/dexV1.json"=>Some("ZoryqDexV1.sol/ZoryqDexV1.json"),"/protocol-artifacts/lending.json"=>Some("ZoryqLendingLab.sol/ZoryqLendingLab.json"),"/protocol-artifacts/projectRegistry.json"=>Some("ZoryqProjectRegistry.sol/ZoryqProjectRegistry.json"),_=>None};if let Some(f)=f{return serve(PROTOCOL_ROOT,f)}}
  if method==Method::GET||method==Method::HEAD{if let Some(f)=static_alias(&p){return serve(WEB_ROOT,f)}}
  let is_rpc=method==Method::POST&&(p=="/rpc"||p=="/");let is_faucet=method==Method::POST&&p=="/faucet";
