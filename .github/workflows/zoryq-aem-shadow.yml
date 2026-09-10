@@ -7,6 +7,7 @@ on:
       - zoryq-evm-testnet-node
     paths:
       - 'zoryq-developer/aem-shadow.mjs'
+      - 'zoryq-developer/aem-shadow-sample.mjs'
       - 'zoryq-developer/THREAT_MODEL_AEM.md'
       - 'zoryq-developer/adr/ADR-001-AEM-SHADOW-EXECUTION.md'
       - '.github/workflows/zoryq-aem-shadow.yml'
@@ -54,17 +55,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ! grep -Eq "eth_sendRawTransaction|eth_sendTransaction|wallet\.send|privateKey|mnemonic|/faucet" zoryq-developer/aem-shadow.mjs
+          ! grep -Eq "eth_sendRawTransaction|eth_sendTransaction|wallet\.send|privateKey|mnemonic|/faucet" zoryq-developer/aem-shadow.mjs zoryq-developer/aem-shadow-sample.mjs
           echo 'Shadow engine is read-only by construction.'
 
-      - name: Observe one live ZORYQ block without influencing execution
+      - name: Observe a recent non-empty ZORYQ block without influencing execution
         shell: bash
         run: |
           set -euo pipefail
-          ZORYQ_AEM_SHADOW_OUT=/tmp/aem-live.json node zoryq-developer/aem-shadow.mjs >/tmp/aem-live-stdout.json
-          jq -e '.status == "research" and .canonical == false and .evidenceClass == "metadata-shadow" and .chainId == 5919065 and (.source.blockHash | type == "string") and (.resultCommitment | startswith("0x"))' /tmp/aem-live.json >/dev/null
+          ZORYQ_AEM_LOOKBACK=128 ZORYQ_AEM_SHADOW_OUT=/tmp/aem-live.json node zoryq-developer/aem-shadow-sample.mjs >/tmp/aem-live-stdout.json
+          jq -e '.status == "research" and .canonical == false and .evidenceClass == "metadata-shadow" and .chainId == 5919065 and (.source.blockHash | type == "string") and (.source.transactionCount > 0) and (.resultCommitment | startswith("0x"))' /tmp/aem-live.json >/dev/null
           echo "Observed block: $(jq -r '.source.blockNumber' /tmp/aem-live.json)"
           echo "Transactions: $(jq -r '.source.transactionCount' /tmp/aem-live.json)"
+          echo "Lookback: $(jq -r '.sampling.lookbackBlocks // 0' /tmp/aem-live.json) blocks"
           echo "Lane counts: $(jq -c '.laneCounts' /tmp/aem-live.json)"
           echo "Shadow commitment: $(jq -r '.resultCommitment' /tmp/aem-live.json)"
 
@@ -73,4 +75,4 @@ jobs:
           echo 'AEM Shadow Evidence: PASS'
           echo 'Classification: research / metadata-shadow'
           echo 'Canonical execution influence: NONE'
-          echo 'Live testnet observation: read-only'
+          echo 'Live testnet observation: read-only, non-empty block required'
