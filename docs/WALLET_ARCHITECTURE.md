@@ -1,7 +1,7 @@
-# KYVO Wallet Architecture
+# ZORYQ Wallet Architecture
 
 ## Objetivo
-Oferecer wallet própria dentro do app com experiência simples, preservando self-custody e evitando custódia operacional pela KYVO.
+Oferecer wallet própria dentro do app com experiência simples, preservando self-custody e evitando custódia operacional pela ZORYQ.
 
 ## Modelo recomendado
 A implementação de produção deve escolher uma arquitetura auditável entre:
@@ -12,7 +12,7 @@ A implementação de produção deve escolher uma arquitetura auditável entre:
 `expo-secure-store` pode proteger pequenos secrets/tokens locais, mas não deve ser tratado isoladamente como estratégia completa para material criptográfico irrecuperável. O projeto seguirá threat modeling e controles OWASP MASVS.
 
 ## Regras inegociáveis
-- seed/private key nunca enviada ao Supabase, analytics ou API KYVO;
+- seed/private key nunca enviada ao Supabase, analytics ou API ZORYQ;
 - seed nunca exibida automaticamente;
 - screenshots bloqueados em telas críticas quando suportado;
 - clipboard com aviso/limpeza para secrets;
@@ -24,7 +24,7 @@ A implementação de produção deve escolher uma arquitetura auditável entre:
 - recovery documentado e testado.
 
 ## Wallets externas
-Suportar WalletConnect/Reown e conectores nativos conforme ecossistema. A wallet KYVO continua sendo a experiência padrão, não requisito obrigatório.
+Suportar WalletConnect/Reown e conectores nativos conforme ecossistema. A wallet ZORYQ continua sendo a experiência padrão, não requisito obrigatório.
 
 ## Redes
 A wallet layer deve usar namespaces por ecossistema (`eip155`, `solana`, `bitcoin`, etc.) e adapters separados. Não assumir que uma API EVM funciona em Solana/Bitcoin/TON/Sui.

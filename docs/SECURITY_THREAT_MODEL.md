@@ -1,4 +1,4 @@
-# Threat Model KYVO
+# Threat Model ZORYQ
 
 ## Ativos críticos
 - chaves/seed/passkeys;

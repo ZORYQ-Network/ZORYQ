@@ -5,7 +5,7 @@
 **Motivo:** Android/iOS com design compartilhado e acesso a APIs nativas quando necessário.
 
 ## ADR-002 — Self-custody
-**Decisão:** KYVO não custodiará private keys no backend.
+**Decisão:** ZORYQ não custodiará private keys no backend.
 **Motivo:** reduzir superfície de custódia e manter controle do usuário.
 
 ## ADR-003 — XP separado de token
@@ -21,7 +21,7 @@
 **Motivo:** client secret não pode ser protegido dentro do app.
 
 ## ADR-006 — Fees transparentes
-**Decisão:** fee KYVO sempre explícita no review.
+**Decisão:** fee ZORYQ sempre explícita no review.
 **Motivo:** confiança e previsibilidade.
 
 Novas decisões materiais devem ser adicionadas como ADRs.

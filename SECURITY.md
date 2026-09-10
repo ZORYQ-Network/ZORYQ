@@ -16,7 +16,7 @@ Enquanto um canal dedicado de security reporting não estiver configurado, use o
 - CI/CD secrets.
 
 ## Never request
-A equipe KYVO nunca deve solicitar seed phrase ou private key de usuário para suporte.
+A equipe ZORYQ nunca deve solicitar seed phrase ou private key de usuário para suporte.
 
 ## Standards
 O baseline mobile acompanha OWASP MASVS/MASTG e práticas de segurança do ecossistema Expo/React Native. Mainnet exige assessment adicional.

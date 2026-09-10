@@ -1,7 +1,7 @@
 # Estratégia Multi-chain
 
 ## Objetivo
-A KYVO deve crescer por adapters e catálogo dinâmico, evitando telas e regras hardcoded por rede.
+A ZORYQ deve crescer por adapters e catálogo dinâmico, evitando telas e regras hardcoded por rede.
 
 ## Namespaces
 - EVM / `eip155`
@@ -28,4 +28,4 @@ Uma rede pode suportar apenas leitura de saldo, enquanto outra suporta send, swa
 Token metadata deve vir de fontes aprovadas e cacheadas. Tokens adicionados por contrato precisam de warning e risk scan.
 
 ## Segurança cross-chain
-Bridges são risco adicional. A KYVO deve exibir origem, destino, tempo estimado, provider, fee, slippage, status de bridge e link de tracking.
+Bridges são risco adicional. A ZORYQ deve exibir origem, destino, tempo estimado, provider, fee, slippage, status de bridge e link de tracking.

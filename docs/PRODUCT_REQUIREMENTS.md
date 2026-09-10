@@ -1,4 +1,4 @@
-# Product Requirements — KYVO
+# Product Requirements — ZORYQ
 
 ## P0 — obrigatório antes de beta público
 ### Conta e onboarding
@@ -14,7 +14,7 @@
 - Simular transação e mostrar destino, valor, rede e gas antes de assinar.
 
 ### Swap
-- Quote real, slippage, price impact, gas, rota e fee KYVO.
+- Quote real, slippage, price impact, gas, rota e fee ZORYQ.
 - Cross-chain quando houver rota suportada.
 - Aprovação exata por padrão quando tecnicamente possível.
 - Bloqueio de execução quando quote expirar.
