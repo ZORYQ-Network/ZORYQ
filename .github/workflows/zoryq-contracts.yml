@@ -8,6 +8,7 @@ on:
       - 'zoryq-contracts/**'
       - 'zoryq-evm-node/deploy-autonomous-economy.mjs'
       - 'zoryq-evm-node/deploy-one-prompt-company.mjs'
+      - 'zoryq-evm-node/deploy-autonomous-company-v2.mjs'
       - 'zoryq-evm-node/entrypoint.sh'
       - 'Dockerfile'
       - '.github/workflows/zoryq-contracts.yml'
@@ -17,6 +18,7 @@ on:
       - 'zoryq-contracts/**'
       - 'zoryq-evm-node/deploy-autonomous-economy.mjs'
       - 'zoryq-evm-node/deploy-one-prompt-company.mjs'
+      - 'zoryq-evm-node/deploy-autonomous-company-v2.mjs'
       - 'zoryq-evm-node/entrypoint.sh'
       - 'Dockerfile'
       - '.github/workflows/zoryq-contracts.yml'
@@ -36,8 +38,10 @@ jobs:
           sh -n zoryq-evm-node/entrypoint.sh
           node --check zoryq-evm-node/deploy-autonomous-economy.mjs
           node --check zoryq-evm-node/deploy-one-prompt-company.mjs
+          node --check zoryq-evm-node/deploy-autonomous-company-v2.mjs
           grep -q 'deploy-autonomous-economy.mjs' Dockerfile
           grep -q 'deploy-one-prompt-company.mjs' Dockerfile
+          grep -q 'deploy-autonomous-company-v2.mjs' Dockerfile
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -61,6 +65,7 @@ jobs:
           cp zoryq-contracts/out/ZoryqProjectRegistry.sol/ZoryqProjectRegistry.json protocol-build/
           cp zoryq-contracts/out/ZoryqAutonomousEconomy.sol/ZoryqAutonomousEconomy.json protocol-build/
           cp zoryq-contracts/out/ZoryqOnePromptCompany.sol/ZoryqOnePromptCompany.json protocol-build/
+          cp zoryq-contracts/out/ZoryqAutonomousCompanyV2.sol/ZoryqAutonomousCompanyV2.json protocol-build/
       - name: Upload protocol build artifacts
         uses: actions/upload-artifact@v4
         with:
