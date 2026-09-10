@@ -1,6 +1,6 @@
-# Política para Futuro Token KYVO
+# Política para Futuro Token ZORYQ
 
-Status atual: **nenhum token KYVO é declarado como lançado por este documento**.
+Status atual: **nenhum token ZORYQ é declarado como lançado por este documento**.
 
 ## Gates antes de decisão de lançamento
 1. produto com uso real;

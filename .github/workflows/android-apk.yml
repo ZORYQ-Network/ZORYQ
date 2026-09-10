@@ -1,18 +1,18 @@
-name: Build KYVO Android APK
+name: Build ZORYQ Android APK
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'kyvo-src.tgz'
+      - 'zoryq-src.tgz'
       - '.github/workflows/android-apk.yml'
 
 permissions:
   contents: read
 
 concurrency:
-  group: kyvo-android-apk-${{ github.ref }}
+  group: zoryq-android-apk-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -25,10 +25,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Extract KYVO source
+      - name: Extract ZORYQ source
         run: |
           mkdir -p appsrc
-          tar -xzf kyvo-src.tgz -C appsrc
+          tar -xzf zoryq-src.tgz -C appsrc
           test -f appsrc/package.json
           test -f appsrc/app.json
 
@@ -75,15 +75,15 @@ jobs:
       - name: Rename APK
         run: |
           mkdir -p dist
-          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk dist/KYVO-${{ github.run_number }}.apk
+          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk dist/ZORYQ-${{ github.run_number }}.apk
 
       - name: APK checksum
         run: sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
-      - name: Upload KYVO APK
+      - name: Upload ZORYQ APK
         uses: actions/upload-artifact@v4
         with:
-          name: KYVO-Android-APK-${{ github.run_number }}
+          name: ZORYQ-Android-APK-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt

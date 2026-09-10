@@ -1,9 +1,9 @@
 # Estrutura Alvo do Repositório
 
-A fase atual usa `kyvo-source.zip` como bootstrap reproduzível do APK. A estrutura alvo é manter código-fonte diretamente versionado:
+A fase atual usa `zoryq-src.tgz` como bootstrap reproduzível do APK. A estrutura alvo é manter código-fonte diretamente versionado:
 
 ```text
-Kyvo-mobile/
+zoryq-mobile/
   app/                 # Expo Router screens
   src/
     components/
@@ -37,4 +37,4 @@ Kyvo-mobile/
 ```
 
 ## Regra
-Código crítico não deve permanecer permanentemente dentro de ZIP. O ZIP é apenas mecanismo de bootstrap desta primeira automação e deve ser removido quando o source tree for publicado diretamente no repositório.
+Código crítico não deve permanecer permanentemente dentro de arquivo compactado. O pacote é apenas mecanismo de bootstrap desta primeira automação e deve ser removido quando o source tree for publicado diretamente no repositório.

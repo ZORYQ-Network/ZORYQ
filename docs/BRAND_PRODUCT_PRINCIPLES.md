@@ -1,7 +1,7 @@
-# KYVO Brand & Product Principles
+# ZORYQ Brand & Product Principles
 
 ## Marca
-KYVO deve soar simples, global e memorável. A identidade usa base charcoal/black, violeta/ciano como assinatura e lime com moderação para recompensa/ação.
+ZORYQ deve soar simples, global e memorável. A identidade usa base charcoal/black, violeta/ciano como assinatura e lime com moderação para recompensa/ação.
 
 ## Produto
 1. **Clean before flashy** — glow nunca prejudica legibilidade.

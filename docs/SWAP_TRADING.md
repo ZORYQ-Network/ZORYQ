@@ -1,7 +1,7 @@
 # Swap e Trading
 
 ## Swap
-O swap é não custodial. A KYVO orquestra quote e UX; a execução ocorre na wallet/protocolo.
+O swap é não custodial. A ZORYQ orquestra quote e UX; a execução ocorre na wallet/protocolo.
 
 ### Quote obrigatório
 - token/rede de origem e destino;
@@ -10,12 +10,12 @@ O swap é não custodial. A KYVO orquestra quote e UX; a execução ocorre na wa
 - slippage;
 - price impact;
 - gas estimado;
-- fee KYVO;
+- fee ZORYQ;
 - fee de terceiros;
 - rota/provider;
 - TTL do quote.
 
-### KYVO Fee
+### ZORYQ Fee
 A taxa deve ser configurada server-side e enviada no quote quando o provider permitir integrator fees. O usuário visualiza a taxa antes da assinatura. Nunca esconder fee no rate exibido.
 
 ### Segurança

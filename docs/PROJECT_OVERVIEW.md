@@ -1,10 +1,10 @@
-# KYVO — Visão do Projeto
+# ZORYQ — Visão do Projeto
 
 ## Missão
-KYVO é um aplicativo mobile crypto-first que combina wallet self-custody, swap multi-chain, SocialFi, música via Spotify, progressão por XP e uma infraestrutura preparada para um eventual token futuro.
+ZORYQ é um aplicativo mobile crypto-first que combina wallet self-custody, swap multi-chain, SocialFi, música via Spotify, progressão por XP e uma infraestrutura preparada para um eventual token futuro.
 
 ## Proposta de valor
-O usuário não deve precisar alternar entre cinco aplicativos para guardar ativos, trocar tokens, acompanhar comunidades, ouvir música e construir reputação on-chain/social. A KYVO reúne essas experiências em uma interface única, rápida e gamificada.
+O usuário não deve precisar alternar entre cinco aplicativos para guardar ativos, trocar tokens, acompanhar comunidades, ouvir música e construir reputação on-chain/social. A ZORYQ reúne essas experiências em uma interface única, rápida e gamificada.
 
 ## Pilares
 1. **Own** — wallet própria e não custodial.

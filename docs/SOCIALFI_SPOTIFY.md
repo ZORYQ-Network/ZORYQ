@@ -1,7 +1,7 @@
 # SocialFi + Spotify
 
 ## SocialFi
-A KYVO combina identidade social e contexto crypto sem transformar o feed em canal de spam financeiro.
+A ZORYQ combina identidade social e contexto crypto sem transformar o feed em canal de spam financeiro.
 
 ### Recursos
 - For You / Following / Discover;

@@ -1,4 +1,4 @@
-# Arquitetura KYVO
+# Arquitetura ZORYQ
 
 ## Visão
 Arquitetura mobile-first com separação explícita entre **UI**, **domínio**, **providers financeiros**, **identidade**, **backend social**, **reward engine** e **telemetria**.
@@ -8,7 +8,7 @@ Arquitetura mobile-first com separação explícita entre **UI**, **domínio**, 
 React Native + Expo. Expo Router organiza rotas. Estado sensível e estado visual não devem compartilhar o mesmo storage.
 
 ### Wallet layer
-Abstração `WalletProvider` para permitir embedded wallet, smart account e wallets externas. Private keys/seed phrases nunca transitam pelo backend KYVO.
+Abstração `WalletProvider` para permitir embedded wallet, smart account e wallets externas. Private keys/seed phrases nunca transitam pelo backend ZORYQ.
 
 ### Swap layer
 `QuoteProvider` normaliza agregadores/bridges. A UI recebe quote assinado/identificado, validade, fee, gas, price impact e payload de execução.
@@ -41,5 +41,5 @@ Crashes, performance, erros de API e métricas de produto devem excluir secrets,
 - least privilege;
 - feature flags para recursos de alto risco;
 - rollback simples;
-- nenhuma chave privada em logs, analytics, crash reports ou banco KYVO;
+- nenhuma chave privada em logs, analytics, crash reports ou banco ZORYQ;
 - ambientes `dev`, `staging`, `production` isolados.
