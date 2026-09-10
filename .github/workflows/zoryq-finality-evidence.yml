@@ -63,8 +63,10 @@ jobs:
           ok=0
           for i in $(seq 1 120); do
             if curl -fsS http://127.0.0.1:8080/health >/tmp/finality-health.json; then
-              ok=1
-              break
+              if test "$(jq -r '.chain.chainId // .chainId' /tmp/finality-health.json)" = "5919065"; then
+                ok=1
+                break
+              fi
             fi
             sleep 1
           done
@@ -73,6 +75,10 @@ jobs:
             exit 1
           fi
           cp /tmp/finality-health.json zoryq-evidence/finality-health.json
+
+      - name: Install verification dependencies
+        working-directory: zoryq-evm-node
+        run: npm install --ignore-scripts --no-audit --no-fund
 
       - name: Run inclusion/finality boundary probe
         env:
