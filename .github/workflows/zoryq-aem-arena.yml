@@ -1,0 +1,58 @@
+name: ZORYQ AEM Contention Arena
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'benchmarks/aem-arena.mjs'
+      - '.github/workflows/zoryq-aem-arena.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-contention-arena:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run deterministic contention arena
+        run: node benchmarks/aem-arena.mjs
+
+      - name: Enforce evidence boundaries and safety properties
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            .ok == true
+            and .status == "SIMULATION"
+            and .canonical == false
+            and .chainIdTarget == 5919065
+            and .summary.allSerialEquivalent == true
+            and .summary.allSchedulesDeterministic == true
+            and .summary.neverMoreExecutionWorkThanAlwaysSpeculative == true
+            and .summary.highContentionReexecutionReduced == true
+            and ([.cases[].contentionPercent] == [0,10,30,50,80,100])
+          ' aem-arena-results.json >/dev/null
+          echo 'AEM Arena: synthetic serial-equivalence and contention work-reduction gates passed.'
+
+      - name: Ensure benchmark does not submit transactions
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Eq 'eth_sendRawTransaction|eth_sendTransaction|privateKey|mnemonic|/faucet' benchmarks/aem-arena.mjs
+          echo 'Arena is isolated from public transaction submission.'
+
+      - name: Upload reproducible evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-aem-arena-${{ github.sha }}
+          path: aem-arena-results.json
+          if-no-files-found: error
+          retention-days: 30
