@@ -2,104 +2,165 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ZORYQ — Empresa Digital em 1 Comando</title>
+<title>ZORYQ — Autonomous Company</title>
 <link rel="stylesheet" href="/styles.css">
 <style>
-:root{color-scheme:dark}.wrap{width:min(1120px,calc(100% - 28px));margin:36px auto 90px}.hero{padding:38px 0 18px}.hero h1{font-size:clamp(42px,7vw,78px);line-height:.98;margin:12px 0 18px;letter-spacing:-.045em}.hero p{max-width:830px}.eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#7cf5b1}.muted{color:#9ca6b8}.panel{background:linear-gradient(180deg,#0d1119,#090c12);border:1px solid #232b39;border-radius:24px;padding:20px;margin:18px 0}.prompt{display:grid;grid-template-columns:1fr auto;gap:10px}.prompt input{width:100%;padding:18px 18px;border:1px solid #303b50;border-radius:16px;background:#05080d;color:#fff;font-size:17px;outline:none}.prompt input:focus{border-color:#657490}.btn.big{padding:16px 22px;font-weight:800}.callout{padding:12px 14px;border-radius:14px;background:#0a1110;border:1px solid #1d4735;color:#a9f5c9;margin-top:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{border:1px solid #263043;border-radius:16px;padding:15px;background:#080b11;min-width:0}.metric small{display:block;color:#818ca0;margin-bottom:6px}.metric b{font-size:22px;word-break:break-word}.timeline{display:grid;gap:9px;margin-top:14px}.step{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:12px 14px;border:1px solid #222c3b;border-radius:14px;background:#080b10}.step .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#121824;color:#9ca9bc;font-size:12px}.step.done{border-color:#234d3a;background:#09110e}.step.done .n{background:#153d2a;color:#7cf5b1}.step .proof{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7f899c}.agents{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.agent{border:1px solid #263043;border-radius:16px;padding:14px;background:#080b11}.agent b{display:block;margin-bottom:7px}.agent small{display:block;color:#8a95a8;line-height:1.45}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}.ok{color:#7cf5b1}.warn{color:#ffd36a}.bad{color:#ff8392}.flow{font-weight:800;line-height:1.8}.flow span{white-space:nowrap}.actions{display:flex;gap:10px;flex-wrap:wrap}.hidden{display:none!important}@media(max-width:920px){.grid{grid-template-columns:1fr 1fr}.agents{grid-template-columns:1fr 1fr}.prompt{grid-template-columns:1fr}}@media(max-width:560px){.grid,.agents{grid-template-columns:1fr}.step{grid-template-columns:32px 1fr}.step .proof{grid-column:2}.hero h1{font-size:43px}}
+:root{color-scheme:dark}.wrap{width:min(1160px,calc(100% - 28px));margin:34px auto 90px}.hero{padding:34px 0 16px}.hero h1{font-size:clamp(42px,7vw,78px);line-height:.98;margin:12px 0 18px;letter-spacing:-.045em}.hero p{max-width:900px}.eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#7cf5b1}.muted{color:#9ca6b8}.panel{background:linear-gradient(180deg,#0d1119,#090c12);border:1px solid #232b39;border-radius:24px;padding:20px;margin:18px 0}.formgrid{display:grid;grid-template-columns:1fr 1fr 170px;gap:10px;margin-top:12px}.field{padding:14px 15px;border:1px solid #303b50;border-radius:14px;background:#05080d;color:#fff;font-size:15px;outline:none}.field:focus{border-color:#66758f}.promptrow{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:10px}.promptrow input{padding:18px}.btn.big{padding:17px 22px;font-weight:800;min-width:240px}.callout{padding:12px 14px;border-radius:14px;background:#0a1110;border:1px solid #1d4735;color:#a9f5c9;margin-top:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{border:1px solid #263043;border-radius:16px;padding:15px;background:#080b11;min-width:0}.metric small{display:block;color:#818ca0;margin-bottom:6px}.metric b{font-size:21px;word-break:break-word}.timeline{display:grid;gap:9px;margin-top:14px}.step{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:12px 14px;border:1px solid #222c3b;border-radius:14px;background:#080b10}.step .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#121824;color:#9ca9bc;font-size:12px}.step.done{border-color:#234d3a;background:#09110e}.step.done .n{background:#153d2a;color:#7cf5b1}.step .proof{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7f899c}.agents{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.agent{border:1px solid #263043;border-radius:16px;padding:14px;background:#080b11}.agent b{display:block;margin-bottom:8px}.agent small{display:block;color:#8a95a8;line-height:1.5}.pill{display:inline-flex;border:1px solid #2b374b;border-radius:999px;padding:4px 7px;margin:4px 3px 0 0;font-size:10px;color:#b9c4d6}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}.ok{color:#7cf5b1}.warn{color:#ffd36a}.bad{color:#ff8392}.flow{font-weight:800;line-height:1.8}.flow span{white-space:nowrap}.actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.hidden{display:none!important}.proofbox{border:1px solid #28402f;background:#08100c;border-radius:16px;padding:14px}.headlineStatus{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;background:#7cf5b1;box-shadow:0 0 16px #7cf5b1}.safety{border-color:#4b3c22;background:#100e08}.danger{border-color:#56303a}.small{font-size:12px}@media(max-width:950px){.grid{grid-template-columns:1fr 1fr}.agents{grid-template-columns:1fr 1fr}.formgrid{grid-template-columns:1fr 1fr}.formgrid .budget{grid-column:1/-1}.promptrow{grid-template-columns:1fr}}@media(max-width:560px){.grid,.agents,.formgrid{grid-template-columns:1fr}.formgrid .budget{grid-column:auto}.step{grid-template-columns:32px 1fr}.step .proof{grid-column:2}.hero h1{font-size:43px}.btn.big{width:100%}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/ethers@6.17.0/dist/ethers.umd.min.js"></script>
 </head>
 <body>
-<header class="nav"><a class="brand" href="/start"><span class="mark">Z</span><span>ZORYQ</span><b>ONE PROMPT</b></a><nav><a href="/explorer">Explorer</a><a href="/developer">Developers</a><a href="/metrics">Metrics</a></nav></header>
+<header class="nav"><a class="brand" href="/start"><span class="mark">Z</span><span>ZORYQ</span><b>AUTONOMOUS COMPANY</b></a><nav><a href="/explorer">Explorer</a><a href="/developer">Developers</a><a href="/metrics">Metrics</a></nav></header>
 <main class="wrap">
 <section class="hero">
-<span class="eyebrow">ONE PROMPT → ONE ONCHAIN COMPANY</span>
-<h1>Escreva uma frase.<br>A empresa nasce na blockchain.</h1>
-<p class="muted">A demonstração transforma um comando simples em empresa, AI CEO, equipe, treasury, regras, trabalho, contratação, execução, verificação, pagamento, reputação e receita — com estado e eventos registrados na ZORYQ Testnet.</p>
+<span class="eyebrow">NAME + OBJECTIVE + BUDGET → ONCHAIN COMPANY</span>
+<h1>Crie uma empresa autônoma<br>com um comando.</h1>
+<p class="muted">A ZORYQ cria a empresa, abre a treasury, instala a constituição, cria 7 agentes econômicos com permissões e limites, encontra um trabalho de demonstração, contrata e subcontrata agentes, registra a execução, verifica, paga, recebe receita e atualiza reputações — tudo auditável na ZORYQ Testnet.</p>
 </section>
 
 <section class="panel">
-<div class="prompt"><input id="prompt" value="Crie uma empresa digital com US$100." aria-label="Comando"><button id="launch" class="btn primary big">CRIAR EMPRESA ON-CHAIN</button></div>
-<div class="callout"><b>Como funciona o “US$100”:</b> nesta testnet, o comando cria <b>100 dUSD</b> sintéticos apenas para demonstração. Não é dólar real, stablecoin real ou ativo com valor monetário.</div>
-<p id="wallet" class="muted">Você pode primeiro ver a empresa canônica já executada. Para criar outra, use MetaMask/Rabby e tenha apenas um pouco de ZQ de testnet para gas.</p>
-<div class="actions"><button id="canonical" class="btn">VER DEMONSTRAÇÃO PRONTA</button><button id="connect" class="btn">CONECTAR CARTEIRA</button><a class="btn" href="/faucet">PEGAR ZQ DE TESTE</a></div>
+<span class="eyebrow">CREATE AN AUTONOMOUS COMPANY</span>
+<div class="formgrid">
+<input id="companyName" class="field" value="Minha Empresa Autônoma" aria-label="Nome da empresa">
+<input id="objective" class="field" value="Criar e vender produtos digitais para projetos Web3" aria-label="Objetivo">
+<input id="budget" class="field budget" type="number" min="25" max="10000" step="1" value="100" aria-label="Orçamento dUSD">
+</div>
+<div class="promptrow"><input id="prompt" class="field" value="Crie uma empresa digital com US$100." aria-label="Comando"><button id="launch" class="btn primary big">CRIAR EMPRESA ON-CHAIN</button></div>
+<div class="callout"><b>Demonstração pública:</b> “US$100” significa <b>100 dUSD sintéticos de testnet</b>. dUSD não é dólar real, não é uma stablecoin de produção e não possui valor monetário. A primeira oportunidade/receita também é um mercado determinístico de teste para tornar o fluxo econômico verificável.</div>
+<div class="actions" style="margin-top:12px"><button id="canonical" class="btn">VER EMPRESA V2 JÁ EXECUTADA</button><button id="connect" class="btn">CONECTAR METAMASK / RABBY</button><a class="btn" href="/faucet">PEGAR ZQ PARA GAS</a></div>
+<p id="wallet" class="muted">Você pode ver a demonstração canônica sem carteira. Para criar a sua, conecte uma carteira EVM e confirme uma única transação.</p>
 <p id="status" class="muted">Pronto.</p>
 </section>
 
+<section class="panel proofbox">
+<div class="headlineStatus"><span class="dot"></span><b>Autonomous Company v2 — prova canônica</b><span id="proofStatus" class="muted">verificando RPC…</span></div>
+<div class="grid" style="margin-top:14px">
+<div class="metric"><small>Contrato v2</small><b id="contractProof">—</b></div>
+<div class="metric"><small>Company #1</small><b id="companyProof">—</b></div>
+<div class="metric"><small>Equipe</small><b id="teamProof">—</b></div>
+<div class="metric"><small>Primeiro ciclo</small><b id="cycleProof">—</b></div>
+</div>
+<div class="actions" style="margin-top:12px"><a class="btn" href="/address/0xab9654c5867CB71E0Cedb6B7379d61aadb57af60">ABRIR CONTRATO</a><a class="btn" href="/tx/0x7090a1ea5902ecb0d7b10e7d037449fd848ef96d3ee05002c24e23a94e4cfb1c">DEPLOYMENT TX</a><a class="btn" href="/tx/0x93b677a997e065100126418e6a73cfd5c82f5d8e5f87d6938c402ab8a1012041">CRIAÇÃO + 1º CICLO TX</a></div>
+</section>
+
 <section class="panel">
-<span class="eyebrow">O QUE A ZORYQ EXECUTA</span>
-<p class="flow"><span>cria empresa</span> → <span>cria AI CEO</span> → <span>cria equipe</span> → <span>abre treasury</span> → <span>instala constituição</span> → <span>encontra trabalho</span> → <span>contrata agentes</span> → <span>executa</span> → <span>audita</span> → <span>paga</span> → <span>recebe</span> → <span>reputação sobe</span> → <span>gera receita</span></p>
+<span class="eyebrow">O QUE A TRANSAÇÃO EXECUTA</span>
+<p class="flow"><span>empresa</span> → <span>treasury</span> → <span>constituição</span> → <span>AI CEO</span> → <span>7 agentes</span> → <span>permissões</span> → <span>trabalho</span> → <span>contratações</span> → <span>execução</span> → <span>verificação</span> → <span>pagamentos</span> → <span>receita</span> → <span>reputação</span></p>
 <div id="timeline" class="timeline"></div>
+<p class="muted small">Na versão simplificada, o primeiro ciclo inteiro ocorre dentro de uma única transação e deixa múltiplos eventos/logs on-chain. Os ciclos seguintes geram novas transações.</p>
 </section>
 
 <section id="companyPanel" class="panel">
-<div class="actions" style="justify-content:space-between;align-items:center"><div><span class="eyebrow">EMPRESA ON-CHAIN</span><h2 id="companyTitle" style="margin:7px 0">Empresa #1</h2></div><button id="nextCycle" class="btn primary hidden">RODAR PRÓXIMO CICLO AUTÔNOMO</button></div>
-<div class="grid">
+<div class="actions" style="justify-content:space-between"><div><span class="eyebrow">AUTONOMOUS COMPANY</span><h2 id="companyTitle" style="margin:7px 0">Empresa #1</h2><p id="companyObjective" class="muted" style="margin:0">—</p></div><div class="actions"><button id="nextCycle" class="btn primary hidden">RODAR PRÓXIMO CICLO</button><button id="stop" class="btn hidden">EMERGENCY STOP</button><button id="resume" class="btn hidden">RETOMAR EMPRESA</button></div></div>
+<div class="grid" style="margin-top:14px">
 <div class="metric"><small>Capital inicial</small><b id="initial">—</b></div>
-<div class="metric"><small>Receita gerada</small><b id="revenue">—</b></div>
-<div class="metric"><small>Custos pagos</small><b id="expenses">—</b></div>
+<div class="metric"><small>Receita</small><b id="revenue">—</b></div>
+<div class="metric"><small>Despesas</small><b id="expenses">—</b></div>
 <div class="metric"><small>Treasury atual</small><b id="treasuryBalance">—</b></div>
 </div>
 <div class="grid" style="margin-top:12px">
-<div class="metric"><small>Lucro operacional acumulado</small><b id="profit">—</b></div>
-<div class="metric"><small>Ciclos concluídos</small><b id="cycles">—</b></div>
+<div class="metric"><small>Lucro operacional</small><b id="profit">—</b></div>
+<div class="metric"><small>Ciclos</small><b id="cycles">—</b></div>
 <div class="metric"><small>Agentes</small><b id="team">—</b></div>
-<div class="metric"><small>Status</small><b id="active">—</b></div>
+<div class="metric"><small>Intervenções humanas</small><b id="interventions">—</b></div>
 </div>
-<p><small class="muted">Treasury</small><br><span id="treasury" class="mono">—</span></p>
-<p><small class="muted">Constituição / permissões</small><br><span id="constitution" class="mono">—</span></p>
-<p id="txRow" class="hidden"><small class="muted">Transação</small><br><a id="txLink" class="mono" href="#">—</a></p>
+<div class="grid" style="margin-top:12px">
+<div class="metric"><small>Status</small><b id="active">—</b></div>
+<div class="metric"><small>Emergency Stop</small><b id="safety">—</b></div>
+<div class="metric"><small>Owner</small><b id="owner" class="mono" style="font-size:12px">—</b></div>
+<div class="metric"><small>dUSD testnet</small><b id="token" class="mono" style="font-size:12px">—</b></div>
+</div>
+<p><small class="muted">Treasury</small><br><a id="treasury" class="mono" href="#">—</a></p>
+<p><small class="muted">Constituição / política</small><br><span id="constitution" class="mono">—</span></p>
+<p id="txRow" class="hidden"><small class="muted">Última transação</small><br><a id="txLink" class="mono" href="#">—</a></p>
 </section>
 
 <section class="panel">
-<span class="eyebrow">EQUIPE AUTÔNOMA</span><h2>AI CEO + agentes econômicos</h2>
+<span class="eyebrow">7 AGENTES ECONÔMICOS</span><h2>AI CEO + Marketing + Designer + Research + Sales + Finance + Developer</h2>
+<p class="muted">Cada papel possui uma vault, permissões registradas e limite por ciclo. Isso é a camada econômica e de autorização; o raciocínio de modelos de IA continua off-chain.</p>
 <div id="agents" class="agents"><div class="muted">Carregando…</div></div>
 </section>
 
-<section class="panel"><h2>O que é realmente on-chain?</h2><p class="muted">Empresa, treasury, cinco identidades econômicas/vaults de agentes, constituição hash, descoberta de oportunidade, contratação, subcontratação, resultado, verificação, pagamentos em dUSD de teste, receita, ciclos e reputação ficam registrados no contrato. O primeiro ciclo é determinístico para tornar a demonstração simples e auditável; modelos de IA e raciocínio avançado continuam sendo uma camada off-chain que pode usar estas mesmas permissões e regras.</p><p class="muted">Contrato da demonstração: <a class="mono" href="/address/0xF450eF5D7b9196ebd878a6Fa703b855a9F13E74E">0xF450eF5D7b9196ebd878a6Fa703b855a9F13E74E</a></p></section>
+<section class="panel safety">
+<h2>Limite do protótipo atual</h2>
+<p class="muted">O que é real on-chain: empresa, nome, objetivo, owner, treasury, 7 vaults de agentes, constituição hash, permissões, limites, oportunidade, contratação/subcontratação, hash do resultado, verificação, pagamentos dUSD de teste, receita sintética, reputação, ciclos, emergency stop e contador de intervenção humana.</p>
+<p class="muted">O que ainda não é uma economia comercial real: o primeiro cliente/mercado e a receita são determinísticos de testnet, dUSD não possui valor monetário e o raciocínio de IA/uso de APIs reais ainda precisa ser conectado como camada off-chain. O contrato serve como controle e liquidação verificável para essa próxima camada.</p>
+</section>
 </main>
 <script>
-const CONTRACT='0xF450eF5D7b9196ebd878a6Fa703b855a9F13E74E',CHAIN='0x5a5159',RPC=location.origin+'/rpc',CANONICAL=1;
+const CONTRACT='0xab9654c5867CB71E0Cedb6B7379d61aadb57af60';
+const DEPLOY_TX='0x7090a1ea5902ecb0d7b10e7d037449fd848ef96d3ee05002c24e23a94e4cfb1c';
+const CANONICAL_TX='0x93b677a997e065100126418e6a73cfd5c82f5d8e5f87d6938c402ab8a1012041';
+const CHAIN='0x5a5159',RPC=location.origin+'/rpc',CANONICAL=1;
 const ABI=[
- 'function launchCompany(uint256 budgetUsd6,bytes32 promptHash) returns(uint256 companyId)',
+ 'function launchCompany(string companyName,string objective,uint256 budgetUsd6,bytes32 promptHash) returns(uint256 companyId)',
  'function runNextCycle(uint256 companyId) returns(uint256 jobId)',
+ 'function triggerEmergencyStop(uint256 companyId)',
+ 'function resumeCompany(uint256 companyId)',
  'function companyCount() view returns(uint256)',
- 'function companySnapshot(uint256 companyId) view returns(address owner,address treasury,address token,uint256 treasuryBalance,uint256 initialBudget,uint256 revenue,uint256 expenses,uint256 profitAfterOperatingCosts,uint32 cycleCount,uint256 teamSize,bytes32 constitutionHash,bool active)',
+ 'function companySnapshot(uint256 companyId) view returns(string name,string objective,address owner,address treasury,address token,uint256 treasuryBalance,uint256 initialBudget,uint256 revenue,uint256 expenses,uint256 profitAfterOperatingCosts,uint32 cycleCount,uint256 teamSize,bytes32 constitutionHash,bool active,bool emergencyStopEnabled,uint32 humanInterventions)',
  'function companyAgentIds(uint256 companyId) view returns(uint256[])',
- 'function agents(uint256) view returns(uint256 id,uint256 companyId,address vault,bytes32 role,uint32 reputationBps,uint32 jobsCompleted,uint256 earned,bool active)',
- 'event CompanyCreated(uint256 indexed companyId,address indexed owner,address treasury,uint256 budget,bytes32 promptHash)',
+ 'function agents(uint256) view returns(uint256 id,uint256 companyId,address vault,bytes32 role,uint32 permissions,uint32 reputationBps,uint32 jobsCompleted,uint256 perCycleLimit,uint256 earned,bool active)',
+ 'event CompanyCreated(uint256 indexed companyId,address indexed owner,address treasury,string name,string objective,uint256 budget,bytes32 promptHash)',
  'event TreasuryOpened(uint256 indexed companyId,address treasury,address demoUsd,uint256 startingBalance)',
  'event ConstitutionInstalled(uint256 indexed companyId,bytes32 constitutionHash,string rules)',
- 'event AgentCreated(uint256 indexed companyId,uint256 indexed agentId,bytes32 indexed role,address vault,uint32 reputationBps)',
+ 'event RevenuePolicyInstalled(uint256 indexed companyId,uint16 treasuryRetentionBps,uint256 maxOperatingCostPerCycle)',
+ 'event EmergencyStopConfigured(uint256 indexed companyId,bool enabled)',
+ 'event AgentCreated(uint256 indexed companyId,uint256 indexed agentId,bytes32 indexed role,address vault,uint32 permissions,uint256 perCycleLimit,uint32 reputationBps)',
  'event WorkDiscovered(uint256 indexed companyId,uint256 indexed jobId,uint256 marketValue,bytes32 specHash)',
  'event AgentHired(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed agentId,bytes32 role,uint256 plannedPayment)',
  'event AgentSubcontracted(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed fromAgentId,uint256 toAgentId,uint256 plannedPayment)',
  'event WorkExecuted(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed agentId,bytes32 resultHash)',
- 'event WorkVerified(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed auditorAgentId,bytes32 resultHash)',
+ 'event WorkVerified(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed verifierAgentId,bytes32 resultHash)',
  'event AgentPaid(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed agentId,address vault,uint256 amount)',
  'event RevenueGenerated(uint256 indexed companyId,uint256 indexed jobId,uint256 amount,uint256 treasuryBalance)',
  'event ReputationUpdated(uint256 indexed companyId,uint256 indexed agentId,uint32 reputationBps,uint32 jobsCompleted)',
- 'event CycleCompleted(uint256 indexed companyId,uint256 indexed jobId,uint32 cycleCount,uint256 revenue,uint256 expenses,uint256 treasuryBalance)'
+ 'event CycleCompleted(uint256 indexed companyId,uint256 indexed jobId,uint32 cycleCount,uint256 revenue,uint256 expenses,uint256 treasuryBalance)',
+ 'event EmergencyStopTriggered(uint256 indexed companyId,address indexed owner,uint32 humanInterventions)',
+ 'event CompanyResumed(uint256 indexed companyId,address indexed owner,uint32 humanInterventions)'
 ];
-const $=id=>document.getElementById(id);let browserProvider=null,signer=null,userContract=null,currentCompany=CANONICAL,lastTx=null;
-const publicProvider=new ethers.JsonRpcProvider(RPC,5919065,{staticNetwork:true});const readContract=new ethers.Contract(CONTRACT,ABI,publicProvider);
+const $=id=>document.getElementById(id);let browserProvider=null,signer=null,userContract=null,currentCompany=CANONICAL,connectedAddress=null;
+const publicProvider=new ethers.JsonRpcProvider(RPC,5919065,{staticNetwork:true});
+const readContract=new ethers.Contract(CONTRACT,ABI,publicProvider);
 const steps=[
- ['Empresa criada','CompanyCreated'],['Treasury aberta e capitalizada','TreasuryOpened'],['Constituição e permissões instaladas','ConstitutionInstalled'],['AI CEO criado','AI_CEO'],['Equipe Finance / Sales / Builder / Auditor criada','TEAM'],['Agentes encontram trabalho','WorkDiscovered'],['AI CEO contrata e subcontrata agentes','AgentSubcontracted'],['Agentes executam a tarefa','WorkExecuted'],['AI Auditor verifica o resultado','WorkVerified'],['Treasury paga os agentes','AgentPaid'],['Empresa recebe pela entrega','RevenueGenerated'],['Reputação dos agentes é atualizada','ReputationUpdated'],['Ciclo econômico concluído','CycleCompleted']
+ ['Empresa, nome, objetivo e owner registrados','CompanyCreated'],
+ ['Treasury aberta e capitalizada','TreasuryOpened'],
+ ['Constituição e política de receita instaladas','ConstitutionInstalled'],
+ ['Emergency Stop configurado','EmergencyStopConfigured'],
+ ['AI CEO criado','CEO'],
+ ['Equipe completa de 7 agentes criada','TEAM'],
+ ['Permissões e limites registrados','POLICY'],
+ ['Oportunidade de trabalho encontrada','WorkDiscovered'],
+ ['Agentes contratados e subcontratados','AgentSubcontracted'],
+ ['AI Developer executa o trabalho','WorkExecuted'],
+ ['AI Research verifica o resultado','WorkVerified'],
+ ['Treasury paga os agentes','AgentPaid'],
+ ['Empresa recebe receita de teste','RevenueGenerated'],
+ ['Reputações são atualizadas','ReputationUpdated'],
+ ['Ciclo econômico é concluído','CycleCompleted']
 ];
-function setupTimeline(doneAll=false){$('timeline').innerHTML=steps.map((s,i)=>`<div class="step ${doneAll?'done':''}" data-key="${s[1]}"><span class="n">${doneAll?'✓':i+1}</span><b>${s[0]}</b><span class="proof">${doneAll?'on-chain':'aguardando'}</span></div>`).join('')}
-function mark(key,proof='confirmado'){const el=[...document.querySelectorAll('.step')].find(x=>x.dataset.key===key);if(el){el.classList.add('done');el.querySelector('.n').textContent='✓';el.querySelector('.proof').textContent=proof}}
-function fmt(v){return Number(ethers.formatUnits(v,6)).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2})+' dUSD'}
-function roleName(hex){try{const r=ethers.decodeBytes32String(hex);return ({AI_CEO:'AI CEO',AI_FINANCE:'AI Finance',AI_SALES:'AI Sales',AI_BUILDER:'AI Builder',AI_AUDITOR:'AI Auditor'})[r]||r}catch{return 'AI Agent'}}
-async function ensureChain(){if(!window.ethereum)throw Error('Instale MetaMask ou Rabby para criar uma nova empresa.');try{await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:CHAIN}]})}catch(e){if(e.code!==4902)throw e;await ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:CHAIN,chainName:'ZORYQ EVM Testnet',nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},rpcUrls:[RPC],blockExplorerUrls:[location.origin+'/explorer']}]})}}
-async function connect(){await ensureChain();browserProvider=new ethers.BrowserProvider(window.ethereum);signer=await browserProvider.getSigner();userContract=new ethers.Contract(CONTRACT,ABI,signer);const a=await signer.getAddress();$('wallet').innerHTML='<span class="ok">Carteira conectada:</span> <span class="mono">'+a+'</span>';$('nextCycle').classList.remove('hidden');return a}
-function budgetFromPrompt(text){const m=String(text).replace(',','.').match(/(?:US\$|USD|\$)\s*([0-9]+(?:\.[0-9]{1,2})?)/i);if(!m)throw Error('Use um valor no formato US$100.');const n=Number(m[1]);if(!Number.isFinite(n)||n<25||n>10000)throw Error('Nesta demo use um orçamento entre US$25 e US$10.000.');return n}
-async function renderCompany(id,txHash=null){currentCompany=Number(id);const s=await readContract.companySnapshot(id);$('companyTitle').textContent='Empresa #'+id;$('initial').textContent=fmt(s.initialBudget);$('revenue').textContent=fmt(s.revenue);$('expenses').textContent=fmt(s.expenses);$('treasuryBalance').textContent=fmt(s.treasuryBalance);$('profit').textContent=fmt(s.profitAfterOperatingCosts);$('cycles').textContent=String(s.cycleCount);$('team').textContent=String(s.teamSize);$('active').innerHTML=s.active?'<span class="ok">ATIVA</span>':'PAUSADA';$('treasury').textContent=s.treasury;$('constitution').textContent=s.constitutionHash;if(txHash){lastTx=txHash;$('txRow').classList.remove('hidden');$('txLink').href='/tx/'+txHash;$('txLink').textContent=txHash}
- const ids=await readContract.companyAgentIds(id);const rows=[];for(const agentId of ids){const a=await readContract.agents(agentId);rows.push(`<div class="agent"><b>${roleName(a.role)}</b><small>Reputação: ${(Number(a.reputationBps)/100).toFixed(2)}/100</small><small>Tarefas: ${a.jobsCompleted}</small><small>Recebeu: ${fmt(a.earned)}</small><small class="mono">${a.vault}</small></div>`)}$('agents').innerHTML=rows.join('');return s}
-function applyReceipt(receipt){setupTimeline(false);let ceo=false,team=0;for(const log of receipt.logs){try{const p=userContract.interface.parseLog(log);if(!p)continue;const name=p.name;if(name==='CompanyCreated')mark('CompanyCreated',receipt.hash.slice(0,10)+'…');if(name==='TreasuryOpened')mark('TreasuryOpened','100 dUSD');if(name==='ConstitutionInstalled')mark('ConstitutionInstalled','hash gravado');if(name==='AgentCreated'){team++;let role='';try{role=ethers.decodeBytes32String(p.args.role)}catch{}if(role==='AI_CEO'){ceo=true;mark('AI_CEO','agent #'+p.args.agentId)}if(team>=5)mark('TEAM','5 agentes')}if(name==='WorkDiscovered')mark('WorkDiscovered','job #'+p.args.jobId);if(name==='AgentSubcontracted')mark('AgentSubcontracted','contrato interno');if(name==='WorkExecuted')mark('WorkExecuted','result hash');if(name==='WorkVerified')mark('WorkVerified','auditor confirmou');if(name==='AgentPaid')mark('AgentPaid','dUSD transferido');if(name==='RevenueGenerated')mark('RevenueGenerated',fmt(p.args.amount));if(name==='ReputationUpdated')mark('ReputationUpdated','reputação atualizada');if(name==='CycleCompleted')mark('CycleCompleted','ciclo #'+p.args.cycleCount)}catch{}}
- if(ceo)mark('AI_CEO');if(team>=5)mark('TEAM')}
-async function showCanonical(){try{$('status').textContent='Lendo a empresa canônica diretamente da blockchain…';setupTimeline(true);await renderCompany(CANONICAL,'0xd0c5bf3b8e73d23b2bdb6e4f5320b98d65c5393d37bce6cf12ca051a7d87f790');$('status').innerHTML='<span class="ok">Demonstração canônica confirmada on-chain.</span> Capital inicial 100 dUSD → custos 12 dUSD → receita 35 dUSD → treasury 123 dUSD.'}catch(e){$('status').innerHTML='<span class="bad">'+(e.shortMessage||e.message||e)+'</span>'}}
-async function launch(){try{if(!userContract)await connect();const text=$('prompt').value.trim(),budget=budgetFromPrompt(text);setupTimeline(false);$('status').textContent='Preparando empresa e solicitando uma única transação…';const promptHash=ethers.keccak256(ethers.toUtf8Bytes(text));const tx=await userContract.launchCompany(ethers.parseUnits(String(budget),6),promptHash);$('status').innerHTML='Transação enviada: <a class="mono" href="/tx/'+tx.hash+'">'+tx.hash+'</a> · aguardando confirmação…';const receipt=await tx.wait();let id=null;for(const log of receipt.logs){try{const p=userContract.interface.parseLog(log);if(p?.name==='CompanyCreated'){id=Number(p.args.companyId);break}}catch{}}if(!id)id=Number(await readContract.companyCount());applyReceipt(receipt);await renderCompany(id,tx.hash);$('status').innerHTML='<span class="ok">EMPRESA CRIADA E PRIMEIRO CICLO CONCLUÍDO ON-CHAIN.</span> Você pode abrir a transação e conferir todos os eventos.';$('nextCycle').classList.remove('hidden')}catch(e){$('status').innerHTML='<span class="bad">'+(e.shortMessage||e.reason||e.message||e)+'</span>'}}
-async function nextCycle(){try{if(!userContract)await connect();$('status').textContent='Agentes iniciando outro ciclo: procurar → contratar → executar → verificar → pagar → receber…';const tx=await userContract.runNextCycle(currentCompany);const receipt=await tx.wait();applyReceipt(receipt);await renderCompany(currentCompany,tx.hash);$('status').innerHTML='<span class="ok">Novo ciclo concluído.</span> A treasury recebeu mais 35 dUSD e pagou 12 dUSD aos agentes.'}catch(e){$('status').innerHTML='<span class="bad">'+(e.shortMessage||e.reason||e.message||e)+'</span>'}}
-$('launch').onclick=launch;$('canonical').onclick=showCanonical;$('connect').onclick=()=>connect().catch(e=>$('status').innerHTML='<span class="bad">'+(e.message||e)+'</span>');$('nextCycle').onclick=nextCycle;setupTimeline(false);showCanonical();
+function setupTimeline(done=false){$('timeline').innerHTML=steps.map((s,i)=>`<div class="step ${done?'done':''}" data-key="${s[1]}"><span class="n">${done?'✓':i+1}</span><b>${s[0]}</b><span class="proof">${done?'on-chain':'aguardando'}</span></div>`).join('')}
+function mark(key,proof='evento on-chain'){const el=[...document.querySelectorAll('.step')].find(x=>x.dataset.key===key);if(el){el.classList.add('done');el.querySelector('.n').textContent='✓';el.querySelector('.proof').textContent=proof}}
+function fmt(v){return Number(ethers.formatUnits(v,6)).toLocaleString('pt-BR',{maximumFractionDigits:2})+' dUSD'}
+function roleName(hex){try{const r=ethers.decodeBytes32String(hex);return ({AI_CEO:'AI CEO',AI_MARKETING:'AI Marketing',AI_DESIGNER:'AI Designer',AI_RESEARCH:'AI Research',AI_SALES:'AI Sales',AI_FINANCE:'AI Finance',AI_DEVELOPER:'AI Developer'})[r]||r}catch{return 'AI Agent'}}
+function permNames(n){const p=Number(n),defs=[[1,'ROUTE'],[2,'HIRE'],[4,'PAY'],[8,'MARKET'],[16,'EXECUTE'],[32,'VERIFY'],[64,'DEPLOY'],[128,'EMERGENCY']];return defs.filter(([b])=>(p&b)!==0).map(([,x])=>x)}
+function budgetValue(){const n=Number($('budget').value);if(!Number.isFinite(n)||n<25||n>10000)throw Error('Use um orçamento entre 25 e 10.000 dUSD.');return BigInt(Math.round(n*1e6))}
+function syncPromptBudget(){const n=Number($('budget').value||100);$('prompt').value=`Crie uma empresa digital com US$${Number.isFinite(n)?n:100}.`}
+async function ensureChain(){if(!window.ethereum)throw Error('Instale MetaMask ou Rabby para criar sua empresa.');try{await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:CHAIN}]})}catch(e){if(e.code!==4902)throw e;await ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:CHAIN,chainName:'ZORYQ EVM Testnet',nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},rpcUrls:[RPC],blockExplorerUrls:[location.origin+'/explorer']}]})}}
+async function connect(){await ensureChain();browserProvider=new ethers.BrowserProvider(window.ethereum);signer=await browserProvider.getSigner();connectedAddress=await signer.getAddress();userContract=new ethers.Contract(CONTRACT,ABI,signer);$('wallet').innerHTML='<span class="ok">Carteira conectada:</span> <span class="mono">'+connectedAddress+'</span>';await refreshOwnerButtons();return connectedAddress}
+async function refreshOwnerButtons(){for(const id of ['nextCycle','stop','resume'])$(id).classList.add('hidden');if(!connectedAddress||!currentCompany)return;try{const s=await readContract.companySnapshot(currentCompany);if(String(s.owner).toLowerCase()!==String(connectedAddress).toLowerCase())return;if(s.active){$('nextCycle').classList.remove('hidden');$('stop').classList.remove('hidden')}else{$('resume').classList.remove('hidden')}}catch{}}
+async function renderCompany(id,txHash=null){currentCompany=Number(id);const s=await readContract.companySnapshot(id);$('companyTitle').textContent=s.name+' · #'+id;$('companyObjective').textContent=s.objective;$('initial').textContent=fmt(s.initialBudget);$('revenue').textContent=fmt(s.revenue);$('expenses').textContent=fmt(s.expenses);$('treasuryBalance').textContent=fmt(s.treasuryBalance);$('profit').textContent=fmt(s.profitAfterOperatingCosts);$('cycles').textContent=String(s.cycleCount);$('team').textContent=String(s.teamSize);$('interventions').textContent=String(s.humanInterventions);$('active').innerHTML=s.active?'<span class="ok">ATIVA</span>':'<span class="warn">PAUSADA</span>';$('safety').innerHTML=s.emergencyStopEnabled?'<span class="ok">ATIVO</span>':'DESATIVADO';$('owner').textContent=s.owner;$('token').textContent=s.token;$('treasury').textContent=s.treasury;$('treasury').href='/address/'+s.treasury;$('constitution').textContent=s.constitutionHash;if(txHash){$('txRow').classList.remove('hidden');$('txLink').href='/tx/'+txHash;$('txLink').textContent=txHash}
+ const ids=await readContract.companyAgentIds(id),rows=[];for(const agentId of ids){const a=await readContract.agents(agentId);const perms=permNames(a.permissions).map(x=>`<span class="pill">${x}</span>`).join('');rows.push(`<div class="agent"><b>${roleName(a.role)}</b><small>Agent ID: ${a.id}</small><small>Reputação: ${(Number(a.reputationBps)/100).toFixed(2)}/100</small><small>Jobs: ${a.jobsCompleted}</small><small>Recebeu: ${fmt(a.earned)}</small><small>Limite/ciclo: ${fmt(a.perCycleLimit)}</small><small>Vault: <a class="mono" href="/address/${a.vault}">${String(a.vault).slice(0,8)}…${String(a.vault).slice(-6)}</a></small><div>${perms}</div></div>`)}$('agents').innerHTML=rows.join('')||'<div class="muted">Sem agentes.</div>';await refreshOwnerButtons();return s}
+function markFromReceipt(receipt){setupTimeline(false);const iface=new ethers.Interface(ABI);let agentEvents=0;for(const log of receipt.logs||[]){try{const e=iface.parseLog(log);if(!e)continue;if(e.name==='CompanyCreated')mark('CompanyCreated');if(e.name==='TreasuryOpened')mark('TreasuryOpened');if(e.name==='ConstitutionInstalled'||e.name==='RevenuePolicyInstalled')mark('ConstitutionInstalled');if(e.name==='EmergencyStopConfigured')mark('EmergencyStopConfigured');if(e.name==='AgentCreated'){agentEvents++;if(agentEvents>=1)mark('CEO');if(agentEvents>=7){mark('TEAM','7 agentes on-chain');mark('POLICY','permissões + limites')}}if(e.name==='WorkDiscovered')mark('WorkDiscovered');if(e.name==='AgentHired'||e.name==='AgentSubcontracted')mark('AgentSubcontracted');if(e.name==='WorkExecuted')mark('WorkExecuted');if(e.name==='WorkVerified')mark('WorkVerified');if(e.name==='AgentPaid')mark('AgentPaid');if(e.name==='RevenueGenerated')mark('RevenueGenerated');if(e.name==='ReputationUpdated')mark('ReputationUpdated');if(e.name==='CycleCompleted')mark('CycleCompleted')}catch{}}
+}
+async function canonical(){try{$('status').textContent='Lendo empresa canônica diretamente da ZORYQ…';const receipt=await publicProvider.getTransactionReceipt(CANONICAL_TX);if(!receipt||receipt.status!==1)throw Error('Transação canônica não confirmada.');markFromReceipt(receipt);const s=await renderCompany(CANONICAL,CANONICAL_TX);$('status').innerHTML=`<span class="ok">Empresa v2 confirmada on-chain:</span> ${s.name}, 7 agentes, ${fmt(s.revenue)} de receita sintética de teste.`}catch(e){$('status').innerHTML='<span class="bad">'+String(e.message||e)+'</span>'}}
+async function verifyProof(){try{const [code,dep,launch,s]=await Promise.all([publicProvider.getCode(CONTRACT),publicProvider.getTransactionReceipt(DEPLOY_TX),publicProvider.getTransactionReceipt(CANONICAL_TX),readContract.companySnapshot(1)]);if(code==='0x'||!dep||dep.status!==1||!launch||launch.status!==1)throw Error('prova incompleta');$('contractProof').innerHTML='<span class="ok">BYTECODE PRESENTE</span>';$('companyProof').innerHTML='<span class="ok">#1 CONFIRMADA</span>';$('teamProof').textContent=String(s.teamSize)+' agentes';$('cycleProof').innerHTML=s.cycleCount>0?'<span class="ok">CONCLUÍDO</span>':'PENDENTE';$('proofStatus').innerHTML='<span class="ok">verificado pelo RPC público</span>';return true}catch(e){$('proofStatus').innerHTML='<span class="bad">'+String(e.message||e)+'</span>';return false}}
+async function launch(){try{if(!userContract)await connect();const name=$('companyName').value.trim(),objective=$('objective').value.trim(),prompt=$('prompt').value.trim(),budget=budgetValue();if(name.length<2)throw Error('Informe um nome para a empresa.');if(objective.length<4)throw Error('Informe o objetivo.');if(prompt.length<4)throw Error('Informe o comando.');const before=await readContract.companyCount();setupTimeline(false);$('status').textContent='Confirme a criação da empresa na carteira…';const tx=await userContract.launchCompany(name,objective,budget,ethers.keccak256(ethers.toUtf8Bytes(prompt)));$('status').innerHTML='Transação enviada: <a class="mono" href="/tx/'+tx.hash+'">'+tx.hash+'</a> · aguardando bloco…';const receipt=await tx.wait();if(!receipt||receipt.status!==1)throw Error('A transação falhou.');markFromReceipt(receipt);const after=await readContract.companyCount();const id=Number(after>before?after:before+1n);await renderCompany(id,tx.hash);$('status').innerHTML='<span class="ok">Empresa criada e primeiro ciclo concluído on-chain.</span> Abra a transação para auditar todos os eventos.'}catch(e){$('status').innerHTML='<span class="bad">'+String(e.shortMessage||e.message||e)+'</span>'}}
+async function nextCycle(){try{if(!userContract)await connect();$('status').textContent='Confirme o próximo ciclo…';const tx=await userContract.runNextCycle(currentCompany);const r=await tx.wait();if(!r||r.status!==1)throw Error('Ciclo falhou.');markFromReceipt(r);await renderCompany(currentCompany,tx.hash);$('status').innerHTML='<span class="ok">Novo ciclo concluído.</span> <a class="mono" href="/tx/'+tx.hash+'">Ver TX</a>'}catch(e){$('status').innerHTML='<span class="bad">'+String(e.shortMessage||e.message||e)+'</span>'}}
+async function emergencyStop(){try{if(!userContract)await connect();const tx=await userContract.triggerEmergencyStop(currentCompany);await tx.wait();await renderCompany(currentCompany,tx.hash);$('status').innerHTML='<span class="warn">Empresa pausada pelo owner.</span> Novos ciclos estão bloqueados.'}catch(e){$('status').innerHTML='<span class="bad">'+String(e.shortMessage||e.message||e)+'</span>'}}
+async function resume(){try{if(!userContract)await connect();const tx=await userContract.resumeCompany(currentCompany);await tx.wait();await renderCompany(currentCompany,tx.hash);$('status').innerHTML='<span class="ok">Empresa retomada.</span>'}catch(e){$('status').innerHTML='<span class="bad">'+String(e.shortMessage||e.message||e)+'</span>'}}
+$('budget').addEventListener('change',syncPromptBudget);$('canonical').onclick=canonical;$('connect').onclick=()=>connect().catch(e=>$('status').innerHTML='<span class="bad">'+String(e.message||e)+'</span>');$('launch').onclick=launch;$('nextCycle').onclick=nextCycle;$('stop').onclick=emergencyStop;$('resume').onclick=resume;
+if(window.ethereum){ethereum.on?.('accountsChanged',async a=>{connectedAddress=a?.[0]||null;if(connectedAddress){browserProvider=new ethers.BrowserProvider(window.ethereum);signer=await browserProvider.getSigner();userContract=new ethers.Contract(CONTRACT,ABI,signer);$('wallet').textContent='Carteira conectada: '+connectedAddress}else{$('wallet').textContent='Carteira desconectada.'}await refreshOwnerButtons()})}
+setupTimeline(false);verifyProof().then(()=>canonical());
 </script>
 </body></html>
