@@ -44,9 +44,7 @@ if [ "${ZORYQ_AUTONOMOUS_DEMO_ENABLED:-true}" = "true" ] && [ -f /app/deploy-aut
   ) &
 fi
 
-# One-Prompt Company demo: deploys the dedicated contract and executes the
-# canonical Portuguese command once onchain. State lives on /data, so restarts
-# verify the same contract/company instead of creating duplicates.
+# Legacy one-prompt company proof stays available for compatibility.
 if [ "${ZORYQ_ONE_PROMPT_DEMO_ENABLED:-true}" = "true" ] && [ -f /app/deploy-one-prompt-company.mjs ]; then
   (
     sleep 9
@@ -61,6 +59,25 @@ if [ "${ZORYQ_ONE_PROMPT_DEMO_ENABLED:-true}" = "true" ] && [ -f /app/deploy-one
       sleep 5
     done
     echo "[zoryq-company] one-prompt digital company demo complete"
+  ) &
+fi
+
+# Autonomous Company v2: seven-role team, explicit permissions/limits,
+# emergency stop, revenue policy and a canonical US$100 dUSD testnet lifecycle.
+if [ "${ZORYQ_AUTONOMOUS_COMPANY_V2_ENABLED:-true}" = "true" ] && [ -f /app/deploy-autonomous-company-v2.mjs ]; then
+  (
+    sleep 13
+    attempt=0
+    until node /app/deploy-autonomous-company-v2.mjs; do
+      attempt=$((attempt + 1))
+      if [ "$attempt" -ge 60 ]; then
+        echo "[zoryq-company-v2] bootstrap gave up after ${attempt} attempts; node remains online"
+        exit 0
+      fi
+      echo "[zoryq-company-v2] bootstrap attempt ${attempt} failed; retrying in 5s"
+      sleep 5
+    done
+    echo "[zoryq-company-v2] autonomous company v2 canonical demo complete"
   ) &
 fi
 
