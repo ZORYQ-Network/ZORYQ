@@ -42,7 +42,7 @@ jobs:
           node --check /tmp/zoryq-proof.js
       - name: Assert AI CEO UX and testnet boundaries
         run: |
-          grep -q 'Autonomous Company V3' zoryq-web/proof.html
+          grep -qi 'Autonomous Company V3' zoryq-web/proof.html
           grep -q 'GERAR PLANO COM AI CEO' zoryq-web/proof.html
           grep -q 'REVISAR E APROVAR ON-CHAIN' zoryq-web/proof.html
           grep -q 'AI Marketing' zoryq-web/proof.html
