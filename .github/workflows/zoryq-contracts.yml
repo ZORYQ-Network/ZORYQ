@@ -6,11 +6,17 @@ on:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-contracts/**'
+      - 'zoryq-evm-node/deploy-autonomous-economy.mjs'
+      - 'zoryq-evm-node/entrypoint.sh'
+      - 'Dockerfile'
       - '.github/workflows/zoryq-contracts.yml'
   push:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-contracts/**'
+      - 'zoryq-evm-node/deploy-autonomous-economy.mjs'
+      - 'zoryq-evm-node/entrypoint.sh'
+      - 'Dockerfile'
       - '.github/workflows/zoryq-contracts.yml'
 
 permissions:
@@ -22,6 +28,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
+      - name: Validate Autonomous Economy bootstrap wiring
+        run: |
+          set -euo pipefail
+          sh -n zoryq-evm-node/entrypoint.sh
+          node --check zoryq-evm-node/deploy-autonomous-economy.mjs
+          grep -q 'deploy-autonomous-economy.mjs' Dockerfile
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
