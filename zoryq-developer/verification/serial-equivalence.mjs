@@ -32,15 +32,10 @@ function derive(index, provider) {
   return HDNodeWallet.fromPhrase(MNEMONIC, undefined, `m/44'/60'/0'/0/${index}`).connect(provider);
 }
 
-async function faucet(base, address) {
-  const response = await fetch(`${base}/faucet`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ address }),
-  });
-  const body = await response.json().catch(() => ({}));
-  assert(response.ok, `faucet ${response.status}: ${JSON.stringify(body)}`);
-  assert.equal(body.ok, true);
+async function assertPrefunded(provider, address) {
+  const balance = await provider.getBalance(address);
+  assert(balance > 0n, `genesis account is not funded: ${address}`);
+  return balance;
 }
 
 async function waitReady(base) {
@@ -93,8 +88,8 @@ function compileProbe() {
 async function deploySame(artifact) {
   const deployerA = derive(0, providerA);
   const deployerB = derive(0, providerB);
-  await faucet(CONCURRENT_BASE, deployerA.address);
-  await faucet(SERIAL_BASE, deployerB.address);
+  await assertPrefunded(providerA, deployerA.address);
+  await assertPrefunded(providerB, deployerB.address);
 
   const factoryA = new ContractFactory(artifact.abi, `0x${artifact.evm.bytecode.object}`, deployerA);
   const factoryB = new ContractFactory(artifact.abi, `0x${artifact.evm.bytecode.object}`, deployerB);
@@ -113,8 +108,8 @@ async function prepareWallets(count) {
     const a = derive(i, providerA);
     const b = derive(i, providerB);
     assert.equal(a.address.toLowerCase(), b.address.toLowerCase());
-    await faucet(CONCURRENT_BASE, a.address);
-    await faucet(SERIAL_BASE, b.address);
+    await assertPrefunded(providerA, a.address);
+    await assertPrefunded(providerB, b.address);
     walletsA.push(a);
     walletsB.push(b);
   }
