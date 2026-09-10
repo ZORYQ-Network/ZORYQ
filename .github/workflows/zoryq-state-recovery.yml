@@ -50,7 +50,7 @@ jobs:
           set -euo pipefail
           # This faucet call is against the isolated CI container only; it never touches the public testnet faucet.
           STATUS=$(curl -sS -o /tmp/faucet.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:18081/faucet \
+            -X POST http://127.0.0.1:18081/faucet/claim \
             -H 'content-type: application/json' \
             -H 'x-real-ip: 127.0.0.2' \
             -d "{\"address\":\"$TEST_ADDRESS\"}")
@@ -135,9 +135,6 @@ jobs:
           echo "genesis_before=$EXPECTED_GENESIS genesis_after=$ACTUAL_GENESIS"
           test "$ACTUAL_GENESIS" = "$EXPECTED_GENESIS"
 
-          # Reth may reopen at the latest durably persisted/finalized head after a hard SIGKILL.
-          # The durable state and genesis must survive immediately, and block production must
-          # then catch back up to (or beyond) the pre-kill observed head within this bounded window.
           BEFORE=$(cat /tmp/head-before)
           RECOVERED=0
           AFTER=0
@@ -160,7 +157,6 @@ jobs:
             -d '{"jsonrpc":"2.0","id":7,"method":"eth_chainId","params":[]}' | jq -r .result)
           test "$CHAIN_ID" = '0x5a5159'
 
-          # Capture first, then grep: avoids SIGPIPE from `docker logs | grep -q` under pipefail.
           docker logs zoryq-recovered > /tmp/recovered.log 2>&1
           grep -q '/data/reth/db' /tmp/recovered.log
           echo "Native Reth DB recovery verified: durable state and genesis survived SIGKILL, and canonical head resumed to the pre-kill height."
@@ -177,28 +173,13 @@ jobs:
           cp /tmp/recovered-health.json zoryq-recovery-evidence/health-after.json 2>/dev/null || true
           cp /tmp/faucet.json zoryq-recovery-evidence/isolated-faucet-response.json 2>/dev/null || true
 
-          curl -sS -X POST http://127.0.0.1:18081/rpc \
-            -H 'content-type: application/json' \
-            -d "{\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" \
-            > zoryq-recovery-evidence/balance-after.json || true
-          curl -sS -X POST http://127.0.0.1:18081/rpc \
-            -H 'content-type: application/json' \
-            -d '{"jsonrpc":"2.0","id":102,"method":"eth_getBlockByNumber","params":["0x0",false]}' \
-            > zoryq-recovery-evidence/genesis-after.json || true
-          curl -sS -X POST http://127.0.0.1:18081/rpc \
-            -H 'content-type: application/json' \
-            -d '{"jsonrpc":"2.0","id":103,"method":"eth_blockNumber","params":[]}' \
-            > zoryq-recovery-evidence/head-after.json || true
-          curl -sS -X POST http://127.0.0.1:18081/rpc \
-            -H 'content-type: application/json' \
-            -d '{"jsonrpc":"2.0","id":104,"method":"eth_chainId","params":[]}' \
-            > zoryq-recovery-evidence/chain-id-after.json || true
-
+          curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" > zoryq-recovery-evidence/balance-after.json || true
+          curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":102,"method":"eth_getBlockByNumber","params":["0x0",false]}' > zoryq-recovery-evidence/genesis-after.json || true
+          curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":103,"method":"eth_blockNumber","params":[]}' > zoryq-recovery-evidence/head-after.json || true
+          curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":104,"method":"eth_chainId","params":[]}' > zoryq-recovery-evidence/chain-id-after.json || true
           docker logs zoryq-recovered > zoryq-recovery-evidence/recovered-node.log 2>&1 || true
           docker inspect zoryq-recovered > zoryq-recovery-evidence/recovered-container.json 2>&1 || true
-          docker exec zoryq-recovered sh -c 'find /data/reth/db -type f -printf "%p %s bytes\n" | sort' \
-            > zoryq-recovery-evidence/reth-db-files.txt 2>&1 || true
-
+          docker exec zoryq-recovered sh -c 'find /data/reth/db -type f -printf "%p %s bytes\n" | sort' > zoryq-recovery-evidence/reth-db-files.txt 2>&1 || true
           {
             echo "expected_balance=$(cat /tmp/expected-balance 2>/dev/null)"
             echo "actual_balance=$(jq -r '.result // .error // empty' zoryq-recovery-evidence/balance-after.json 2>/dev/null)"
