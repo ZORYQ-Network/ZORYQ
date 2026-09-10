@@ -135,13 +135,25 @@ jobs:
           echo "genesis_before=$EXPECTED_GENESIS genesis_after=$ACTUAL_GENESIS"
           test "$ACTUAL_GENESIS" = "$EXPECTED_GENESIS"
 
+          # Reth may reopen at the latest durably persisted/finalized head after a hard SIGKILL.
+          # The durable state and genesis must survive immediately, and block production must
+          # then catch back up to (or beyond) the pre-kill observed head within this bounded window.
           BEFORE=$(cat /tmp/head-before)
-          AFTER_HEX=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
-            -H 'content-type: application/json' \
-            -d '{"jsonrpc":"2.0","id":6,"method":"eth_blockNumber","params":[]}' | jq -r .result)
-          AFTER=$((16#${AFTER_HEX#0x}))
-          echo "head_before=$BEFORE head_after=$AFTER"
-          test "$AFTER" -ge "$BEFORE"
+          RECOVERED=0
+          AFTER=0
+          for i in $(seq 1 30); do
+            AFTER_HEX=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
+              -H 'content-type: application/json' \
+              -d '{"jsonrpc":"2.0","id":6,"method":"eth_blockNumber","params":[]}' | jq -r .result)
+            AFTER=$((16#${AFTER_HEX#0x}))
+            echo "head_before=$BEFORE head_after=$AFTER"
+            if [ "$AFTER" -ge "$BEFORE" ]; then
+              RECOVERED=1
+              break
+            fi
+            sleep 1
+          done
+          test "$RECOVERED" = '1'
 
           CHAIN_ID=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
@@ -151,7 +163,7 @@ jobs:
           # Capture first, then grep: avoids SIGPIPE from `docker logs | grep -q` under pipefail.
           docker logs zoryq-recovered > /tmp/recovered.log 2>&1
           grep -q '/data/reth/db' /tmp/recovered.log
-          echo "Native Reth DB recovery verified: state, genesis, height and chain identity survived SIGKILL."
+          echo "Native Reth DB recovery verified: durable state and genesis survived SIGKILL, and canonical head resumed to the pre-kill height."
 
       - name: Capture recovery diagnostics on failure
         if: failure()
