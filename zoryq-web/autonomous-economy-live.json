@@ -1,0 +1,49 @@
+{
+  "schema": "zoryq-autonomous-economy-live/0.1",
+  "network": {
+    "name": "ZORYQ EVM Testnet",
+    "chainId": 5919065,
+    "chainIdHex": "0x5a5159",
+    "nativeCurrency": "ZQ"
+  },
+  "contract": {
+    "address": "0xe9E075d1d44DEC0ee973e94F6e3eE8B7c2b27397",
+    "deploymentTx": "0x725b92447061bfa0e796fdc20e3c3fc1b10587ccd528f97911956dd701426c19",
+    "deployedBy": "0x04D9d30aB50f88B6174a6B33265eac012ee16B8A",
+    "deployedAt": "2026-09-10T16:15:19.698Z"
+  },
+  "demo": {
+    "completed": true,
+    "completedAt": "2026-09-10T16:17:03.371Z",
+    "organizationId": 1,
+    "organizationTaskId": 1,
+    "directTaskId": 2,
+    "manager": "0x04D9d30aB50f88B6174a6B33265eac012ee16B8A",
+    "finance": "0x1B24809048Df1c2B144efD2ed787913a95456f45",
+    "marketing": "0x7AB934cC02610de5BaB433cC654cbFD890f35041",
+    "developer": "0x3D6Ef67a25a263E9cd81c2cf9aDf502D37aBBedD",
+    "worker": "0x7A25D1EA5D2F260525CA607593ff010328F246B8",
+    "workerReputationBps": 5200,
+    "workerSuccessfulTasks": 2,
+    "workerGrossEarnedZQ": "2.6",
+    "organizationBalanceZQ": "18.15",
+    "organizationLifetimeOutZQ": "1.85"
+  },
+  "proofTransactions": {
+    "createOrganization": "0x082fb54c6e45b5b0c1b223be8b8ea366074cf1947365f1887d21b6b64582541d",
+    "fundOrganization": "0x8b2f86015e6f699b8e41cbf64360e56f1fb8b67d7d80603b6ec8d62a1d66d7b0",
+    "marketingApiPayment": "0xcb9af5dd7559f02e98e9599f3c1fa45ca963862431ec3168a8c13a51f84d8473",
+    "developerComputePayment": "0x19fedce4d98eea1497deba768a1eb4f676598cba6d67752e9989b67cc3de6194",
+    "campaignCreate": "0x8eb4b975f6439db227f151c65305c1624efcc363ea11180a6a075343ea1df653",
+    "campaignBid": "0x69e3f5ac226af4d41f4359c11e47d2237e261f4b565a15c0108c7baecfdf2b1a",
+    "campaignAssign": "0x09a86380d20030b7366d19de3e3c8dc9fdd9fae2c436de18dc539c6772f9c821",
+    "campaignSubmit": "0x6015284b3d5dacd023f49ea93f9a73d55673eb98fbe1fc5b92aacad95a007fee",
+    "campaignSettle": "0x8d8ad3189ead5fc37c0085c35044fbebd34da4d2225f48d95d2ba18d8101e633",
+    "directCreate": "0x649ef95e16ce4185ead39e3d203de3e6b36bec7af97b682b52944d8e723cf45a",
+    "directBid": "0x8bfbfca569b9684a7dd7b5513826e20bc02eb2925e65ad8ec1c7454aad5a278b",
+    "directAssign": "0x0c8ec5489b1476ced34df46359d0e35e17b0c4aa6092d66506065719496c12f9",
+    "directSubmit": "0xa83c3311501551d4c2f95a34eededa8b0fea2420b22bf1a5a3babc6e524eedb9",
+    "directSettle": "0x5e66eb81d058a6e63ecf8a86445f1da22fcb1a056c57b88b9ef5cdc192c97e14"
+  },
+  "disclaimer": "Testnet-only experimental prototype. Not audited, not mainnet, and ZQ testnet assets have no monetary value."
+}
