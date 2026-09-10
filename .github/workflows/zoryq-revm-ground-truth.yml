@@ -5,6 +5,7 @@ on:
   push:
     branches: [zoryq-evm-testnet-node]
     paths:
+      - 'zoryq-evm-node/**'
       - 'zoryq-developer/verification/revm-ground-truth.mjs'
       - '.github/workflows/zoryq-revm-ground-truth.yml'
 
@@ -61,10 +62,15 @@ jobs:
           fi
           cp /tmp/revm-health.json zoryq-evidence/revm-health.json
 
-      - name: Verify internal debug namespace exists only inside isolated container
+      - name: Verify debug namespace is internal-only
         run: |
           set -euo pipefail
-          docker exec zoryq-revm-ground-truth node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'debug_traceTransaction',params:['0x'+'00'.repeat(32),{}]})}).then(r=>r.json()).then(j=>{if(!j.error)process.exit(1);console.log('internal debug RPC reachable')})"
+          docker exec zoryq-revm-ground-truth node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'debug_traceTransaction',params:['0x'+'00'.repeat(32),{}]})}).then(r=>r.json()).then(j=>{if(!j.error||j.error.code===-32601){console.error(j);process.exit(1)};console.log('internal debug RPC enabled and reachable')})"
+          PUBLIC=$(curl -fsS http://127.0.0.1:8081/rpc \
+            -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"debug_traceTransaction","params":["0x0000000000000000000000000000000000000000000000000000000000000000",{}]}')
+          echo "$PUBLIC" | jq -e '.error.code == -32601' >/dev/null
+          echo 'public debug RPC correctly blocked'
 
       - name: Install verification-only Solidity compiler
         working-directory: zoryq-evm-node
