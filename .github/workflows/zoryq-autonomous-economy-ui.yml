@@ -1,0 +1,47 @@
+name: Validate Autonomous Economy UI
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/proof.html'
+      - 'zoryq-web/autonomous-economy-live.json'
+      - '.github/workflows/zoryq-autonomous-economy-ui.yml'
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/proof.html'
+      - 'zoryq-web/autonomous-economy-live.json'
+      - '.github/workflows/zoryq-autonomous-economy-ui.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate canonical proof manifest
+        run: |
+          python3 -m json.tool zoryq-web/autonomous-economy-live.json >/dev/null
+          grep -q '0xe9E075d1d44DEC0ee973e94F6e3eE8B7c2b27397' zoryq-web/autonomous-economy-live.json
+      - name: Extract and syntax-check inline JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('zoryq-web/proof.html').read_text(encoding='utf-8')
+          blocks = re.findall(r'<script>(.*?)</script>', html, flags=re.S|re.I)
+          if not blocks:
+              raise SystemExit('proof.html contains no inline script')
+          Path('/tmp/zoryq-proof.js').write_text('\n'.join(blocks), encoding='utf-8')
+          PY
+          node --check /tmp/zoryq-proof.js
+      - name: Assert safety and wallet boundaries
+        run: |
+          grep -q 'eth_sendTransaction' zoryq-web/proof.html
+          grep -q 'Testnet-only' zoryq-web/proof.html
+          ! grep -Eqi 'private[ _-]?key|seed phrase|mnemonic' zoryq-web/proof.html
