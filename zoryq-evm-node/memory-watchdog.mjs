@@ -67,4 +67,4 @@ function run(){
 }
 
 run();
-setInterval(()=>{try{run()}catch(error){console.error('[zoryq-memory-watchdog] sample failed',error)}},SAMPLE_MS).unref?.();
+setInterval(()=>{try{run()}catch(error){console.error('[zoryq-memory-watchdog] sample failed',error)}},SAMPLE_MS);
