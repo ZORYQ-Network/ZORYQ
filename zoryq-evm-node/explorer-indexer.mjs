@@ -5,7 +5,7 @@ function saveJson(file,value){const tmp=`${file}.tmp`;fs.writeFileSync(tmp,JSON.
 function hexNumber(v){return v==null?null:Number(BigInt(v))}
 function safeLower(v){return typeof v==='string'?v.toLowerCase():null}
 
-export function createExplorerIndexer({rpc,stateFile='/data/explorer-index.json',maxTransactions=50000,maxBlocksPerPass=100,pollMs=2000}={}){
+export function createExplorerIndexer({rpc,stateFile='/data/explorer-index.json',maxTransactions=10000,maxBlocksPerPass=25,pollMs=4000,shouldPause=()=>false}={}){
   if(typeof rpc!=='function')throw new Error('explorer indexer requires rpc function');
   let state=loadJson(stateFile,{version:1,genesisHash:null,lastIndexedBlock:-1,totalSeen:0,transactions:[]});
   let running=false;
@@ -17,6 +17,8 @@ export function createExplorerIndexer({rpc,stateFile='/data/explorer-index.json'
     state.lastIndexedBlock=Number.isFinite(Number(state.lastIndexedBlock))?Number(state.lastIndexedBlock):-1;
     state.totalSeen=Number.isFinite(Number(state.totalSeen))?Number(state.totalSeen):0;
     state.transactions=Array.isArray(state.transactions)?state.transactions:[];
+    state.transactions.sort((a,b)=>(b.blockNumber-a.blockNumber)||(b.transactionIndex-a.transactionIndex));
+    if(state.transactions.length>maxTransactions)state.transactions.length=maxTransactions;
   }
   normalizeState();
 
@@ -76,7 +78,7 @@ export function createExplorerIndexer({rpc,stateFile='/data/explorer-index.json'
   }
 
   async function syncOnce(){
-    if(running)return;
+    if(running||shouldPause())return;
     running=true;
     try{
       await ensureGenesis();
@@ -86,9 +88,12 @@ export function createExplorerIndexer({rpc,stateFile='/data/explorer-index.json'
       const end=Math.min(latest,start+maxBlocksPerPass-1);
       if(start<=end){
         const collected=[];
-        for(let n=start;n<=end;n++)collected.push(...await indexBlock(n));
+        for(let n=start;n<=end;n++){
+          if(shouldPause())break;
+          collected.push(...await indexBlock(n));
+          state.lastIndexedBlock=n;
+        }
         mergeTransactions(collected);
-        state.lastIndexedBlock=end;
         state.updatedAt=Date.now();
         saveJson(stateFile,state);
       }
@@ -107,7 +112,7 @@ export function createExplorerIndexer({rpc,stateFile='/data/explorer-index.json'
     return {ok:true,page:safePage,limit:safeLimit,order:order==='asc'?'asc':'desc',totalIndexed:rows.length,totalSeen:state.totalSeen,lastIndexedBlock:state.lastIndexedBlock,genesisHash:state.genesisHash,transactions:rows.slice(start,start+safeLimit)};
   }
 
-  function stats(){return {ok:true,lastIndexedBlock:state.lastIndexedBlock,totalIndexed:state.transactions.length,totalSeen:state.totalSeen,genesisHash:state.genesisHash,updatedAt:state.updatedAt||null}}
+  function stats(){return {ok:true,lastIndexedBlock:state.lastIndexedBlock,totalIndexed:state.transactions.length,totalSeen:state.totalSeen,genesisHash:state.genesisHash,updatedAt:state.updatedAt||null,maxTransactions,maxBlocksPerPass,pollMs,paused:shouldPause()}}
   function start(){if(timer)return;syncOnce();timer=setInterval(syncOnce,pollMs);timer.unref?.()}
   function stop(){if(timer)clearInterval(timer);timer=null}
   return {start,stop,syncOnce,list,stats};
