@@ -26,6 +26,7 @@ RUN npm install --omit=dev --no-audit --no-fund
 COPY zoryq-evm-node/server.mjs ./server.mjs
 COPY zoryq-evm-node/prepare-reth-genesis.mjs ./prepare-reth-genesis.mjs
 COPY zoryq-evm-node/deploy-autonomous-economy.mjs ./deploy-autonomous-economy.mjs
+COPY zoryq-evm-node/deploy-one-prompt-company.mjs ./deploy-one-prompt-company.mjs
 COPY zoryq-evm-node/zoryq-reth-genesis.json ./zoryq-reth-genesis.json
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY --from=protocol-builder /build/zoryq-contracts/out ./protocol-out
