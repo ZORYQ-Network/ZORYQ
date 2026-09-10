@@ -1,5 +1,6 @@
+use chrono::{SecondsFormat, Utc};
 use serde_json::{json, Map, Value};
-use std::{env, fs, time::{SystemTime, UNIX_EPOCH}};
+use std::{env, fs};
 
 fn score_file() -> String {
     env::var("ZORYQ_GENESIS_SCORE_STATE").unwrap_or_else(|_| "/data/genesis-score.json".into())
@@ -101,10 +102,9 @@ pub fn network_intelligence() -> Value {
             eligible_wallets += 1;
         }
     }
-    let generated_at_unix = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
     json!({
         "ok": true,
-        "generatedAtUnix": generated_at_unix,
+        "generatedAt": Utc::now().to_rfc3339_opts(SecondsFormat::Millis, true),
         "wallets": wallets.len(),
         "actions": {"total": total, "onchain": onchain, "external": external, "socialPending": social_pending},
         "byAction": by_action,
