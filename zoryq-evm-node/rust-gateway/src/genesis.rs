@@ -3,7 +3,7 @@ use reqwest::Client;
 use serde_json::{json, Map, Value};
 use std::{env, fs, time::{SystemTime, UNIX_EPOCH}};
 
-const SWAP:&str="0x8205f34b803edd79ddca414f00e12ecdde ddacbe";
+const SWAP:&str="0x8205f34b803edd79ddca414f00e12ecddeddacbe";
 const STAKE:&str="0xbb26faadd1e083c7c0dc0a82ddb96cc45253ecb1";
 
 fn score_file() -> String {
@@ -65,7 +65,7 @@ pub async fn record_onchain(client:&Client,rpc_url:&str,address_raw:&str,action:
     let receipt=receipt.map_err(|e|(503,json!({"ok":false,"error":"rpc_unavailable","detail":e})))?; let tx=tx.map_err(|e|(503,json!({"ok":false,"error":"rpc_unavailable","detail":e})))?;
     if receipt.is_null()||receipt.get("status").and_then(Value::as_str)!=Some("0x1")||tx.is_null(){return Err((400,json!({"ok":false,"error":"transaction_not_confirmed"})))}
     if tx.get("from").and_then(Value::as_str).map(|v|v.to_ascii_lowercase())!=Some(address.clone()){return Err((400,json!({"ok":false,"error":"transaction_sender_mismatch"})))}
-    let to=tx.get("to").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase(); let expected=if action=="swap"{SWAP.replace(' ',"")}else{STAKE.to_string()};
+    let to=tx.get("to").and_then(Value::as_str).unwrap_or("").to_ascii_lowercase(); let expected=if action=="swap"{SWAP}else{STAKE};
     if to!=expected{return Err((400,json!({"ok":false,"error":if action=="swap"{"not_swap_transaction"}else{"not_stake_transaction"}})))}
     let mut state=load_score(); let proof_key=format!("tx:{hash}");
     if let Some(owner)=state.get("usedProofs").and_then(Value::as_object).and_then(|m|m.get(&proof_key)).and_then(Value::as_str){if owner!=format!("{address}:{action}"){return Err((409,json!({"ok":false,"error":"proof_already_used"})))}}
