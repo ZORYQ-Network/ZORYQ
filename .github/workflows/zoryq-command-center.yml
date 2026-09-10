@@ -64,16 +64,22 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Verify preview credential
+      - name: Report preview availability
         run: |
-          test -n "$VERCEL_TOKEN"
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "Vercel preview skipped: PR context has no VERCEL_TOKEN/VERCEL_ACCESS_TOKEN." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Vercel preview credential available." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Link existing ZORYQ Vercel project
+        if: env.VERCEL_TOKEN != ''
         run: |
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
 
       - name: Deploy preview only
+        if: env.VERCEL_TOKEN != ''
         id: deploy
         run: |
           url=$(npx --yes vercel@latest deploy --yes --token "$VERCEL_TOKEN" | tail -n 1)
