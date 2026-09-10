@@ -6,15 +6,16 @@ const RPC = process.env.ZORYQ_INTERNAL_RPC || 'http://127.0.0.1:8082/rpc';
 const MNEMONIC_FILE = process.env.ZORYQ_RETH_MNEMONIC_FILE || '/data/zoryq-reth-mnemonic.txt';
 const ARTIFACT = process.env.ZORYQ_ONE_PROMPT_ARTIFACT || '/app/protocol-out/ZoryqOnePromptCompany.sol/ZoryqOnePromptCompany.json';
 const STATE_FILE = process.env.ZORYQ_ONE_PROMPT_STATE || '/data/zoryq-one-prompt-company.json';
+const PUBLIC_FILE = process.env.ZORYQ_ONE_PROMPT_PUBLIC_FILE || '/app/web/one-prompt-company-live.json';
 const CANONICAL_PROMPT = 'Crie uma empresa digital com US$100.';
 const USD6 = 1_000_000n;
 
 function readJson(file) { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return null; } }
-function writeJson(file, value) {
+function writeJson(file, value, mode = 0o600) {
   const tmp = `${file}.tmp-${process.pid}`;
-  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
+  fs.writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', { mode });
   fs.renameSync(tmp, file);
-  try { fs.chmodSync(file, 0o600); } catch {}
+  try { fs.chmodSync(file, mode); } catch {}
 }
 function walletAt(phrase, index, provider) { return HDNodeWallet.fromPhrase(phrase, '', `m/44'/60'/0'/0/${index}`).connect(provider); }
 async function mined(tx) { const r = await tx.wait(); if (!r || r.status !== 1) throw new Error(`transaction failed: ${tx.hash}`); return r; }
@@ -117,4 +118,20 @@ state.canonicalSnapshot = {
 state.demoComplete = true;
 state.lastVerifiedAt = new Date().toISOString();
 writeJson(STATE_FILE, state);
-console.log('[zoryq-company] '+JSON.stringify(state));
+
+const publicManifest = {
+  schema: 'zoryq-one-prompt-company-live/0.1',
+  network: { name: state.network, chainId: state.chainId, chainIdHex: '0x5a5159' },
+  contractAddress: state.contractAddress,
+  deploymentTx: state.deploymentTx,
+  demoUsdAddress: state.demoUsdAddress,
+  canonicalPrompt: state.canonicalPrompt,
+  canonicalCompanyId: state.canonicalCompanyId,
+  canonicalLaunchTx: state.canonicalLaunchTx,
+  canonicalLaunchedAt: state.canonicalLaunchedAt,
+  snapshot: state.canonicalSnapshot,
+  verifiedAt: state.lastVerifiedAt,
+  disclaimer: 'Public testnet demonstration only. dUSD is synthetic demo accounting and has no monetary value.'
+};
+writeJson(PUBLIC_FILE, publicManifest, 0o644);
+console.log('[zoryq-company] '+JSON.stringify(publicManifest));
