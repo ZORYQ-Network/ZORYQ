@@ -28,7 +28,7 @@ jobs:
         run: |
           set -euo pipefail
           body="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/health")"
-          echo "$body" | jq -e '.ok == true and .chainId == 5919065 and .evm == true and .rpc == true' >/dev/null
+          echo "$body" | jq -e '.ok == true and (.chain.chainId // .chainId) == 5919065 and (.chain.evm // .evm) == true and (.chain.rpc // .rpc) == true' >/dev/null
           echo "Chain health OK"
 
       - name: Verify public RPC identity and core reads
