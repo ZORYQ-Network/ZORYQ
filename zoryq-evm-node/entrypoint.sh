@@ -17,7 +17,7 @@ cat > /tmp/zoryq-bin/reth <<'EOF'
 exec /usr/local/bin/reth "$@" \
   --engine.cross-block-cache-size 64 \
   --engine.memory-block-buffer-target 2 \
-  --engine.persistence-threshold 1 \
+  --engine.persistence-threshold 2 \
   --engine.disable-state-cache \
   --engine.disable-prewarming \
   --tx-channel-memory-limit 33554432 \
