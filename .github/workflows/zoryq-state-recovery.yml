@@ -125,12 +125,14 @@ jobs:
           ACTUAL=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
             -d "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" | jq -r .result)
+          echo "balance_before=$EXPECTED balance_after=$ACTUAL"
           test "$ACTUAL" = "$EXPECTED"
 
           EXPECTED_GENESIS=$(cat /tmp/genesis-hash)
           ACTUAL_GENESIS=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
             -d '{"jsonrpc":"2.0","id":5,"method":"eth_getBlockByNumber","params":["0x0",false]}' | jq -r .result.hash)
+          echo "genesis_before=$EXPECTED_GENESIS genesis_after=$ACTUAL_GENESIS"
           test "$ACTUAL_GENESIS" = "$EXPECTED_GENESIS"
 
           BEFORE=$(cat /tmp/head-before)
@@ -138,13 +140,17 @@ jobs:
             -H 'content-type: application/json' \
             -d '{"jsonrpc":"2.0","id":6,"method":"eth_blockNumber","params":[]}' | jq -r .result)
           AFTER=$((16#${AFTER_HEX#0x}))
+          echo "head_before=$BEFORE head_after=$AFTER"
           test "$AFTER" -ge "$BEFORE"
 
           CHAIN_ID=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
             -d '{"jsonrpc":"2.0","id":7,"method":"eth_chainId","params":[]}' | jq -r .result)
           test "$CHAIN_ID" = '0x5a5159'
-          docker logs zoryq-recovered 2>&1 | grep -q '/data/reth/db'
+
+          # Capture first, then grep: avoids SIGPIPE from `docker logs | grep -q` under pipefail.
+          docker logs zoryq-recovered > /tmp/recovered.log 2>&1
+          grep -q '/data/reth/db' /tmp/recovered.log
           echo "Native Reth DB recovery verified: state, genesis, height and chain identity survived SIGKILL."
 
       - name: Show recovery logs on failure
