@@ -1,7 +1,7 @@
 ---
 name: Performance regression
 about: Report a reproducible performance regression
- title: "perf: "
+title: "perf: "
 labels: ""
 assignees: ""
 ---
