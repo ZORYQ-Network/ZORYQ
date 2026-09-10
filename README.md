@@ -1,72 +1,78 @@
 # ZORYQ Network
 
-**AI-powered Web3 launch network — from idea to onchain. Build. Test. Validate.**
+**Experimental Web3 network and product research project — build, test, validate.**
 
-ZORYQ is an early-stage EVM-compatible blockchain network and public testnet being built for developers, users and node operators who want a practical environment to build, test and validate onchain applications.
+ZORYQ is an early-stage project exploring an EVM-compatible blockchain network together with developer, wallet, swap, SocialFi and mobile product infrastructure.
 
-> Status: active testnet development. ZORYQ is experimental software and is not a production mainnet.
+> **Current status:** active experimental development. This repository does not represent a production mainnet and should not be interpreted as evidence of production readiness, audited security, measured throughput, validator decentralization or other capabilities unless linked to reproducible evidence.
+
+## Repository scope
+
+This repository currently contains project documentation, GitHub workflows and the packaged source used by the mobile build pipeline. The full node/protocol implementation is not presently exposed as normal source files in this repository.
+
+That distinction matters: documentation may describe intended architecture or active research, but only implemented code, tests, reproducible benchmarks and deployed infrastructure should be treated as evidence that a capability exists.
+
+See [`docs/REPOSITORY_STATUS.md`](docs/REPOSITORY_STATUS.md) for the current evidence boundary.
 
 ## ZORYQ Testnet
 
 - **Network:** ZORYQ Testnet
-- **EVM compatible:** Yes
+- **EVM compatible:** project target / active testnet work
 - **Chain ID:** `5919065`
-- **Stage:** Public testnet / active development
+- **Stage:** experimental testnet development
 - **Public web:** https://zoryq-testnet.vercel.app
 - **X:** https://x.com/ZORIQNetwork
 
+Public endpoints and interfaces may change while the project is experimental.
+
 ## What ZORYQ is building
 
-ZORYQ is being developed as a Web3 launch network where projects can move from an idea to an onchain prototype, test infrastructure under real conditions and collect evidence before production deployment.
+Current product and research areas include:
 
-Current product areas include:
-
-- EVM-compatible blockchain testnet
+- EVM-compatible blockchain/testnet work
 - RPC and network infrastructure
-- Developer and application testing
-- Node-operator infrastructure
-- Explorer and network visibility
-- Wallet / ZORYQ Vault
-- Swap and cross-chain product work
+- developer and application testing
+- node-operator infrastructure
+- explorer and network visibility
+- wallet / ZORYQ Vault
+- swap and cross-chain product work
 - SocialFi experiments
 - XP, quests and participation systems
-- Mobile application for Android/iOS
+- mobile application for Android/iOS
+
+## Engineering principles
+
+ZORYQ uses an evidence-first standard:
+
+- claims should link to code, tests, benchmark methodology or deployed infrastructure;
+- speculative or planned work must be labeled as such;
+- negative test and benchmark results should not be hidden;
+- security-sensitive changes require additional review;
+- branding consistency must not replace technical substance.
+
+## Architecture and research
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — current product architecture documentation
+- [`docs/SECURITY_THREAT_MODEL.md`](docs/SECURITY_THREAT_MODEL.md) — current threat model
+- [`docs/ROADMAP.md`](docs/ROADMAP.md) — staged product roadmap
+- [`docs/REPOSITORY_STATUS.md`](docs/REPOSITORY_STATUS.md) — what this repository currently proves
+- [`docs/adr/README.md`](docs/adr/README.md) — Architecture Decision Records
+- [`rfcs/README.md`](rfcs/README.md) — protocol/product RFC process
 
 ## For developers
 
-ZORYQ is intended for builders who want to experiment with EVM-compatible smart contracts and applications in a developing network environment.
+ZORYQ is intended for builders who want to experiment with Web3 infrastructure and EVM-compatible application flows in a developing environment.
 
-Useful search terms for the project:
+Before contributing, read [`CONTRIBUTING.md`](CONTRIBUTING.md). Material architectural changes should be documented as an ADR or RFC rather than introduced only through implementation.
 
-`ZORYQ` · `ZORYQ Network` · `ZORYQ Testnet` · `ZORIQNetwork` · `EVM testnet` · `Web3 testnet` · `blockchain testnet` · `AI Web3` · `EVM blockchain` · `smart contract testnet`
+## Security
 
-## For researchers and infrastructure teams
-
-The project is actively working on measurable testnet evidence around areas such as public RPC behavior, state recovery, transaction semantics, traffic protection, finality behavior and multi-node operation.
-
-We prefer verifiable technical evidence over marketing claims. During the testnet phase, failures and limitations are treated as engineering work to be measured and corrected rather than hidden.
-
-## ZORYQ Mobile
-
-The ZORYQ mobile application is being developed for Android/iOS with:
-
-- ZORYQ Vault / self-custody wallet architecture
-- Swap and cross-chain interface
-- SocialFi integrations
-- XP, quests, streaks and referrals
-- Multi-chain support
-- Internationalization
-
-The mobile build is experimental. Real-money wallet, production swaps and mainnet fees should only be enabled after provider configuration and security review.
+See [`SECURITY.md`](SECURITY.md) before reporting vulnerabilities. Never publish seed phrases, private keys, signing secrets, infrastructure credentials or sensitive exploit details in public issues.
 
 ## Build. Test. Validate.
 
-ZORYQ is still early. That is precisely the purpose of the testnet: expose the network to real testing, measurable validation and developer feedback before production use.
-
-If you are a developer, researcher, infrastructure provider or ecosystem builder interested in testing ZORYQ, follow the project on X:
-
-**https://x.com/ZORIQNetwork**
+ZORYQ is still early. The objective of the current phase is to convert architectural ideas into code, tests, measurable validation and reproducible evidence before production use.
 
 ---
 
-**ZORYQ Network — AI-powered Web3 launch network. From idea to onchain.**
+**ZORYQ Network — experimental Web3 infrastructure and product research.**
