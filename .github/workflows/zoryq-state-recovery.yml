@@ -14,91 +14,138 @@ permissions:
 jobs:
   recovery-drill:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+      TEST_ADDRESS: '0x1000000000000000000000000000000000000001'
     steps:
       - uses: actions/checkout@v4
 
       - name: Build node image
         run: docker build -t zoryq-recovery ./zoryq-evm-node
 
-      - name: Start node with persistent test volume
+      - name: Start node with persistent Reth volume
         run: |
           set -euo pipefail
           docker volume create zoryq-recovery-state
           docker run -d --name zoryq-recovery \
             -p 18081:8080 \
             -v zoryq-recovery-state:/data \
-            -e ZORYQ_STATE_INTERVAL=3600 \
-            -e ZORYQ_STATE_INITIAL_CHECKPOINT_DELAY=3600 \
-            -e ZORYQ_STATE_BACKUP_INTERVAL=3600 \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
             zoryq-recovery
-          for i in $(seq 1 60); do
+          for i in $(seq 1 120); do
             if curl -fsS http://127.0.0.1:18081/health >/tmp/health.json; then
-              test "$(jq -r .chainId /tmp/health.json)" = "5919065"
-              exit 0
+              if jq -e '(.chain.chainId // .chainId) == 5919065 and .persistence.mode == "reth-native-db" and .persistence.ready == true' /tmp/health.json >/dev/null; then
+                docker exec zoryq-recovery test -d /data/reth/db
+                exit 0
+              fi
             fi
             sleep 1
           done
           docker logs zoryq-recovery
           exit 1
 
-      - name: Create deterministic state and native checkpoint
+      - name: Create deterministic state in isolated node
         run: |
           set -euo pipefail
-          ADDRESS=0x1000000000000000000000000000000000000001
-          curl -fsS -X POST http://127.0.0.1:18081/faucet \
+          # This faucet call is against the isolated CI container only; it never touches the public testnet faucet.
+          STATUS=$(curl -sS -o /tmp/faucet.json -w '%{http_code}' \
+            -X POST http://127.0.0.1:18081/faucet \
             -H 'content-type: application/json' \
-            -d "{\"address\":\"$ADDRESS\"}" >/tmp/faucet.json
-          EXPECTED=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
-            -H 'content-type: application/json' \
-            -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBalance\",\"params\":[\"$ADDRESS\",\"latest\"]}" | jq -r .result)
-          test "$EXPECTED" != "0x0"
-          echo "$EXPECTED" >/tmp/expected-balance
-          docker exec zoryq-recovery node /app/rpc-state-checkpoint.mjs | tee /tmp/checkpoint.log
-          docker exec zoryq-recovery node - <<'NODE'
-          const fs=require('fs');
-          const x=JSON.parse(fs.readFileSync('/data/zoryq-persistence-status.json','utf8'));
-          if(!x.ok||x.source!=='anvil_dumpState_blob'||!x.checkpointSha256) throw Error(JSON.stringify(x));
-          if(!fs.existsSync('/data/zoryq-checkpoints/current/state.hex.gz')) throw Error('state blob missing');
-          if(!fs.existsSync('/data/zoryq-checkpoints/current/meta.json')) throw Error('metadata missing');
-          NODE
+            -H 'x-real-ip: 127.0.0.2' \
+            -d "{\"address\":\"$TEST_ADDRESS\"}")
+          test "$STATUS" = '200'
+          jq -e '.ok == true' /tmp/faucet.json >/dev/null
 
-      - name: Hard-kill and remove legacy primary state
+          for i in $(seq 1 60); do
+            EXPECTED=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
+              -H 'content-type: application/json' \
+              -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" | jq -r .result)
+            if [ "$EXPECTED" != '0x0' ] && [ "$EXPECTED" != 'null' ]; then break; fi
+            sleep 1
+          done
+          test "$EXPECTED" != '0x0'
+          test "$EXPECTED" != 'null'
+          echo "$EXPECTED" >/tmp/expected-balance
+
+          GENESIS=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":2,"method":"eth_getBlockByNumber","params":["0x0",false]}' | jq -r .result.hash)
+          test -n "$GENESIS"
+          test "$GENESIS" != 'null'
+          echo "$GENESIS" >/tmp/genesis-hash
+
+          for i in $(seq 1 60); do
+            HEAD=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
+              -H 'content-type: application/json' \
+              -d '{"jsonrpc":"2.0","id":3,"method":"eth_blockNumber","params":[]}' | jq -r .result)
+            HEAD_DEC=$((16#${HEAD#0x}))
+            if [ "$HEAD_DEC" -ge 5 ]; then break; fi
+            sleep 1
+          done
+          test "$HEAD_DEC" -ge 5
+          echo "$HEAD_DEC" >/tmp/head-before
+          docker exec zoryq-recovery sh -c 'test -d /data/reth/db && test "$(find /data/reth/db -type f | wc -l)" -gt 0'
+
+      - name: Hard-kill node without deleting native state
         run: |
           set -euo pipefail
           docker kill -s KILL zoryq-recovery
           docker rm zoryq-recovery
-          docker run --rm -v zoryq-recovery-state:/data alpine:3.22 sh -c 'rm -f /data/zoryq-state.json /data/zoryq-state.json.bak /data/zoryq-state.json.bak.gz'
 
-      - name: Restart and require boot-gated native recovery
+      - name: Restart from the same Reth database
         run: |
           set -euo pipefail
           docker run -d --name zoryq-recovered \
             -p 18081:8080 \
             -v zoryq-recovery-state:/data \
-            -e ZORYQ_STATE_INTERVAL=3600 \
-            -e ZORYQ_STATE_INITIAL_CHECKPOINT_DELAY=3600 \
-            -e ZORYQ_STATE_BACKUP_INTERVAL=3600 \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
             zoryq-recovery
-          for i in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:18081/health >/tmp/recovered-health.json; then break; fi
-            if ! docker inspect -f '{{.State.Running}}' zoryq-recovered 2>/dev/null | grep -q true; then docker logs zoryq-recovered; exit 1; fi
+          ready=0
+          for i in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:18081/health >/tmp/recovered-health.json; then
+              if jq -e '(.chain.chainId // .chainId) == 5919065 and .persistence.mode == "reth-native-db" and .persistence.ready == true' /tmp/recovered-health.json >/dev/null; then
+                ready=1
+                break
+              fi
+            fi
+            if ! docker inspect -f '{{.State.Running}}' zoryq-recovered 2>/dev/null | grep -q true; then
+              docker logs zoryq-recovered
+              exit 1
+            fi
             sleep 1
           done
-          jq -e '.ok == true and .chainId == 5919065 and .readyForTraffic == true and .persistence.mode == "native-rpc-blob" and .persistence.readyForTraffic == true' /tmp/recovered-health.json >/dev/null
-          docker logs zoryq-recovered 2>&1 | grep -q 'RPC blob checkpoint restored from current'
-          docker logs zoryq-recovered 2>&1 | grep -q 'public readiness released'
+          test "$ready" = '1'
+          docker exec zoryq-recovered sh -c 'test -d /data/reth/db && test "$(find /data/reth/db -type f | wc -l)" -gt 0'
 
-      - name: Verify funded state survived exact restore
+      - name: Verify native state survived crash and restart
         run: |
           set -euo pipefail
-          ADDRESS=0x1000000000000000000000000000000000000001
           EXPECTED=$(cat /tmp/expected-balance)
           ACTUAL=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
-            -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBalance\",\"params\":[\"$ADDRESS\",\"latest\"]}" | jq -r .result)
+            -d "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" | jq -r .result)
           test "$ACTUAL" = "$EXPECTED"
-          test "$(curl -fsS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"eth_chainId","params":[]}' | jq -r .result)" = "0x5a5159"
+
+          EXPECTED_GENESIS=$(cat /tmp/genesis-hash)
+          ACTUAL_GENESIS=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":5,"method":"eth_getBlockByNumber","params":["0x0",false]}' | jq -r .result.hash)
+          test "$ACTUAL_GENESIS" = "$EXPECTED_GENESIS"
+
+          BEFORE=$(cat /tmp/head-before)
+          AFTER_HEX=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":6,"method":"eth_blockNumber","params":[]}' | jq -r .result)
+          AFTER=$((16#${AFTER_HEX#0x}))
+          test "$AFTER" -ge "$BEFORE"
+
+          CHAIN_ID=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":7,"method":"eth_chainId","params":[]}' | jq -r .result)
+          test "$CHAIN_ID" = '0x5a5159'
+          docker logs zoryq-recovered 2>&1 | grep -q '/data/reth/db'
+          echo "Native Reth DB recovery verified: state, genesis, height and chain identity survived SIGKILL."
 
       - name: Show recovery logs on failure
         if: failure()
