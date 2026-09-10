@@ -41,7 +41,7 @@ jobs:
           grep -q 'Crie uma empresa digital com US$100.' zoryq-web/proof.html
           grep -q 'CRIAR EMPRESA ON-CHAIN' zoryq-web/proof.html
           grep -q 'dUSD' zoryq-web/proof.html
-          grep -q 'não é dólar real' zoryq-web/proof.html
+          grep -qi 'não é dólar real' zoryq-web/proof.html
           ! grep -Eqi 'private[ _-]?key|seed phrase|mnemonic' zoryq-web/proof.html
       - name: Verify public UI and canonical one-prompt transaction
         env:
