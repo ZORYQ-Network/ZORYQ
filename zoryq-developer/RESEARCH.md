@@ -26,7 +26,7 @@ Can an EVM-compatible execution layer deterministically choose between fast, spe
 
 **Current classification**
 
-`PROTOTYPE / SIMULATION` only. AEM is **not active in canonical execution or consensus**.
+`PROTOTYPE / SIMULATION + TESTNET OBSERVATION`. AEM is **not active in canonical execution or consensus**.
 
 **Existing evidence**
 
@@ -35,12 +35,22 @@ Can an EVM-compatible execution layer deterministically choose between fast, spe
 - `ZORYQ Adaptive Execution Mesh Research` CI gate has passed for the current simulator cases.
 - `ZORYQ Serial Equivalence Evidence` has passed after repairing the harness so expected reverts are compared rather than treated as harness failures.
 - `ZORYQ State Recovery` has passed with Reth native persistence after the recovery gate was aligned to durable-head recovery semantics.
+- `ZORYQ AEM Shadow Evidence` run `34512414470` passed a live read-only testnet observation against Chain ID `5919065`.
+- The shadow sampler selected non-empty block `0x809a` through the native Explorer index, then re-read that block through canonical JSON-RPC.
+- The sampled block contained `1` transaction. Metadata-only AEM classified it as `speculative` (`fast=0`, `speculative=1`, `serial=0`).
+- The deterministic shadow result commitment for that observation was `0xecc6e6a6c2473d88b05dd06335153fe583b9c397ee1390f2343891258afab5a7`.
+- The live observer remained explicitly `canonical=false`, `status=research`, `evidenceClass=metadata-shadow`, with no transaction-submission primitives.
+
+**Interpretation of the first live sample**
+
+This proves that the current metadata Shadow Engine can consume a real non-empty ZORYQ testnet block, validate network identity, classify it deterministically and emit a reproducible research commitment without influencing execution. It does **not** prove parallel execution, classifier correctness against real storage accesses, throughput improvement, lower latency or novelty. A one-transaction block is specifically insufficient for any parallelism/performance claim.
 
 **What this does NOT prove**
 
 - No real parallel REVM execution is active.
 - No real EVM read/write-set instrumentation is active.
 - No throughput advantage over serial, Block-STM-like or always-speculative execution has been demonstrated.
+- No classifier precision/recall against ground-truth storage accesses has been measured.
 - No novelty claim is established.
 - No decentralized BFT finality is established.
 
@@ -50,7 +60,7 @@ Proceed only with a non-canonical Shadow Engine. Reth remains the canonical auth
 
 **Next experiment**
 
-Replay real/fixed EVM blocks through a deterministic metadata classifier and produce a machine-readable shadow record containing input commitment, order commitment, lane predictions, conservative dependency edges, uncertainty flags and deterministic result digest. Add CI test vectors before any live observation loop.
+Capture deterministic fixed block/workload fixtures with multiple transactions, then add real REVM read/write-set instrumentation in a non-canonical prototype. Use actual accesses as ground truth to measure classifier precision, false-positive rate and—most critically—verify that no predicted independence can bypass canonical validation. Only after that should the Speculation Budget be benchmarked against serial and always-speculative baselines.
 
 ## 2026-09-10 — R-002 Smoke-test integrity
 
