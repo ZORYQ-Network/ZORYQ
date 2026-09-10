@@ -21,7 +21,7 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     steps:
       - uses: actions/checkout@v6
       - name: Validate canonical proof manifest
@@ -45,3 +45,42 @@ jobs:
           grep -q 'eth_sendTransaction' zoryq-web/proof.html
           grep -q 'Testnet-only' zoryq-web/proof.html
           ! grep -Eqi 'private[ _-]?key|seed phrase|mnemonic' zoryq-web/proof.html
+      - name: Verify public Railway proof surface and canonical onchain evidence
+        env:
+          BASE: https://zoryq-evm-node-live-production.up.railway.app
+          CONTRACT: '0xe9E075d1d44DEC0ee973e94F6e3eE8B7c2b27397'
+          DEPLOY_TX: '0x725b92447061bfa0e796fdc20e3c3fc1b10587ccd528f97911956dd701426c19'
+          ORG_SETTLE_TX: '0x8d8ad3189ead5fc37c0085c35044fbebd34da4d2225f48d95d2ba18d8101e633'
+          DIRECT_SETTLE_TX: '0x5e66eb81d058a6e63ecf8a86445f1da22fcb1a056c57b88b9ef5cdc192c97e14'
+        run: |
+          python3 - <<'PY'
+          import json, os, time, urllib.request
+          base=os.environ['BASE'].rstrip('/')
+          rpc_url=base+'/rpc'
+          def get(url):
+              last=None
+              for _ in range(8):
+                  try:
+                      with urllib.request.urlopen(url, timeout=15) as r:
+                          return r.read().decode('utf-8')
+                  except Exception as e:
+                      last=e; time.sleep(2)
+              raise last
+          def rpc(method, params=None):
+              data=json.dumps({'jsonrpc':'2.0','id':1,'method':method,'params':params or []}).encode()
+              req=urllib.request.Request(rpc_url,data=data,headers={'content-type':'application/json'})
+              with urllib.request.urlopen(req, timeout=20) as r:
+                  out=json.loads(r.read())
+              if out.get('error'):
+                  raise RuntimeError(out['error'])
+              return out.get('result')
+          html=get(base+'/proof')
+          assert 'Watch an autonomous economy exist onchain.' in html, 'live proof UI not served'
+          assert rpc('eth_chainId')=='0x5a5159', 'wrong chain id'
+          code=rpc('eth_getCode',[os.environ['CONTRACT'],'latest'])
+          assert isinstance(code,str) and code!='0x' and len(code)>10, 'contract bytecode missing'
+          for name in ('DEPLOY_TX','ORG_SETTLE_TX','DIRECT_SETTLE_TX'):
+              receipt=rpc('eth_getTransactionReceipt',[os.environ[name]])
+              assert receipt and receipt.get('status')=='0x1', f'{name} receipt not successful'
+          print('Public Autonomous Economy proof verified: UI + chainId + bytecode + 3 canonical receipts')
+          PY
