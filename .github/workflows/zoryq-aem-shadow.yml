@@ -1,0 +1,62 @@
+name: ZORYQ AEM Shadow Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - zoryq-evm-testnet-node
+    paths:
+      - 'zoryq-developer/aem-shadow.mjs'
+      - 'zoryq-developer/THREAT_MODEL_AEM.md'
+      - 'zoryq-developer/adr/ADR-001-AEM-SHADOW-EXECUTION.md'
+      - '.github/workflows/zoryq-aem-shadow.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-shadow-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run deterministic AEM shadow self-test
+        run: node zoryq-developer/aem-shadow.mjs --self-test | tee /tmp/aem-shadow.json
+
+      - name: Enforce non-canonical research boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '.ok == true and .status == "research" and .canonical == false and .evidenceClass == "metadata-shadow"' /tmp/aem-shadow.json >/dev/null
+
+      - name: Verify repeatability across independent processes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node zoryq-developer/aem-shadow.mjs --self-test > /tmp/a.json
+          node zoryq-developer/aem-shadow.mjs --self-test > /tmp/b.json
+          a=$(jq -r '.deterministicDigest' /tmp/a.json)
+          b=$(jq -r '.deterministicDigest' /tmp/b.json)
+          test -n "$a"
+          test "$a" = "$b"
+          echo "Deterministic shadow digest: $a"
+
+      - name: Ensure shadow prototype has no transaction submission primitives
+        shell: bash
+        run: |
+          set -euo pipefail
+          ! grep -Eq "eth_sendRawTransaction|eth_sendTransaction|wallet\.send|privateKey|mnemonic|/faucet" zoryq-developer/aem-shadow.mjs
+          echo 'Shadow engine is read-only by construction.'
+
+      - name: Summary
+        run: |
+          echo 'AEM Shadow Evidence: PASS'
+          echo 'Classification: research / metadata-shadow'
+          echo 'Canonical execution influence: NONE'
