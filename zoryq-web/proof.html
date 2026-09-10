@@ -1,109 +1,105 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ZORYQ Live Proof & Autonomous Economy Lab</title>
+<title>ZORYQ — Empresa Digital em 1 Comando</title>
 <link rel="stylesheet" href="/styles.css">
 <style>
-.shell{width:min(1120px,calc(100% - 28px));margin:42px auto 90px}.hero h1{font-size:clamp(42px,7vw,76px);line-height:1.02}.muted{color:#9ca6b8}.card{border:1px solid #202633;background:#0c0f15;border-radius:20px;padding:20px;margin:16px 0}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.row input,.field{flex:1;min-width:210px;padding:13px;border-radius:12px;border:1px solid #2a3343;background:#080b10;color:#fff}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{border:1px solid #283041;border-radius:14px;padding:14px;min-width:0}.metric small{color:#7f899c;display:block}.metric b{display:block;margin-top:5px;word-break:break-all}.ok{color:#7cf5b1}.bad{color:#ff7d8f}.warn{color:#ffd36a}.code{white-space:pre-wrap;overflow:auto;background:#080b10;border:1px solid #263041;border-radius:14px;padding:15px;max-height:420px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}.tag{display:inline-flex;border:1px solid #2b3546;border-radius:999px;padding:6px 10px;margin:3px;font-size:12px}.steps{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.step{border:1px solid #253047;border-radius:15px;padding:15px;background:#090d13}.step h3{margin:0 0 7px}.step p{margin:0 0 12px}.livebar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.dot{width:9px;height:9px;border-radius:50%;background:#7cf5b1;box-shadow:0 0 16px #7cf5b1}.heroActions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}@media(max-width:850px){.grid{grid-template-columns:1fr 1fr}.steps{grid-template-columns:1fr}}@media(max-width:520px){.grid{grid-template-columns:1fr}}
+:root{color-scheme:dark}.wrap{width:min(1120px,calc(100% - 28px));margin:36px auto 90px}.hero{padding:38px 0 18px}.hero h1{font-size:clamp(42px,7vw,78px);line-height:.98;margin:12px 0 18px;letter-spacing:-.045em}.hero p{max-width:830px}.eyebrow{font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#7cf5b1}.muted{color:#9ca6b8}.panel{background:linear-gradient(180deg,#0d1119,#090c12);border:1px solid #232b39;border-radius:24px;padding:20px;margin:18px 0}.prompt{display:grid;grid-template-columns:1fr auto;gap:10px}.prompt input{width:100%;padding:18px 18px;border:1px solid #303b50;border-radius:16px;background:#05080d;color:#fff;font-size:17px;outline:none}.prompt input:focus{border-color:#657490}.btn.big{padding:16px 22px;font-weight:800}.callout{padding:12px 14px;border-radius:14px;background:#0a1110;border:1px solid #1d4735;color:#a9f5c9;margin-top:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.metric{border:1px solid #263043;border-radius:16px;padding:15px;background:#080b11;min-width:0}.metric small{display:block;color:#818ca0;margin-bottom:6px}.metric b{font-size:22px;word-break:break-word}.timeline{display:grid;gap:9px;margin-top:14px}.step{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:12px 14px;border:1px solid #222c3b;border-radius:14px;background:#080b10}.step .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:#121824;color:#9ca9bc;font-size:12px}.step.done{border-color:#234d3a;background:#09110e}.step.done .n{background:#153d2a;color:#7cf5b1}.step .proof{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:#7f899c}.agents{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}.agent{border:1px solid #263043;border-radius:16px;padding:14px;background:#080b11}.agent b{display:block;margin-bottom:7px}.agent small{display:block;color:#8a95a8;line-height:1.45}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}.ok{color:#7cf5b1}.warn{color:#ffd36a}.bad{color:#ff8392}.flow{font-weight:800;line-height:1.8}.flow span{white-space:nowrap}.actions{display:flex;gap:10px;flex-wrap:wrap}.hidden{display:none!important}@media(max-width:920px){.grid{grid-template-columns:1fr 1fr}.agents{grid-template-columns:1fr 1fr}.prompt{grid-template-columns:1fr}}@media(max-width:560px){.grid,.agents{grid-template-columns:1fr}.step{grid-template-columns:32px 1fr}.step .proof{grid-column:2}.hero h1{font-size:43px}}
 </style>
+<script src="https://cdn.jsdelivr.net/npm/ethers@6.17.0/dist/ethers.umd.min.js"></script>
 </head>
 <body>
-<header class="nav"><a class="brand" href="/developer"><span class="mark">Z</span><span>ZORYQ</span><b>LIVE PROOF</b></a><nav><a href="/developer">Developers</a><a href="/build">Build</a><a href="/explorer">Explorer</a><a href="/metrics">Metrics</a></nav></header>
-<main class="shell">
+<header class="nav"><a class="brand" href="/start"><span class="mark">Z</span><span>ZORYQ</span><b>ONE PROMPT</b></a><nav><a href="/explorer">Explorer</a><a href="/developer">Developers</a><a href="/metrics">Metrics</a></nav></header>
+<main class="wrap">
 <section class="hero">
-<span class="eyebrow">AUTONOMOUS ECONOMY · PUBLIC TESTNET</span>
-<h1>Watch an autonomous economy exist onchain.</h1>
-<p class="muted">This page verifies ZORYQ directly from the public RPC, then lets an injected EVM wallet reproduce the core agent-to-agent flow. Nothing below relies on a private server signing transaction for your wallet.</p>
-<div class="heroActions"><button id="verifyLive" class="btn primary">Verify live economy</button><button id="connect" class="btn">Connect wallet</button><a class="btn" href="/explorer">Open Explorer</a></div>
-<p id="wallet" class="muted mono">Wallet not connected.</p>
+<span class="eyebrow">ONE PROMPT → ONE ONCHAIN COMPANY</span>
+<h1>Escreva uma frase.<br>A empresa nasce na blockchain.</h1>
+<p class="muted">A demonstração transforma um comando simples em empresa, AI CEO, equipe, treasury, regras, trabalho, contratação, execução, verificação, pagamento, reputação e receita — com estado e eventos registrados na ZORYQ Testnet.</p>
 </section>
 
-<section class="card">
-<div class="livebar"><span class="dot"></span><b>Canonical Autonomous Economy v0.1</b><span id="liveStatus" class="muted">Checking chain…</span></div>
-<div class="grid" style="margin-top:16px">
-<div class="metric"><small>Contract</small><b id="contractCode">checking…</b></div>
-<div class="metric"><small>Deployment</small><b id="deployReceipt">checking…</b></div>
-<div class="metric"><small>Economic events</small><b id="eventCount">checking…</b></div>
-<div class="metric"><small>Worker balance</small><b id="workerBalance">checking…</b></div>
-</div>
-<p class="mono"><a id="contractLink" href="/address/0xe9E075d1d44DEC0ee973e94F6e3eE8B7c2b27397">0xe9E075d1d44DEC0ee973e94F6e3eE8B7c2b27397</a></p>
-<div class="row"><a class="btn" href="/tx/0x725b92447061bfa0e796fdc20e3c3fc1b10587ccd528f97911956dd701426c19">Deployment TX</a><a class="btn" href="/tx/0x8d8ad3189ead5fc37c0085c35044fbebd34da4d2225f48d95d2ba18d8101e633">Organization settlement</a><a class="btn" href="/tx/0x5e66eb81d058a6e63ecf8a86445f1da22fcb1a056c57b88b9ef5cdc192c97e14">Agent-to-Agent settlement</a></div>
+<section class="panel">
+<div class="prompt"><input id="prompt" value="Crie uma empresa digital com US$100." aria-label="Comando"><button id="launch" class="btn primary big">CRIAR EMPRESA ON-CHAIN</button></div>
+<div class="callout"><b>Como funciona o “US$100”:</b> nesta testnet, o comando cria <b>100 dUSD</b> sintéticos apenas para demonstração. Não é dólar real, stablecoin real ou ativo com valor monetário.</div>
+<p id="wallet" class="muted">Você pode primeiro ver a empresa canônica já executada. Para criar outra, use MetaMask/Rabby e tenha apenas um pouco de ZQ de testnet para gas.</p>
+<div class="actions"><button id="canonical" class="btn">VER DEMONSTRAÇÃO PRONTA</button><button id="connect" class="btn">CONECTAR CARTEIRA</button><a class="btn" href="/faucet">PEGAR ZQ DE TESTE</a></div>
+<p id="status" class="muted">Pronto.</p>
 </section>
 
-<section class="card">
-<h2>What the canonical demo already executed</h2>
+<section class="panel">
+<span class="eyebrow">O QUE A ZORYQ EXECUTA</span>
+<p class="flow"><span>cria empresa</span> → <span>cria AI CEO</span> → <span>cria equipe</span> → <span>abre treasury</span> → <span>instala constituição</span> → <span>encontra trabalho</span> → <span>contrata agentes</span> → <span>executa</span> → <span>audita</span> → <span>paga</span> → <span>recebe</span> → <span>reputação sobe</span> → <span>gera receita</span></p>
+<div id="timeline" class="timeline"></div>
+</section>
+
+<section id="companyPanel" class="panel">
+<div class="actions" style="justify-content:space-between;align-items:center"><div><span class="eyebrow">EMPRESA ON-CHAIN</span><h2 id="companyTitle" style="margin:7px 0">Empresa #1</h2></div><button id="nextCycle" class="btn primary hidden">RODAR PRÓXIMO CICLO AUTÔNOMO</button></div>
 <div class="grid">
-<div class="metric"><small>Organization</small><b>#1</b></div><div class="metric"><small>Organization task</small><b>#1 settled</b></div><div class="metric"><small>Direct agent task</small><b>#2 settled</b></div><div class="metric"><small>Worker reputation</small><b>52.00 / 100</b></div>
+<div class="metric"><small>Capital inicial</small><b id="initial">—</b></div>
+<div class="metric"><small>Receita gerada</small><b id="revenue">—</b></div>
+<div class="metric"><small>Custos pagos</small><b id="expenses">—</b></div>
+<div class="metric"><small>Treasury atual</small><b id="treasuryBalance">—</b></div>
 </div>
-<p class="muted">Manager → Finance → Marketing → Developer → Worker were registered as separate EVM economic identities. The organization funded its ZQ treasury, applied role/budget policies, paid for a marketing API action and developer compute action, created a campaign task, accepted a worker bid, received a result and settled it. A second direct Agent-to-Agent escrow was also settled.</p>
-<div><span class="tag">Treasury budget</span><span class="tag">Role permissions</span><span class="tag">Escrow</span><span class="tag">Bids</span><span class="tag">Delivery hash</span><span class="tag">Settlement</span><span class="tag">Reputation</span><span class="tag">Audit events</span></div>
-<pre id="liveJson" class="code">Loading live proof…</pre>
-</section>
-
-<section class="card">
-<span class="eyebrow">USE IT YOURSELF</span>
-<h2>Agent-to-Agent Economy Lab</h2>
-<p class="muted">Use testnet ZQ only. For the full two-agent flow, use two MetaMask/Rabby accounts. Account A creates the job; Account B bids and submits; Account A assigns and settles. Every button below creates a real ZORYQ testnet transaction and your wallet must approve it.</p>
-<div class="row"><input id="workerAddr" placeholder="Worker / Account B address"><input id="taskId" placeholder="Task ID (auto-filled when possible)" value=""><input id="reward" placeholder="Escrow ZQ" value="2"><input id="bid" placeholder="Bid ZQ" value="1.2"></div>
-<div class="steps" style="margin-top:14px">
-<div class="step"><h3>1 · Register current wallet</h3><p class="muted">Creates a Proof-of-Agent identity for the connected account.</p><button id="registerAgent" class="btn primary">Register as Agent</button></div>
-<div class="step"><h3>2 · Account A creates escrow job</h3><p class="muted">Locks the amount shown in “Escrow ZQ” inside the protocol.</p><button id="createDirect" class="btn">Create Agent-to-Agent task</button></div>
-<div class="step"><h3>3 · Switch to Account B and bid</h3><p class="muted">Account B must be registered first. Bid must be ≤ escrow cap.</p><button id="bidTask" class="btn">Bid for task</button></div>
-<div class="step"><h3>4 · Switch to Account A and assign</h3><p class="muted">Paste Account B into the Worker field, then accept its bid.</p><button id="assignTask" class="btn">Assign worker</button></div>
-<div class="step"><h3>5 · Switch to Account B and submit</h3><p class="muted">Writes a deterministic test delivery hash to the task.</p><button id="submitTask" class="btn">Submit result</button></div>
-<div class="step"><h3>6 · Switch to Account A and settle</h3><p class="muted">Releases the accepted payment, refunds unused escrow and increases worker reputation.</p><button id="settleTask" class="btn primary">Settle payment</button></div>
+<div class="grid" style="margin-top:12px">
+<div class="metric"><small>Lucro operacional acumulado</small><b id="profit">—</b></div>
+<div class="metric"><small>Ciclos concluídos</small><b id="cycles">—</b></div>
+<div class="metric"><small>Agentes</small><b id="team">—</b></div>
+<div class="metric"><small>Status</small><b id="active">—</b></div>
 </div>
-<p id="actionStatus" class="muted">Connect a wallet to begin.</p>
+<p><small class="muted">Treasury</small><br><span id="treasury" class="mono">—</span></p>
+<p><small class="muted">Constituição / permissões</small><br><span id="constitution" class="mono">—</span></p>
+<p id="txRow" class="hidden"><small class="muted">Transação</small><br><a id="txLink" class="mono" href="#">—</a></p>
 </section>
 
-<section class="card">
-<h2>Create your own Autonomous Organization</h2>
-<p class="muted">This creates a real organization record with a 10 ZQ rolling 30-day budget, then lets you fund its native ZQ treasury.</p>
-<div class="row"><input id="orgId" placeholder="Organization ID"><input id="orgFund" placeholder="Funding ZQ" value="5"><button id="createOrg" class="btn">Create Organization</button><button id="fundOrg" class="btn">Fund Organization</button></div>
+<section class="panel">
+<span class="eyebrow">EQUIPE AUTÔNOMA</span><h2>AI CEO + agentes econômicos</h2>
+<div id="agents" class="agents"><div class="muted">Carregando…</div></div>
 </section>
 
-<section class="card">
-<h2>Generic transaction Proof Pack</h2>
-<div class="row"><input id="tx" placeholder="0x… transaction hash"><button id="inspect" class="btn">Inspect & prove</button></div>
-<div class="grid" style="margin-top:14px"><div class="metric"><small>Chain</small><b id="chain">—</b></div><div class="metric"><small>Receipt</small><b id="receipt">—</b></div><div class="metric"><small>Status</small><b id="success">—</b></div><div class="metric"><small>Target code</small><b id="code">—</b></div></div>
-<pre id="out" class="code">{}</pre>
-</section>
-
-<section class="card"><h2>Scope</h2><p class="muted">This is a testnet-only, experimental and unaudited prototype. “Agents” here are independent EVM identities with programmable onchain authority and economic state. Autonomous reasoning/models run offchain and must still obey the onchain policies and settlement rules. This is not a claim of mainnet readiness, decentralization, investment return or monetary value for testnet ZQ.</p></section>
+<section class="panel"><h2>O que é realmente on-chain?</h2><p class="muted">Empresa, treasury, cinco identidades econômicas/vaults de agentes, constituição hash, descoberta de oportunidade, contratação, subcontratação, resultado, verificação, pagamentos em dUSD de teste, receita, ciclos e reputação ficam registrados no contrato. O primeiro ciclo é determinístico para tornar a demonstração simples e auditável; modelos de IA e raciocínio avançado continuam sendo uma camada off-chain que pode usar estas mesmas permissões e regras.</p><p class="muted">Contrato da demonstração: <a class="mono" href="/address/0xF450eF5D7b9196ebd878a6Fa703b855a9F13E74E">0xF450eF5D7b9196ebd878a6Fa703b855a9F13E74E</a></p></section>
 </main>
 <script>
-const RPC=location.origin+'/rpc',BASE=location.origin,CHAIN='0x5a5159',CONTRACT='0xe9E075d1d44DEC0ee973e94F6e3eE8B7c2b27397';
-const DEPLOY='0x725b92447061bfa0e796fdc20e3c3fc1b10587ccd528f97911956dd701426c19',ORG_SETTLE='0x8d8ad3189ead5fc37c0085c35044fbebd34da4d2225f48d95d2ba18d8101e633',DIRECT_SETTLE='0x5e66eb81d058a6e63ecf8a86445f1da22fcb1a056c57b88b9ef5cdc192c97e14',WORKER='0x7A25D1EA5D2F260525CA607593ff010328F246B8';
-const ZERO='0'.repeat(64),$=x=>document.getElementById(x);let account=null,last=null;
-async function rpc(method,params=[]){const r=await fetch(RPC,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});const j=await r.json();if(j.error)throw Error(j.error.message||'RPC error');return j.result}
-function cleanHex(x){return String(x||'').replace(/^0x/,'').toLowerCase()}
-function word(n){return BigInt(n).toString(16).padStart(64,'0')}
-function addressWord(a){const h=cleanHex(a);if(!/^[0-9a-f]{40}$/.test(h))throw Error('Invalid EVM address');return h.padStart(64,'0')}
-function bytes32Text(s){const b=new TextEncoder().encode(String(s));if(!b.length||b.length>32)throw Error('Text must contain 1–32 UTF-8 bytes');return Array.from(b,x=>x.toString(16).padStart(2,'0')).join('').padEnd(64,'0')}
-function parseZQ(s){const m=String(s).trim().match(/^(\d+)(?:\.(\d{0,18}))?$/);if(!m)throw Error('Invalid ZQ amount');return BigInt(m[1])*10n**18n+BigInt((m[2]||'').padEnd(18,'0')||'0')}
-function formatWei(v){const n=BigInt(v),w=n/10n**18n,f=(n%10n**18n).toString().padStart(18,'0').replace(/0+$/,'');return w+(f?'.'+f.slice(0,6):'')}
-function task(){const n=$('taskId').value.trim();if(!/^\d+$/.test(n))throw Error('Enter a numeric Task ID');return BigInt(n)}
-function txLink(hash){return `<a href="/tx/${hash}">${hash}</a>`}
-async function verifyLive(){try{$('liveStatus').textContent='reading public RPC…';const [chain,d,c,o,wbal]=await Promise.all([rpc('eth_chainId'),rpc('eth_getTransactionReceipt',[DEPLOY]),rpc('eth_getCode',[CONTRACT,'latest']),rpc('eth_getTransactionReceipt',[ORG_SETTLE]),rpc('eth_getBalance',[WORKER,'latest'])]);if(chain!==CHAIN)throw Error('Unexpected chain '+chain);if(!d||d.status!=='0x1')throw Error('Canonical deployment receipt unavailable');if(c==='0x')throw Error('Canonical contract bytecode missing');if(!o||o.status!=='0x1')throw Error('Organization settlement not confirmed');const direct=await rpc('eth_getTransactionReceipt',[DIRECT_SETTLE]);if(!direct||direct.status!=='0x1')throw Error('Direct settlement not confirmed');let logs=[];try{logs=await rpc('eth_getLogs',[{address:CONTRACT,fromBlock:d.blockNumber,toBlock:'latest'}])}catch{}const proof={schema:'zoryq-autonomous-economy-live/0.1',verifiedAt:new Date().toISOString(),network:{chainId:5919065,chainIdHex:chain},contract:{address:CONTRACT,codePresent:c!=='0x',deploymentTx:DEPLOY,deploymentBlock:parseInt(d.blockNumber,16)},canonicalDemo:{organizationId:1,organizationTaskId:1,directTaskId:2,organizationSettlement:ORG_SETTLE,directAgentSettlement:DIRECT_SETTLE,settlementsConfirmed:true,contractLogCount:logs.length,worker:WORKER,workerBalanceZQ:formatWei(wbal),recordedWorkerReputation:'52.00/100',recordedWorkerSuccessfulTasks:2,recordedWorkerGrossEarnedZQ:'2.6',recordedOrganizationBalanceZQ:'18.15',recordedOrganizationLifetimeOutZQ:'1.85'},disclaimer:'Testnet-only, experimental and unaudited.'};$('contractCode').innerHTML='<span class="ok">BYTECODE PRESENT</span>';$('deployReceipt').innerHTML='<span class="ok">SUCCESS</span>';$('eventCount').textContent=logs.length||'confirmed receipts';$('workerBalance').textContent=formatWei(wbal)+' ZQ';$('liveStatus').innerHTML='<span class="ok">verified from ZORYQ RPC</span>';$('liveJson').textContent=JSON.stringify(proof,null,2);return proof}catch(e){$('liveStatus').innerHTML='<span class="bad">'+(e.message||e)+'</span>';$('liveJson').textContent=String(e.message||e);throw e}}
-async function ensureChain(){if(!window.ethereum)throw Error('Install MetaMask, Rabby or another injected EVM wallet.');try{await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:CHAIN}]})}catch(e){if(e.code!==4902)throw e;await ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:CHAIN,chainName:'ZORYQ EVM Testnet',nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},rpcUrls:[BASE+'/rpc'],blockExplorerUrls:[BASE+'/explorer']}]})}}
-async function connect(){await ensureChain();account=(await ethereum.request({method:'eth_requestAccounts'}))[0];$('wallet').textContent='Connected: '+account;$('actionStatus').innerHTML='<span class="ok">Wallet connected. Approvals happen in your wallet.</span>';return account}
-async function current(){if(!account)await connect();const a=(await ethereum.request({method:'eth_accounts'}))[0];if(!a)throw Error('Wallet disconnected');account=a;$('wallet').textContent='Connected: '+account;return account}
-async function waitReceipt(hash){for(let i=0;i<90;i++){const r=await rpc('eth_getTransactionReceipt',[hash]);if(r){if(r.status!=='0x1')throw Error('Transaction failed: '+hash);return r}await new Promise(r=>setTimeout(r,1500))}throw Error('Receipt timeout: '+hash)}
-async function sendContract(data,value=0n,label='Transaction'){const from=await current();await ensureChain();$('actionStatus').textContent=label+': confirm in wallet…';const p={from,to:CONTRACT,data};if(value>0n)p.value='0x'+value.toString(16);const hash=await ethereum.request({method:'eth_sendTransaction',params:[p]});$('actionStatus').innerHTML=label+' broadcast: '+txLink(hash)+' · waiting for receipt…';const r=await waitReceipt(hash);$('actionStatus').innerHTML='<span class="ok">'+label+' confirmed in block '+parseInt(r.blockNumber,16)+'.</span> '+txLink(hash);return {hash,receipt:r}}
-async function readUint(selector){const h=await rpc('eth_call',[{to:CONTRACT,data:selector},'latest']);return BigInt(h)}
-async function doRegister(){return sendContract('0x31ed915c'+bytes32Text('ZORYQ_AGENT')+ZERO+ZERO,0n,'Proof-of-Agent registration')}
-async function doCreateDirect(){const reward=parseZQ($('reward').value),deadline=BigInt(Math.floor(Date.now()/1000)+3600);const before=await readUint('0xb6cb58a5');const r=await sendContract('0xd2d26a5c'+bytes32Text('AGENT_SERVICE')+word(reward)+word(deadline),reward,'Create direct Agent-to-Agent escrow');const after=await readUint('0xb6cb58a5');$('taskId').value=String(after>before?after:before+1n);return r}
-async function doBid(){const id=task(),price=parseZQ($('bid').value);return sendContract('0xe0ea6ea9'+word(id)+word(price)+bytes32Text('SERVICE_BID'),0n,'Agent bid')}
-async function doAssign(){const id=task(),worker=$('workerAddr').value.trim();return sendContract('0x5293ee81'+word(id)+addressWord(worker),0n,'Assign worker')}
-async function doSubmit(){const id=task();return sendContract('0x2df145e2'+word(id)+bytes32Text('DELIVERY_OK'),0n,'Submit delivery proof')}
-async function doSettle(){const id=task();return sendContract('0x23a43ec8'+word(id),0n,'Settle Agent-to-Agent payment')}
-async function doCreateOrg(){const budget=parseZQ('10'),before=await readUint('0xf1c62104');const r=await sendContract('0xc56b92f9'+bytes32Text('MY_AUTONOMOUS_ORG')+ZERO+word(budget),0n,'Create Autonomous Organization');const after=await readUint('0xf1c62104');$('orgId').value=String(after>before?after:before+1n);return r}
-async function doFundOrg(){const id=$('orgId').value.trim();if(!/^\d+$/.test(id))throw Error('Enter Organization ID');const value=parseZQ($('orgFund').value);return sendContract('0x70766dd9'+word(BigInt(id)),value,'Fund organization treasury')}
-async function inspect(){try{const tx=$('tx').value.trim();if(!/^0x[0-9a-fA-F]{64}$/.test(tx))throw Error('Enter a valid transaction hash.');const [chainId,r]=await Promise.all([rpc('eth_chainId'),rpc('eth_getTransactionReceipt',[tx])]);if(chainId!==CHAIN)throw Error('Unexpected chain ID');if(!r)throw Error('Receipt not found on ZORYQ');const target=r.contractAddress||r.to,code=target?await rpc('eth_getCode',[target,'latest']):'0x';last={schema:'zoryq-proof-pack/0.2',generatedAt:new Date().toISOString(),network:{name:'ZORYQ EVM Testnet',chainId:5919065},transaction:{hash:tx,status:r.status,blockNumber:parseInt(r.blockNumber,16),from:r.from,to:r.to,contractAddress:r.contractAddress||null},evidence:{receiptVerified:true,successful:r.status==='0x1',targetCodePresent:code!=='0x',logCount:(r.logs||[]).length,explorer:BASE+'/tx/'+tx},disclaimer:'Testnet evidence only.'};$('chain').textContent='5919065';$('receipt').innerHTML='<span class="ok">VERIFIED</span>';$('success').innerHTML=r.status==='0x1'?'<span class="ok">SUCCESS</span>':'<span class="bad">FAILED</span>';$('code').textContent=code!=='0x'?'PRESENT':'NONE';$('out').textContent=JSON.stringify(last,null,2)}catch(e){$('out').textContent=String(e.message||e)}}
-function guard(fn){return async()=>{try{await fn()}catch(e){$('actionStatus').innerHTML='<span class="bad">'+String(e.message||e)+'</span>'}}}
-$('verifyLive').onclick=()=>verifyLive().catch(()=>{});$('connect').onclick=guard(connect);$('registerAgent').onclick=guard(doRegister);$('createDirect').onclick=guard(doCreateDirect);$('bidTask').onclick=guard(doBid);$('assignTask').onclick=guard(doAssign);$('submitTask').onclick=guard(doSubmit);$('settleTask').onclick=guard(doSettle);$('createOrg').onclick=guard(doCreateOrg);$('fundOrg').onclick=guard(doFundOrg);$('inspect').onclick=inspect;
-if(window.ethereum){ethereum.on?.('accountsChanged',a=>{account=a?.[0]||null;$('wallet').textContent=account?'Connected: '+account:'Wallet disconnected.'})}
-verifyLive().catch(()=>{});
+const CONTRACT='0xF450eF5D7b9196ebd878a6Fa703b855a9F13E74E',CHAIN='0x5a5159',RPC=location.origin+'/rpc',CANONICAL=1;
+const ABI=[
+ 'function launchCompany(uint256 budgetUsd6,bytes32 promptHash) returns(uint256 companyId)',
+ 'function runNextCycle(uint256 companyId) returns(uint256 jobId)',
+ 'function companyCount() view returns(uint256)',
+ 'function companySnapshot(uint256 companyId) view returns(address owner,address treasury,address token,uint256 treasuryBalance,uint256 initialBudget,uint256 revenue,uint256 expenses,uint256 profitAfterOperatingCosts,uint32 cycleCount,uint256 teamSize,bytes32 constitutionHash,bool active)',
+ 'function companyAgentIds(uint256 companyId) view returns(uint256[])',
+ 'function agents(uint256) view returns(uint256 id,uint256 companyId,address vault,bytes32 role,uint32 reputationBps,uint32 jobsCompleted,uint256 earned,bool active)',
+ 'event CompanyCreated(uint256 indexed companyId,address indexed owner,address treasury,uint256 budget,bytes32 promptHash)',
+ 'event TreasuryOpened(uint256 indexed companyId,address treasury,address demoUsd,uint256 startingBalance)',
+ 'event ConstitutionInstalled(uint256 indexed companyId,bytes32 constitutionHash,string rules)',
+ 'event AgentCreated(uint256 indexed companyId,uint256 indexed agentId,bytes32 indexed role,address vault,uint32 reputationBps)',
+ 'event WorkDiscovered(uint256 indexed companyId,uint256 indexed jobId,uint256 marketValue,bytes32 specHash)',
+ 'event AgentHired(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed agentId,bytes32 role,uint256 plannedPayment)',
+ 'event AgentSubcontracted(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed fromAgentId,uint256 toAgentId,uint256 plannedPayment)',
+ 'event WorkExecuted(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed agentId,bytes32 resultHash)',
+ 'event WorkVerified(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed auditorAgentId,bytes32 resultHash)',
+ 'event AgentPaid(uint256 indexed companyId,uint256 indexed jobId,uint256 indexed agentId,address vault,uint256 amount)',
+ 'event RevenueGenerated(uint256 indexed companyId,uint256 indexed jobId,uint256 amount,uint256 treasuryBalance)',
+ 'event ReputationUpdated(uint256 indexed companyId,uint256 indexed agentId,uint32 reputationBps,uint32 jobsCompleted)',
+ 'event CycleCompleted(uint256 indexed companyId,uint256 indexed jobId,uint32 cycleCount,uint256 revenue,uint256 expenses,uint256 treasuryBalance)'
+];
+const $=id=>document.getElementById(id);let browserProvider=null,signer=null,userContract=null,currentCompany=CANONICAL,lastTx=null;
+const publicProvider=new ethers.JsonRpcProvider(RPC,5919065,{staticNetwork:true});const readContract=new ethers.Contract(CONTRACT,ABI,publicProvider);
+const steps=[
+ ['Empresa criada','CompanyCreated'],['Treasury aberta e capitalizada','TreasuryOpened'],['Constituição e permissões instaladas','ConstitutionInstalled'],['AI CEO criado','AI_CEO'],['Equipe Finance / Sales / Builder / Auditor criada','TEAM'],['Agentes encontram trabalho','WorkDiscovered'],['AI CEO contrata e subcontrata agentes','AgentSubcontracted'],['Agentes executam a tarefa','WorkExecuted'],['AI Auditor verifica o resultado','WorkVerified'],['Treasury paga os agentes','AgentPaid'],['Empresa recebe pela entrega','RevenueGenerated'],['Reputação dos agentes é atualizada','ReputationUpdated'],['Ciclo econômico concluído','CycleCompleted']
+];
+function setupTimeline(doneAll=false){$('timeline').innerHTML=steps.map((s,i)=>`<div class="step ${doneAll?'done':''}" data-key="${s[1]}"><span class="n">${doneAll?'✓':i+1}</span><b>${s[0]}</b><span class="proof">${doneAll?'on-chain':'aguardando'}</span></div>`).join('')}
+function mark(key,proof='confirmado'){const el=[...document.querySelectorAll('.step')].find(x=>x.dataset.key===key);if(el){el.classList.add('done');el.querySelector('.n').textContent='✓';el.querySelector('.proof').textContent=proof}}
+function fmt(v){return Number(ethers.formatUnits(v,6)).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:2})+' dUSD'}
+function roleName(hex){try{const r=ethers.decodeBytes32String(hex);return ({AI_CEO:'AI CEO',AI_FINANCE:'AI Finance',AI_SALES:'AI Sales',AI_BUILDER:'AI Builder',AI_AUDITOR:'AI Auditor'})[r]||r}catch{return 'AI Agent'}}
+async function ensureChain(){if(!window.ethereum)throw Error('Instale MetaMask ou Rabby para criar uma nova empresa.');try{await ethereum.request({method:'wallet_switchEthereumChain',params:[{chainId:CHAIN}]})}catch(e){if(e.code!==4902)throw e;await ethereum.request({method:'wallet_addEthereumChain',params:[{chainId:CHAIN,chainName:'ZORYQ EVM Testnet',nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},rpcUrls:[RPC],blockExplorerUrls:[location.origin+'/explorer']}]})}}
+async function connect(){await ensureChain();browserProvider=new ethers.BrowserProvider(window.ethereum);signer=await browserProvider.getSigner();userContract=new ethers.Contract(CONTRACT,ABI,signer);const a=await signer.getAddress();$('wallet').innerHTML='<span class="ok">Carteira conectada:</span> <span class="mono">'+a+'</span>';$('nextCycle').classList.remove('hidden');return a}
+function budgetFromPrompt(text){const m=String(text).replace(',','.').match(/(?:US\$|USD|\$)\s*([0-9]+(?:\.[0-9]{1,2})?)/i);if(!m)throw Error('Use um valor no formato US$100.');const n=Number(m[1]);if(!Number.isFinite(n)||n<25||n>10000)throw Error('Nesta demo use um orçamento entre US$25 e US$10.000.');return n}
+async function renderCompany(id,txHash=null){currentCompany=Number(id);const s=await readContract.companySnapshot(id);$('companyTitle').textContent='Empresa #'+id;$('initial').textContent=fmt(s.initialBudget);$('revenue').textContent=fmt(s.revenue);$('expenses').textContent=fmt(s.expenses);$('treasuryBalance').textContent=fmt(s.treasuryBalance);$('profit').textContent=fmt(s.profitAfterOperatingCosts);$('cycles').textContent=String(s.cycleCount);$('team').textContent=String(s.teamSize);$('active').innerHTML=s.active?'<span class="ok">ATIVA</span>':'PAUSADA';$('treasury').textContent=s.treasury;$('constitution').textContent=s.constitutionHash;if(txHash){lastTx=txHash;$('txRow').classList.remove('hidden');$('txLink').href='/tx/'+txHash;$('txLink').textContent=txHash}
+ const ids=await readContract.companyAgentIds(id);const rows=[];for(const agentId of ids){const a=await readContract.agents(agentId);rows.push(`<div class="agent"><b>${roleName(a.role)}</b><small>Reputação: ${(Number(a.reputationBps)/100).toFixed(2)}/100</small><small>Tarefas: ${a.jobsCompleted}</small><small>Recebeu: ${fmt(a.earned)}</small><small class="mono">${a.vault}</small></div>`)}$('agents').innerHTML=rows.join('');return s}
+function applyReceipt(receipt){setupTimeline(false);let ceo=false,team=0;for(const log of receipt.logs){try{const p=userContract.interface.parseLog(log);if(!p)continue;const name=p.name;if(name==='CompanyCreated')mark('CompanyCreated',receipt.hash.slice(0,10)+'…');if(name==='TreasuryOpened')mark('TreasuryOpened','100 dUSD');if(name==='ConstitutionInstalled')mark('ConstitutionInstalled','hash gravado');if(name==='AgentCreated'){team++;let role='';try{role=ethers.decodeBytes32String(p.args.role)}catch{}if(role==='AI_CEO'){ceo=true;mark('AI_CEO','agent #'+p.args.agentId)}if(team>=5)mark('TEAM','5 agentes')}if(name==='WorkDiscovered')mark('WorkDiscovered','job #'+p.args.jobId);if(name==='AgentSubcontracted')mark('AgentSubcontracted','contrato interno');if(name==='WorkExecuted')mark('WorkExecuted','result hash');if(name==='WorkVerified')mark('WorkVerified','auditor confirmou');if(name==='AgentPaid')mark('AgentPaid','dUSD transferido');if(name==='RevenueGenerated')mark('RevenueGenerated',fmt(p.args.amount));if(name==='ReputationUpdated')mark('ReputationUpdated','reputação atualizada');if(name==='CycleCompleted')mark('CycleCompleted','ciclo #'+p.args.cycleCount)}catch{}}
+ if(ceo)mark('AI_CEO');if(team>=5)mark('TEAM')}
+async function showCanonical(){try{$('status').textContent='Lendo a empresa canônica diretamente da blockchain…';setupTimeline(true);await renderCompany(CANONICAL,'0xd0c5bf3b8e73d23b2bdb6e4f5320b98d65c5393d37bce6cf12ca051a7d87f790');$('status').innerHTML='<span class="ok">Demonstração canônica confirmada on-chain.</span> Capital inicial 100 dUSD → custos 12 dUSD → receita 35 dUSD → treasury 123 dUSD.'}catch(e){$('status').innerHTML='<span class="bad">'+(e.shortMessage||e.message||e)+'</span>'}}
+async function launch(){try{if(!userContract)await connect();const text=$('prompt').value.trim(),budget=budgetFromPrompt(text);setupTimeline(false);$('status').textContent='Preparando empresa e solicitando uma única transação…';const promptHash=ethers.keccak256(ethers.toUtf8Bytes(text));const tx=await userContract.launchCompany(ethers.parseUnits(String(budget),6),promptHash);$('status').innerHTML='Transação enviada: <a class="mono" href="/tx/'+tx.hash+'">'+tx.hash+'</a> · aguardando confirmação…';const receipt=await tx.wait();let id=null;for(const log of receipt.logs){try{const p=userContract.interface.parseLog(log);if(p?.name==='CompanyCreated'){id=Number(p.args.companyId);break}}catch{}}if(!id)id=Number(await readContract.companyCount());applyReceipt(receipt);await renderCompany(id,tx.hash);$('status').innerHTML='<span class="ok">EMPRESA CRIADA E PRIMEIRO CICLO CONCLUÍDO ON-CHAIN.</span> Você pode abrir a transação e conferir todos os eventos.';$('nextCycle').classList.remove('hidden')}catch(e){$('status').innerHTML='<span class="bad">'+(e.shortMessage||e.reason||e.message||e)+'</span>'}}
+async function nextCycle(){try{if(!userContract)await connect();$('status').textContent='Agentes iniciando outro ciclo: procurar → contratar → executar → verificar → pagar → receber…';const tx=await userContract.runNextCycle(currentCompany);const receipt=await tx.wait();applyReceipt(receipt);await renderCompany(currentCompany,tx.hash);$('status').innerHTML='<span class="ok">Novo ciclo concluído.</span> A treasury recebeu mais 35 dUSD e pagou 12 dUSD aos agentes.'}catch(e){$('status').innerHTML='<span class="bad">'+(e.shortMessage||e.reason||e.message||e)+'</span>'}}
+$('launch').onclick=launch;$('canonical').onclick=showCanonical;$('connect').onclick=()=>connect().catch(e=>$('status').innerHTML='<span class="bad">'+(e.message||e)+'</span>');$('nextCycle').onclick=nextCycle;setupTimeline(false);showCanonical();
 </script>
 </body></html>
