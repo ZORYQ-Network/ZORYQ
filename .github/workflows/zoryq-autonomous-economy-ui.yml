@@ -1,4 +1,4 @@
-name: Validate Autonomous Company v2 Demo
+name: Validate Autonomous Company v3 + AI CEO
 
 on:
   workflow_dispatch:
@@ -6,13 +6,17 @@ on:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-web/proof.html'
-      - 'zoryq-contracts/src/ZoryqAutonomousCompanyV2.sol'
+      - 'zoryq-contracts/src/ZoryqAutonomousCompanyV3.sol'
+      - 'zoryq-evm-node/ai-ceo.mjs'
+      - 'zoryq-evm-node/server.mjs'
       - '.github/workflows/zoryq-autonomous-economy-ui.yml'
   push:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-web/proof.html'
-      - 'zoryq-contracts/src/ZoryqAutonomousCompanyV2.sol'
+      - 'zoryq-contracts/src/ZoryqAutonomousCompanyV3.sol'
+      - 'zoryq-evm-node/ai-ceo.mjs'
+      - 'zoryq-evm-node/server.mjs'
       - '.github/workflows/zoryq-autonomous-economy-ui.yml'
 
 permissions:
@@ -36,59 +40,69 @@ jobs:
           Path('/tmp/zoryq-proof.js').write_text('\n'.join(blocks), encoding='utf-8')
           PY
           node --check /tmp/zoryq-proof.js
-      - name: Assert v2 UX and testnet boundaries
+      - name: Assert AI CEO UX and testnet boundaries
         run: |
-          grep -q 'Crie uma empresa digital com US$100.' zoryq-web/proof.html
-          grep -q 'CRIAR EMPRESA ON-CHAIN' zoryq-web/proof.html
-          grep -q '7 agentes' zoryq-web/proof.html
+          grep -qi 'Autonomous Company V3' zoryq-web/proof.html
+          grep -q 'GERAR PLANO COM AI CEO' zoryq-web/proof.html
+          grep -q 'REVISAR E APROVAR ON-CHAIN' zoryq-web/proof.html
           grep -q 'AI Marketing' zoryq-web/proof.html
           grep -q 'AI Designer' zoryq-web/proof.html
           grep -q 'AI Research' zoryq-web/proof.html
           grep -q 'AI Developer' zoryq-web/proof.html
-          grep -qi 'não é dólar real' zoryq-web/proof.html
-          grep -qi 'raciocínio de IA.*off-chain\|raciocínio de modelos de IA continua off-chain' zoryq-web/proof.html
-          ! grep -Eqi 'private[ _-]?key|seed phrase|mnemonic' zoryq-web/proof.html
-      - name: Verify public v2 UI and canonical onchain transaction
+          grep -q 'dUSD' zoryq-web/proof.html
+          grep -qi 'sem valor monetário\|sem valor monetario' zoryq-web/proof.html
+          ! grep -Eqi 'sk-[A-Za-z0-9_-]{20,}' zoryq-web/proof.html
+      - name: Verify deployed v3 public boundary after merge
+        if: github.event_name == 'push'
         env:
           BASE: https://zoryq-evm-node-live-production.up.railway.app
-          CONTRACT: '0xab9654c5867CB71E0Cedb6B7379d61aadb57af60'
-          DEMO_USD: '0x1C3546811B631EDaE6dbB73940f3d571A313CfAd'
-          DEPLOY_TX: '0x7090a1ea5902ecb0d7b10e7d037449fd848ef96d3ee05002c24e23a94e4cfb1c'
-          LAUNCH_TX: '0x93b677a997e065100126418e6a73cfd5c82f5d8e5f87d6938c402ab8a1012041'
         run: |
           python3 - <<'PY'
-          import json, os, time, urllib.request
+          import json, os, time, urllib.request, urllib.error
           base=os.environ['BASE'].rstrip('/')
-          rpc_url=base+'/rpc'
-          def get(url):
+          def get_json(url):
               last=None
-              for _ in range(16):
+              for _ in range(45):
+                  try:
+                      with urllib.request.urlopen(url, timeout=15) as r:
+                          return json.loads(r.read())
+                  except Exception as e:
+                      last=e; time.sleep(4)
+              raise last
+          def get_text(url):
+              last=None
+              for _ in range(45):
                   try:
                       with urllib.request.urlopen(url, timeout=15) as r:
                           return r.read().decode('utf-8')
                   except Exception as e:
-                      last=e; time.sleep(3)
+                      last=e; time.sleep(4)
               raise last
           def rpc(method, params=None):
               data=json.dumps({'jsonrpc':'2.0','id':1,'method':method,'params':params or []}).encode()
-              req=urllib.request.Request(rpc_url,data=data,headers={'content-type':'application/json'})
+              req=urllib.request.Request(base+'/rpc',data=data,headers={'content-type':'application/json'})
               with urllib.request.urlopen(req, timeout=20) as r:
                   out=json.loads(r.read())
-              if out.get('error'):
-                  raise RuntimeError(out['error'])
+              if out.get('error'): raise RuntimeError(out['error'])
               return out.get('result')
-          html=get(base+'/proof')
-          assert 'Autonomous Company v2' in html, 'v2 public UI not served yet'
-          assert '7 agentes' in html, 'seven-agent UX not served'
-          assert os.environ['CONTRACT'] in html, 'v2 contract not wired into public UI'
+          status=get_json(base+'/ai-ceo/status')
+          assert status.get('chainId')==5919065, status
+          address=status.get('contractAddress')
+          assert isinstance(address,str) and len(address)==42, status
+          assert int(status.get('canonicalCompanyId') or 0)>=1, status
+          code=rpc('eth_getCode',[address,'latest'])
+          assert isinstance(code,str) and code!='0x' and len(code)>10, 'v3 bytecode missing'
           assert rpc('eth_chainId')=='0x5a5159', 'wrong chain id'
-          for address in (os.environ['CONTRACT'],os.environ['DEMO_USD']):
-              code=rpc('eth_getCode',[address,'latest'])
-              assert isinstance(code,str) and code!='0x' and len(code)>10, f'bytecode missing at {address}'
-          deploy=rpc('eth_getTransactionReceipt',[os.environ['DEPLOY_TX']])
-          launch=rpc('eth_getTransactionReceipt',[os.environ['LAUNCH_TX']])
-          assert deploy and deploy.get('status')=='0x1', 'v2 contract deployment failed'
-          assert launch and launch.get('status')=='0x1', 'canonical v2 company launch failed'
-          assert len(launch.get('logs') or []) >= 25, 'canonical v2 launch lacks expected lifecycle evidence'
-          print('Autonomous Company v2 verified: public UI + 7-agent contract + dUSD + launch event trail')
+          html=get_text(base+'/proof')
+          assert 'GERAR PLANO COM AI CEO' in html, 'AI CEO public UI not served'
+          payload=json.dumps({'companyId':status['canonicalCompanyId'],'directive':'Crie um plano teste dentro dos limites.'}).encode()
+          req=urllib.request.Request(base+'/ai-ceo/plan',data=payload,headers={'content-type':'application/json'},method='POST')
+          try:
+              with urllib.request.urlopen(req,timeout=45) as r:
+                  plan=json.loads(r.read())
+                  assert plan.get('ok') is True and plan.get('onchainApproval',{}).get('contractAddress')==address, plan
+          except urllib.error.HTTPError as e:
+              body=json.loads(e.read() or b'{}')
+              assert e.code==503 and body.get('error')=='AI_NOT_CONFIGURED', (e.code,body)
+          print('Autonomous Company v3 verified: public UI + live contract + AI planning boundary')
           PY

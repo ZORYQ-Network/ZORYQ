@@ -9,6 +9,10 @@ on:
       - 'zoryq-evm-node/deploy-autonomous-economy.mjs'
       - 'zoryq-evm-node/deploy-one-prompt-company.mjs'
       - 'zoryq-evm-node/deploy-autonomous-company-v2.mjs'
+      - 'zoryq-evm-node/deploy-autonomous-company-v3.mjs'
+      - 'zoryq-evm-node/ai-ceo.mjs'
+      - 'zoryq-evm-node/ai-ceo.test.mjs'
+      - 'zoryq-evm-node/server.mjs'
       - 'zoryq-evm-node/entrypoint.sh'
       - 'Dockerfile'
       - '.github/workflows/zoryq-contracts.yml'
@@ -19,6 +23,10 @@ on:
       - 'zoryq-evm-node/deploy-autonomous-economy.mjs'
       - 'zoryq-evm-node/deploy-one-prompt-company.mjs'
       - 'zoryq-evm-node/deploy-autonomous-company-v2.mjs'
+      - 'zoryq-evm-node/deploy-autonomous-company-v3.mjs'
+      - 'zoryq-evm-node/ai-ceo.mjs'
+      - 'zoryq-evm-node/ai-ceo.test.mjs'
+      - 'zoryq-evm-node/server.mjs'
       - 'zoryq-evm-node/entrypoint.sh'
       - 'Dockerfile'
       - '.github/workflows/zoryq-contracts.yml'
@@ -32,16 +40,27 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
-      - name: Validate protocol bootstrap wiring
+      - name: Validate protocol and AI CEO wiring
         run: |
           set -euo pipefail
           sh -n zoryq-evm-node/entrypoint.sh
+          node --check zoryq-evm-node/server.mjs
+          node --check zoryq-evm-node/ai-ceo.mjs
           node --check zoryq-evm-node/deploy-autonomous-economy.mjs
           node --check zoryq-evm-node/deploy-one-prompt-company.mjs
           node --check zoryq-evm-node/deploy-autonomous-company-v2.mjs
+          node --check zoryq-evm-node/deploy-autonomous-company-v3.mjs
           grep -q 'deploy-autonomous-economy.mjs' Dockerfile
           grep -q 'deploy-one-prompt-company.mjs' Dockerfile
           grep -q 'deploy-autonomous-company-v2.mjs' Dockerfile
+          grep -q 'deploy-autonomous-company-v3.mjs' Dockerfile
+          grep -q 'ai-ceo.mjs' Dockerfile
+      - name: Install Node dependencies for planner tests
+        working-directory: zoryq-evm-node
+        run: npm install --no-audit --no-fund
+      - name: Test AI CEO policy mirror
+        working-directory: zoryq-evm-node
+        run: node --test ai-ceo.test.mjs
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -66,6 +85,7 @@ jobs:
           cp zoryq-contracts/out/ZoryqAutonomousEconomy.sol/ZoryqAutonomousEconomy.json protocol-build/
           cp zoryq-contracts/out/ZoryqOnePromptCompany.sol/ZoryqOnePromptCompany.json protocol-build/
           cp zoryq-contracts/out/ZoryqAutonomousCompanyV2.sol/ZoryqAutonomousCompanyV2.json protocol-build/
+          cp zoryq-contracts/out/ZoryqAutonomousCompanyV3.sol/ZoryqAutonomousCompanyV3.json protocol-build/
       - name: Upload protocol build artifacts
         uses: actions/upload-artifact@v4
         with:
