@@ -22,19 +22,22 @@ export function memorySnapshot(){
     limitBytes:limit,
     percent:percent==null?null:Math.round(percent*100)/100,
     process:{rssBytes:usage.rss,heapUsedBytes:usage.heapUsed,heapTotalBytes:usage.heapTotal,externalBytes:usage.external,arrayBuffersBytes:usage.arrayBuffers},
-    band:percent==null?'unknown':percent>=85?'critical':percent>=80?'protect':percent>=70?'caution':'normal'
+    band:percent==null?'unknown':percent>=90?'emergency':percent>=85?'critical':percent>=80?'protect':percent>=70?'caution':'normal'
   };
 }
 
 export function governorPolicy(baseConcurrency=64){
   const memory=memorySnapshot();
   const p=memory.percent??0;
-  const factor=p>=85?0.25:p>=80?0.5:p>=70?0.75:1;
+  const factor=p>=90?0.125:p>=85?0.25:p>=80?0.5:p>=70?0.75:1;
   return {
     memory,
-    rpcConcurrency:Math.max(4,Math.floor(baseConcurrency*factor)),
+    rpcConcurrency:Math.max(2,Math.floor(baseConcurrency*factor)),
     pauseNonEssential:p>=80,
-    critical:p>=85
+    critical:p>=85,
+    emergency:p>=90,
+    allowHeavyRpc:p<85,
+    allowExplorerIndexing:p<80
   };
 }
 
