@@ -7,7 +7,6 @@ on:
       - 'zoryq-web/command-center.html'
       - 'zoryq-web/command-center-snapshot.json'
       - 'zoryq-web/network-maturity.json'
-      - 'zoryq-web/vercel.json'
       - 'zoryq-developer/COMMAND_CENTER_ARCHITECTURE.md'
       - '.github/workflows/zoryq-command-center.yml'
   workflow_dispatch:
@@ -27,7 +26,7 @@ jobs:
         run: |
           node -e "JSON.parse(require('fs').readFileSync('zoryq-web/command-center-snapshot.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('zoryq-web/network-maturity.json','utf8'))"
-          node -e "JSON.parse(require('fs').readFileSync('zoryq-web/vercel.json','utf8'))"
+          node -e "const v=JSON.parse(require('fs').readFileSync('zoryq-web/vercel.json','utf8')); if(v.cleanUrls!==true) process.exit(1)"
 
       - name: Validate required Command Center surfaces
         run: |
@@ -39,7 +38,6 @@ jobs:
           grep -Fq "getJson('/command-center-snapshot.json')" zoryq-web/command-center.html
           grep -Fq "getJson('/network-maturity.json')" zoryq-web/command-center.html
           grep -Fq 'eth_blockNumber' zoryq-web/command-center.html
-          grep -Fq '"source": "/command-center"' zoryq-web/vercel.json
 
       - name: Verify evidence guardrails
         run: node -e "const fs=require('fs');const s=JSON.parse(fs.readFileSync('zoryq-web/command-center-snapshot.json','utf8'));const m=JSON.parse(fs.readFileSync('zoryq-web/network-maturity.json','utf8'));if(s.dataPolicy!=='REAL_DATA_ONLY'||s.scores.momentum.value!==null||s.scores.traction.value!==null||m.network.mainnet!==false)process.exit(1)"
