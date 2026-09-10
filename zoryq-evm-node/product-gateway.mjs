@@ -22,8 +22,8 @@ function shutdown(code=0){if(exiting)return;exiting=true;try{chain?.kill('SIGTER
 process.on('SIGTERM',()=>shutdown(0));process.on('SIGINT',()=>shutdown(130));
 
 const allowMigratedLegacy=fs.existsSync(MIGRATION_FILE)?'true':String(process.env.ZORYQ_ALLOW_RETH_GENESIS_RESET||'false');
-chain=child('chain',process.execPath,['--max-old-space-size=192','traffic-gateway.mjs'],{PORT:String(CHAIN_PORT),ZORYQ_RETH_CHAIN_SPEC:EFFECTIVE_GENESIS,ZORYQ_ALLOW_RETH_GENESIS_RESET:allowMigratedLegacy});
-social=child('social',process.execPath,['--max-old-space-size=96','social-service.mjs'],{PORT:String(SOCIAL_PORT),ZORYQ_CHAIN_BASE:`http://127.0.0.1:${CHAIN_PORT}`});
+chain=child('chain',process.execPath,['--max-old-space-size=192','traffic-gateway.mjs'],{PORT:String(CHAIN_PORT),ZORYQ_RETH_CHAIN_SPEC:EFFECTIVE_GENESIS,ZORYQ_ALLOW_RETH_GENESIS_RESET:allowMigratedLegacy,NODE_OPTIONS:'--max-old-space-size=128'});
+social=child('social',process.execPath,['--max-old-space-size=96','social-service.mjs'],{PORT:String(SOCIAL_PORT),ZORYQ_CHAIN_BASE:`http://127.0.0.1:${CHAIN_PORT}`,NODE_OPTIONS:'--max-old-space-size=96'});
 
 function proxy(req,res,port,rewrite=null){const targetPath=rewrite?rewrite(req.url||'/'):(req.url||'/');const p=http.request({hostname:'127.0.0.1',port,path:targetPath,method:req.method,headers:{...req.headers,host:`127.0.0.1:${port}`}},u=>{res.writeHead(u.statusCode||502,u.headers);u.pipe(res)});p.on('error',e=>{res.writeHead(503,{'content-type':'application/json','cache-control':'no-store'});res.end(JSON.stringify({ok:false,error:'upstream_unavailable',detail:e.message}))});req.pipe(p)}
 function json(res,status,obj){res.writeHead(status,{'content-type':'application/json; charset=utf-8','access-control-allow-origin':'*','access-control-allow-headers':'content-type','access-control-allow-methods':'GET,POST,OPTIONS','cache-control':'no-store'});res.end(JSON.stringify(obj))}
