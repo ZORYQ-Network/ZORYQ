@@ -1,0 +1,49 @@
+name: ZORYQ Adaptive Execution Mesh Research
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/ADAPTIVE_EXECUTION_MESH.md'
+      - 'zoryq-developer/verification/adaptive-execution-mesh.mjs'
+      - '.github/workflows/zoryq-aem-research.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic-scheduler:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run AEM research simulator
+        run: node zoryq-developer/verification/adaptive-execution-mesh.mjs
+
+      - name: Enforce research evidence semantics
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            .status == "RESEARCH_SIMULATOR_ONLY"
+            and .chainIdTarget == 5919065
+            and .summary.allSerialEquivalent == true
+            and .summary.allSchedulesDeterministic == true
+            and .summary.reducedOrEqualReexecutionInMixedWorkload == true
+          ' aem-research-results.json >/dev/null
+          echo 'AEM research gate: deterministic schedule + serial-equivalent abstract execution verified.'
+
+      - name: Upload reproducible AEM evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-aem-research-${{ github.sha }}
+          path: aem-research-results.json
+          if-no-files-found: error
+          retention-days: 30
