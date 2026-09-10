@@ -15,7 +15,7 @@ const DEFAULT_BUDGETS_MB=Object.freeze({
   'social-service':70,
   'explorer-service':70,
   'admin-control':50,
-  'memory-watchdog':35,
+  'memory-watchdog':55,
   other:80
 });
 
