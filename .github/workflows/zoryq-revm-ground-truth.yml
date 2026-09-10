@@ -1,0 +1,109 @@
+name: ZORYQ REVM Ground Truth
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/verification/revm-ground-truth.mjs'
+      - '.github/workflows/zoryq-revm-ground-truth.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-revm-tracing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capture environment manifest
+        run: |
+          set -euo pipefail
+          mkdir -p zoryq-evidence
+          {
+            echo "commit_sha=${GITHUB_SHA}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "kernel=$(uname -a)"
+            echo "docker=$(docker --version)"
+            echo "cpu_model=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -n1)"
+            echo "cpu_count=$(nproc)"
+            echo "memory_kib=$(awk '/MemTotal/ {print $2}' /proc/meminfo)"
+          } | tee zoryq-evidence/revm-ground-truth-manifest.txt
+
+      - name: Build isolated ZORYQ node image
+        run: docker build -t zoryq-revm-ground-truth ./zoryq-evm-node
+
+      - name: Start disposable Reth-backed node
+        run: |
+          set -euo pipefail
+          docker volume create zoryq-revm-ground-truth-db
+          docker run -d --name zoryq-revm-ground-truth \
+            -p 8081:8080 \
+            -v zoryq-revm-ground-truth-db:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-revm-ground-truth
+          ok=0
+          for i in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:8081/health > /tmp/revm-health.json; then
+              test "$(jq -r '.chain.chainId // .chainId' /tmp/revm-health.json)" = "5919065"
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ok" != "1" ]; then
+            docker logs zoryq-revm-ground-truth || true
+            exit 1
+          fi
+          cp /tmp/revm-health.json zoryq-evidence/revm-health.json
+
+      - name: Verify internal debug namespace exists only inside isolated container
+        run: |
+          set -euo pipefail
+          docker exec zoryq-revm-ground-truth node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'debug_traceTransaction',params:['0x'+'00'.repeat(32),{}]})}).then(r=>r.json()).then(j=>{if(!j.error)process.exit(1);console.log('internal debug RPC reachable')})"
+
+      - name: Install verification-only Solidity compiler
+        working-directory: zoryq-evm-node
+        run: npm install --no-save solc@0.8.30
+
+      - name: Capture real REVM-derived storage access evidence
+        env:
+          ZORYQ_REVM_PROBE_RPC: http://127.0.0.1:8081/rpc
+          ZORYQ_REVM_PROBE_BASE: http://127.0.0.1:8081
+          ZORYQ_REVM_PROBE_CONTAINER: zoryq-revm-ground-truth
+          ZORYQ_REVM_GROUND_TRUTH_OUT: zoryq-evidence/revm-ground-truth-results.json
+        run: node zoryq-developer/verification/revm-ground-truth.mjs
+
+      - name: Enforce ground-truth safety semantics
+        run: |
+          set -euo pipefail
+          jq -e '
+            .ok == true
+            and .status == "PROTOTYPE"
+            and .canonical == false
+            and .evidenceClass == "isolated-reth-revm-trace"
+            and .chainId == 5919065
+            and .summary.transactions >= 4
+            and .summary.boundedPredictions >= 3
+            and .summary.serialFallbacks >= 1
+            and .summary.falseNegativeSlots == 0
+            and .summary.allBoundedPredictionsCovered == true
+          ' zoryq-evidence/revm-ground-truth-results.json >/dev/null
+          echo 'REVM ground-truth gate passed for current isolated fixtures.'
+
+      - name: Capture isolated node logs
+        if: always()
+        run: docker logs zoryq-revm-ground-truth > zoryq-evidence/revm-node.log 2>&1 || true
+
+      - name: Upload ground-truth evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-revm-ground-truth-${{ github.sha }}
+          path: zoryq-evidence/
+          if-no-files-found: error
+          retention-days: 30
