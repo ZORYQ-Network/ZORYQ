@@ -153,6 +153,60 @@ jobs:
           grep -q '/data/reth/db' /tmp/recovered.log
           echo "Native Reth DB recovery verified: state, genesis, height and chain identity survived SIGKILL."
 
+      - name: Capture recovery diagnostics on failure
+        if: failure()
+        run: |
+          set +e
+          mkdir -p zoryq-recovery-evidence
+          cp /tmp/expected-balance zoryq-recovery-evidence/expected-balance.txt 2>/dev/null || true
+          cp /tmp/genesis-hash zoryq-recovery-evidence/expected-genesis-hash.txt 2>/dev/null || true
+          cp /tmp/head-before zoryq-recovery-evidence/head-before.txt 2>/dev/null || true
+          cp /tmp/health.json zoryq-recovery-evidence/health-before.json 2>/dev/null || true
+          cp /tmp/recovered-health.json zoryq-recovery-evidence/health-after.json 2>/dev/null || true
+          cp /tmp/faucet.json zoryq-recovery-evidence/isolated-faucet-response.json 2>/dev/null || true
+
+          curl -sS -X POST http://127.0.0.1:18081/rpc \
+            -H 'content-type: application/json' \
+            -d "{\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" \
+            > zoryq-recovery-evidence/balance-after.json || true
+          curl -sS -X POST http://127.0.0.1:18081/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":102,"method":"eth_getBlockByNumber","params":["0x0",false]}' \
+            > zoryq-recovery-evidence/genesis-after.json || true
+          curl -sS -X POST http://127.0.0.1:18081/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":103,"method":"eth_blockNumber","params":[]}' \
+            > zoryq-recovery-evidence/head-after.json || true
+          curl -sS -X POST http://127.0.0.1:18081/rpc \
+            -H 'content-type: application/json' \
+            -d '{"jsonrpc":"2.0","id":104,"method":"eth_chainId","params":[]}' \
+            > zoryq-recovery-evidence/chain-id-after.json || true
+
+          docker logs zoryq-recovered > zoryq-recovery-evidence/recovered-node.log 2>&1 || true
+          docker inspect zoryq-recovered > zoryq-recovery-evidence/recovered-container.json 2>&1 || true
+          docker exec zoryq-recovered sh -c 'find /data/reth/db -type f -printf "%p %s bytes\n" | sort' \
+            > zoryq-recovery-evidence/reth-db-files.txt 2>&1 || true
+
+          {
+            echo "expected_balance=$(cat /tmp/expected-balance 2>/dev/null)"
+            echo "actual_balance=$(jq -r '.result // .error // empty' zoryq-recovery-evidence/balance-after.json 2>/dev/null)"
+            echo "expected_genesis=$(cat /tmp/genesis-hash 2>/dev/null)"
+            echo "actual_genesis=$(jq -r '.result.hash // .error // empty' zoryq-recovery-evidence/genesis-after.json 2>/dev/null)"
+            echo "head_before=$(cat /tmp/head-before 2>/dev/null)"
+            echo "head_after=$(jq -r '.result // .error // empty' zoryq-recovery-evidence/head-after.json 2>/dev/null)"
+            echo "chain_id_after=$(jq -r '.result // .error // empty' zoryq-recovery-evidence/chain-id-after.json 2>/dev/null)"
+          } > zoryq-recovery-evidence/summary.txt
+          cat zoryq-recovery-evidence/summary.txt
+
+      - name: Upload recovery evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-state-recovery-${{ github.sha }}
+          path: zoryq-recovery-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Show recovery logs on failure
         if: failure()
         run: |
