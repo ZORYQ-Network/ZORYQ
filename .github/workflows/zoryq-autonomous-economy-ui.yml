@@ -1,4 +1,4 @@
-name: Validate One-Prompt Company Demo
+name: Validate Autonomous Company v2 Demo
 
 on:
   workflow_dispatch:
@@ -6,13 +6,13 @@ on:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-web/proof.html'
-      - 'zoryq-contracts/src/ZoryqOnePromptCompany.sol'
+      - 'zoryq-contracts/src/ZoryqAutonomousCompanyV2.sol'
       - '.github/workflows/zoryq-autonomous-economy-ui.yml'
   push:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-web/proof.html'
-      - 'zoryq-contracts/src/ZoryqOnePromptCompany.sol'
+      - 'zoryq-contracts/src/ZoryqAutonomousCompanyV2.sol'
       - '.github/workflows/zoryq-autonomous-economy-ui.yml'
 
 permissions:
@@ -36,20 +36,25 @@ jobs:
           Path('/tmp/zoryq-proof.js').write_text('\n'.join(blocks), encoding='utf-8')
           PY
           node --check /tmp/zoryq-proof.js
-      - name: Assert one-prompt UX and testnet boundaries
+      - name: Assert v2 UX and testnet boundaries
         run: |
           grep -q 'Crie uma empresa digital com US$100.' zoryq-web/proof.html
           grep -q 'CRIAR EMPRESA ON-CHAIN' zoryq-web/proof.html
-          grep -q 'dUSD' zoryq-web/proof.html
+          grep -q '7 agentes' zoryq-web/proof.html
+          grep -q 'AI Marketing' zoryq-web/proof.html
+          grep -q 'AI Designer' zoryq-web/proof.html
+          grep -q 'AI Research' zoryq-web/proof.html
+          grep -q 'AI Developer' zoryq-web/proof.html
           grep -qi 'não é dólar real' zoryq-web/proof.html
+          grep -qi 'raciocínio de IA.*off-chain\|raciocínio de modelos de IA continua off-chain' zoryq-web/proof.html
           ! grep -Eqi 'private[ _-]?key|seed phrase|mnemonic' zoryq-web/proof.html
-      - name: Verify public UI and canonical one-prompt transaction
+      - name: Verify public v2 UI and canonical onchain transaction
         env:
           BASE: https://zoryq-evm-node-live-production.up.railway.app
-          CONTRACT: '0xF450eF5D7b9196ebd878a6Fa703b855a9F13E74E'
-          DEMO_USD: '0xc8785dfdA1D2C55d775D27e8e6A1D68953ab6f8c'
-          DEPLOY_TX: '0x15e35ec56b0dadc03a72c9aeb88fa3f2fb52345b19dd40833037859a804b612c'
-          LAUNCH_TX: '0xd0c5bf3b8e73d23b2bdb6e4f5320b98d65c5393d37bce6cf12ca051a7d87f790'
+          CONTRACT: '0xab9654c5867CB71E0Cedb6B7379d61aadb57af60'
+          DEMO_USD: '0x1C3546811B631EDaE6dbB73940f3d571A313CfAd'
+          DEPLOY_TX: '0x7090a1ea5902ecb0d7b10e7d037449fd848ef96d3ee05002c24e23a94e4cfb1c'
+          LAUNCH_TX: '0x93b677a997e065100126418e6a73cfd5c82f5d8e5f87d6938c402ab8a1012041'
         run: |
           python3 - <<'PY'
           import json, os, time, urllib.request
@@ -57,7 +62,7 @@ jobs:
           rpc_url=base+'/rpc'
           def get(url):
               last=None
-              for _ in range(12):
+              for _ in range(16):
                   try:
                       with urllib.request.urlopen(url, timeout=15) as r:
                           return r.read().decode('utf-8')
@@ -73,16 +78,17 @@ jobs:
                   raise RuntimeError(out['error'])
               return out.get('result')
           html=get(base+'/proof')
-          assert 'Crie uma empresa digital com US$100.' in html, 'one-prompt UI not served yet'
-          assert 'CRIAR EMPRESA ON-CHAIN' in html, 'launch action missing'
+          assert 'Autonomous Company v2' in html, 'v2 public UI not served yet'
+          assert '7 agentes' in html, 'seven-agent UX not served'
+          assert os.environ['CONTRACT'] in html, 'v2 contract not wired into public UI'
           assert rpc('eth_chainId')=='0x5a5159', 'wrong chain id'
           for address in (os.environ['CONTRACT'],os.environ['DEMO_USD']):
               code=rpc('eth_getCode',[address,'latest'])
               assert isinstance(code,str) and code!='0x' and len(code)>10, f'bytecode missing at {address}'
           deploy=rpc('eth_getTransactionReceipt',[os.environ['DEPLOY_TX']])
           launch=rpc('eth_getTransactionReceipt',[os.environ['LAUNCH_TX']])
-          assert deploy and deploy.get('status')=='0x1', 'company contract deployment failed'
-          assert launch and launch.get('status')=='0x1', 'canonical company launch failed'
-          assert len(launch.get('logs') or []) >= 20, 'canonical launch did not emit the expected rich lifecycle evidence'
-          print('One-Prompt Company verified: UI + contract + dUSD + canonical launch + lifecycle event trail')
+          assert deploy and deploy.get('status')=='0x1', 'v2 contract deployment failed'
+          assert launch and launch.get('status')=='0x1', 'canonical v2 company launch failed'
+          assert len(launch.get('logs') or []) >= 25, 'canonical v2 launch lacks expected lifecycle evidence'
+          print('Autonomous Company v2 verified: public UI + 7-agent contract + dUSD + launch event trail')
           PY
