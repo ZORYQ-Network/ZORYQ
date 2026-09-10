@@ -62,8 +62,7 @@ if [ "${ZORYQ_ONE_PROMPT_DEMO_ENABLED:-true}" = "true" ] && [ -f /app/deploy-one
   ) &
 fi
 
-# Autonomous Company v2: seven-role team, explicit permissions/limits,
-# emergency stop, revenue policy and a canonical US$100 dUSD testnet lifecycle.
+# Autonomous Company v2 remains available as the seven-agent deterministic proof.
 if [ "${ZORYQ_AUTONOMOUS_COMPANY_V2_ENABLED:-true}" = "true" ] && [ -f /app/deploy-autonomous-company-v2.mjs ]; then
   (
     sleep 13
@@ -78,6 +77,26 @@ if [ "${ZORYQ_AUTONOMOUS_COMPANY_V2_ENABLED:-true}" = "true" ] && [ -f /app/depl
       sleep 5
     done
     echo "[zoryq-company-v2] autonomous company v2 canonical demo complete"
+  ) &
+fi
+
+# Autonomous Company v3 adds the AI CEO execution boundary: an offchain AI may
+# propose strategy, role routing and payments, but the owner signs and this
+# contract enforces membership, permissions, limits and verifier separation.
+if [ "${ZORYQ_AUTONOMOUS_COMPANY_V3_ENABLED:-true}" = "true" ] && [ -f /app/deploy-autonomous-company-v3.mjs ]; then
+  (
+    sleep 17
+    attempt=0
+    until node /app/deploy-autonomous-company-v3.mjs; do
+      attempt=$((attempt + 1))
+      if [ "$attempt" -ge 60 ]; then
+        echo "[zoryq-company-v3] bootstrap gave up after ${attempt} attempts; node remains online"
+        exit 0
+      fi
+      echo "[zoryq-company-v3] bootstrap attempt ${attempt} failed; retrying in 5s"
+      sleep 5
+    done
+    echo "[zoryq-company-v3] autonomous company v3 canonical demo complete"
   ) &
 fi
 
