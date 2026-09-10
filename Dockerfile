@@ -25,7 +25,6 @@ COPY zoryq-evm-node/package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 COPY zoryq-evm-node/server.mjs ./server.mjs
 COPY zoryq-evm-node/prepare-reth-genesis.mjs ./prepare-reth-genesis.mjs
-COPY zoryq-evm-node/social-service.mjs ./social-service.mjs
 COPY zoryq-evm-node/zoryq-reth-genesis.json ./zoryq-reth-genesis.json
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY --from=protocol-builder /build/zoryq-contracts/out ./protocol-out
