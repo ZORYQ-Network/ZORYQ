@@ -2,10 +2,21 @@ name: Test ZORYQ Contracts
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-contracts/**'
+      - 'zoryq-evm-node/deploy-autonomous-economy.mjs'
+      - 'zoryq-evm-node/entrypoint.sh'
+      - 'Dockerfile'
+      - '.github/workflows/zoryq-contracts.yml'
   push:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-contracts/**'
+      - 'zoryq-evm-node/deploy-autonomous-economy.mjs'
+      - 'zoryq-evm-node/entrypoint.sh'
+      - 'Dockerfile'
       - '.github/workflows/zoryq-contracts.yml'
 
 permissions:
@@ -17,6 +28,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
+      - name: Validate Autonomous Economy bootstrap wiring
+        run: |
+          set -euo pipefail
+          sh -n zoryq-evm-node/entrypoint.sh
+          node --check zoryq-evm-node/deploy-autonomous-economy.mjs
+          grep -q 'deploy-autonomous-economy.mjs' Dockerfile
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -38,6 +55,7 @@ jobs:
           cp zoryq-contracts/out/ZoryqDexV1.sol/ZoryqDexV1.json protocol-build/
           cp zoryq-contracts/out/ZoryqLendingLab.sol/ZoryqLendingLab.json protocol-build/
           cp zoryq-contracts/out/ZoryqProjectRegistry.sol/ZoryqProjectRegistry.json protocol-build/
+          cp zoryq-contracts/out/ZoryqAutonomousEconomy.sol/ZoryqAutonomousEconomy.json protocol-build/
       - name: Upload protocol build artifacts
         uses: actions/upload-artifact@v4
         with:
