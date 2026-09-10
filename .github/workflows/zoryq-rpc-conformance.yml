@@ -8,6 +8,12 @@ on:
     paths:
       - 'zoryq-developer/verification/**'
       - '.github/workflows/zoryq-rpc-conformance.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'zoryq-developer/verification/**'
+      - '.github/workflows/zoryq-rpc-conformance.yml'
 
 permissions:
   contents: read
