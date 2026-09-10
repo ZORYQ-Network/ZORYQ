@@ -20,11 +20,14 @@ jobs:
 
       - name: Start protected node
         run: |
+          set -euo pipefail
           docker run -d --name zoryq-protected -p 8080:8080 zoryq-protected
-          for i in $(seq 1 60); do
+          for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:8080/health >/tmp/health.json; then
-              test "$(jq -r .chainId /tmp/health.json)" = "5919065"
-              exit 0
+              if test "$(jq -r '.chain.chainId // .chainId' /tmp/health.json)" = "5919065"; then
+                jq -e '(.persistence.mode == "reth-native-db") and (.persistence.ready == true)' /tmp/health.json >/dev/null
+                exit 0
+              fi
             fi
             sleep 1
           done
