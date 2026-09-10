@@ -82,11 +82,12 @@ jobs:
           test "$code" = '200'
           grep -q 'ZORYQ Explorer' /tmp/address.html
 
-          block=$(curl -fsS "$BASE/rpc" \
+          block_hex=$(curl -fsS "$BASE/rpc" \
             -H 'content-type: application/json' \
             --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
             | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).result")
-          code=$(curl -sS -o /tmp/block.html -w '%{http_code}' "$BASE/block/$block")
+          block_dec=$(node -e 'console.log(BigInt(process.argv[1]).toString(10))' "$block_hex")
+          code=$(curl -sS -o /tmp/block.html -w '%{http_code}' "$BASE/block/$block_dec")
           test "$code" = '200'
           grep -q 'ZORYQ Explorer' /tmp/block.html
 
