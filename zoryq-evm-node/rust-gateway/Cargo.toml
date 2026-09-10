@@ -1,0 +1,12 @@
+[package]
+name = "zoryq-gateway"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = "0.8"
+bytes = "1"
+http = "1"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
