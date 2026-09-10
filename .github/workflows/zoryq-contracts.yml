@@ -2,6 +2,11 @@ name: Test ZORYQ Contracts
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-contracts/**'
+      - '.github/workflows/zoryq-contracts.yml'
   push:
     branches: [zoryq-evm-testnet-node]
     paths:
@@ -38,6 +43,7 @@ jobs:
           cp zoryq-contracts/out/ZoryqDexV1.sol/ZoryqDexV1.json protocol-build/
           cp zoryq-contracts/out/ZoryqLendingLab.sol/ZoryqLendingLab.json protocol-build/
           cp zoryq-contracts/out/ZoryqProjectRegistry.sol/ZoryqProjectRegistry.json protocol-build/
+          cp zoryq-contracts/out/ZoryqAutonomousEconomy.sol/ZoryqAutonomousEconomy.json protocol-build/
       - name: Upload protocol build artifacts
         uses: actions/upload-artifact@v4
         with:
