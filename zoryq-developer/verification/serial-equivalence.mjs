@@ -165,7 +165,10 @@ async function replaySerial(canonical) {
   const receipts = [];
   for (const item of canonical) {
     const tx = await providerB.broadcastTransaction(item.raw);
-    const receipt = await tx.wait(1, 120000);
+    // waitForTransaction returns the mined receipt even when status=0, which is
+    // required here because reverted transactions are part of the canonical
+    // workload and must be compared rather than treated as harness failures.
+    const receipt = await providerB.waitForTransaction(tx.hash, 1, 120000);
     assert(receipt, `missing serial receipt ${item.hash}`);
     receipts.push({
       hash: tx.hash,
