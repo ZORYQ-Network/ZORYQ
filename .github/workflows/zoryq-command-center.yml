@@ -1,0 +1,65 @@
+name: ZORYQ Command Center
+
+on:
+  pull_request:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/command-center.html'
+      - 'zoryq-web/command-center-snapshot.json'
+      - 'zoryq-web/network-maturity.json'
+      - 'zoryq-web/vercel.json'
+      - 'zoryq-developer/COMMAND_CENTER_ARCHITECTURE.md'
+      - '.github/workflows/zoryq-command-center.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate JSON evidence and route configuration
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('zoryq-web/command-center-snapshot.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('zoryq-web/network-maturity.json','utf8'))"
+          node -e "const v=JSON.parse(require('fs').readFileSync('zoryq-web/vercel.json','utf8')); if(!v.rewrites.some(r=>r.source==='/command-center'&&r.destination==='/command-center.html')) process.exit(1)"
+
+      - name: Validate required operational surfaces
+        run: |
+          test -f zoryq-web/command-center.html
+          grep -Fq 'ZORYQ Command Center' zoryq-web/command-center.html
+          grep -Fq 'ZORYQ Health Score' zoryq-web/command-center.html
+          grep -Fq 'ZORYQ Momentum' zoryq-web/command-center.html
+          grep -Fq 'REAL DATA ONLY' zoryq-web/command-center.html
+          grep -Fq "fetch('/command-center-snapshot.json'" zoryq-web/command-center.html
+          grep -Fq "fetch('/network-maturity.json'" zoryq-web/command-center.html
+          grep -Fq 'eth_blockNumber' zoryq-web/command-center.html
+
+      - name: Syntax-check inline Command Center JavaScript
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('zoryq-web/command-center.html','utf8');
+          const blocks=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m=>m[1]).filter(Boolean);
+          if(!blocks.length) throw new Error('No inline JavaScript found');
+          fs.writeFileSync('/tmp/zoryq-command-center.js',blocks.join('\n'));
+          NODE
+          node --check /tmp/zoryq-command-center.js
+
+      - name: Verify evidence guardrails
+        run: |
+          node <<'NODE'
+          const fs=require('fs');
+          const s=JSON.parse(fs.readFileSync('zoryq-web/command-center-snapshot.json','utf8'));
+          if(s.dataPolicy!=='REAL_DATA_ONLY') throw new Error('REAL_DATA_ONLY policy missing');
+          if(s.scores.momentum.value!==null) throw new Error('Momentum must remain null until comparable historical snapshots exist');
+          if(s.scores.traction.value!==null) throw new Error('Traction must remain null while analytics are not connected');
+          const maturity=JSON.parse(fs.readFileSync('zoryq-web/network-maturity.json','utf8'));
+          if(maturity.network.mainnet!==false) throw new Error('V1 assumptions require current Testnet maturity record');
+          NODE
