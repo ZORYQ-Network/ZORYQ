@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Contract, HDNodeWallet, JsonRpcProvider, Wallet, getAddress, keccak256, parseEther, toUtf8Bytes, verifyMessage } from 'ethers';
+import { aiCeoStatus, createAiCeoPlan } from './ai-ceo.mjs';
 
 const PORT=Number(process.env.PORT||8080);
 const RPC_PORT=8545;
@@ -126,6 +127,16 @@ const server=http.createServer(async(req,res)=>{try{
  const url=new URL(req.url,'http://localhost');
  if(req.method==='GET'&&url.pathname==='/health'){const block=await provider.getBlockNumber();const vals=Object.values(loadJson(VALIDATOR_FILE,{}));const healthy=vals.filter(v=>Date.now()-Number(v.lastHeartbeat||0)<=HEARTBEAT_HEALTHY_WINDOW).length;const persistence=persistenceInfo();return send(res,200,{ok:true,name:'ZORYQ EVM Testnet',chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,symbol:'ZQ',block,evm:true,contracts:true,erc20:true,erc721:true,rpc:true,executionClient:'reth',executionClientVersion:rethClientVersion,registeredNodes:vals.length,healthyNodes:healthy,faucetMode:onchainFaucetConfigured()?'onchain':'signed-transfer',xFaucetGate:REQUIRE_X_ATTESTATION,readyForTraffic:persistence.readyForTraffic,persistence})}
  if(req.method==='GET'&&url.pathname==='/network'){return send(res,200,{chainName:'ZORYQ EVM Testnet',chainId:CHAIN_HEX,nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},executionClient:'reth',rpcUrls:[process.env.PUBLIC_RPC_URL||'SET_PUBLIC_RPC_URL'],blockExplorerUrls:[process.env.PUBLIC_EXPLORER_URL||'https://zoryq-testnet.vercel.app/explorer']})}
+ if(req.method==='GET'&&url.pathname==='/ai-ceo/status'){return send(res,200,aiCeoStatus())}
+ if(req.method==='POST'&&url.pathname==='/ai-ceo/plan'){
+   const b=await body(req);
+   try{return send(res,200,await createAiCeoPlan(provider,b))}catch(e){
+     const code=e?.code;
+     const status=code==='AI_NOT_CONFIGURED'||code==='AI_NOT_READY'?503:code==='AI_PROVIDER'?502:code==='AI_PLAN_POLICY'?422:code==='AI_BAD_INPUT'?400:500;
+     console.error('[zoryq-ai-ceo]',code||'AI_ERROR',e?.message||e);
+     return send(res,status,{ok:false,error:code||'AI_ERROR',message:e?.message||'ai_ceo_error'});
+   }
+ }
  if(req.method==='GET'&&url.pathname==='/faucet/status'){return send(res,200,await faucetStatus())}
  if(req.method==='POST'&&url.pathname==='/faucet'){
    const b=await body(req);let address;
