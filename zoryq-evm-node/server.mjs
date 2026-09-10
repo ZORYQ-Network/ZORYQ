@@ -146,7 +146,9 @@ const server=http.createServer(async(req,res)=>{
     if(url.pathname==='/health'){
       await nodeReady;
       const persistence=persistenceInfo();
-      return send(res,persistence.readyForTraffic?200:503,{ok:persistence.readyForTraffic,chain:{chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,executionClient:'reth',clientVersion:rethClientVersion},persistence,aiCeo:aiCeoStatus()});
+      const healthy=persistence.readyForTraffic;
+      const blockNumber=persistence.blockNumber;
+      return send(res,healthy?200:503,{ok:healthy,chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,executionClient:'reth',clientVersion:rethClientVersion,blockNumber,chain:{chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,executionClient:'reth',clientVersion:rethClientVersion},persistence,aiCeo:aiCeoStatus()});
     }
     if(url.pathname==='/rpc'&&req.method==='POST'){
       const raw=await body(req);
