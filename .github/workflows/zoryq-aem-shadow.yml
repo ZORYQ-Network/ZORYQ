@@ -18,6 +18,8 @@ jobs:
   deterministic-shadow-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      ZORYQ_RPC_URL: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,8 +57,20 @@ jobs:
           ! grep -Eq "eth_sendRawTransaction|eth_sendTransaction|wallet\.send|privateKey|mnemonic|/faucet" zoryq-developer/aem-shadow.mjs
           echo 'Shadow engine is read-only by construction.'
 
+      - name: Observe one live ZORYQ block without influencing execution
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZORYQ_AEM_SHADOW_OUT=/tmp/aem-live.json node zoryq-developer/aem-shadow.mjs >/tmp/aem-live-stdout.json
+          jq -e '.status == "research" and .canonical == false and .evidenceClass == "metadata-shadow" and .chainId == 5919065 and (.source.blockHash | type == "string") and (.resultCommitment | startswith("0x"))' /tmp/aem-live.json >/dev/null
+          echo "Observed block: $(jq -r '.source.blockNumber' /tmp/aem-live.json)"
+          echo "Transactions: $(jq -r '.source.transactionCount' /tmp/aem-live.json)"
+          echo "Lane counts: $(jq -c '.laneCounts' /tmp/aem-live.json)"
+          echo "Shadow commitment: $(jq -r '.resultCommitment' /tmp/aem-live.json)"
+
       - name: Summary
         run: |
           echo 'AEM Shadow Evidence: PASS'
           echo 'Classification: research / metadata-shadow'
           echo 'Canonical execution influence: NONE'
+          echo 'Live testnet observation: read-only'
