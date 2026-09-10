@@ -1,0 +1,130 @@
+name: ZORYQ Public EVM Smoke Test
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - zoryq-evm-testnet-node
+    paths:
+      - 'zoryq-evm-node/**'
+      - 'zoryq-web/**'
+      - 'Dockerfile'
+      - '.github/workflows/zoryq-public-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  public-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
+      TX: '0x23036c7656330368cb8cacee20455c268413085eab31d5f1868c4b042e5eb3f6'
+      ADDRESS: '0x509fcfd87c0a3dee40f36b65842aa4ace1fc9ee6'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Wait for release-specific live surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 48); do
+            health="$(curl -fsS "$BASE/health" || true)"
+            problems_code=$(curl -sS -o /tmp/problems.html -w '%{http_code}' "$BASE/problems" || true)
+            proof_code=$(curl -sS -o /tmp/proof.html -w '%{http_code}' "$BASE/proof" || true)
+            execution_schema="$(curl -fsS "$BASE/agent/execution-schema.json" || true)"
+
+            if printf '%s' "$health" | grep -q '5919065' \
+              && test "$problems_code" = '200' \
+              && test "$proof_code" = '200' \
+              && printf '%s' "$execution_schema" | grep -q 'successfulStatusRequired'; then
+              echo 'Release-specific ZORYQ surfaces are live.'
+              exit 0
+            fi
+
+            echo "Waiting for current release... attempt $i/48 (problems=$problems_code proof=$proof_code schema=$([ -n "$execution_schema" ] && echo present || echo missing))"
+            sleep 10
+          done
+
+          echo 'Timed out waiting for the current ZORYQ release surfaces.'
+          exit 1
+
+      - name: Verify chain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          chain_id=$(curl -fsS "$BASE/rpc" \
+            -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
+            | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).result")
+          test "$chain_id" = '0x5a5159'
+
+      - name: EVM JSON-RPC compliance
+        run: node zoryq-evm-node/scripts/rpc-compliance.mjs
+
+      - name: Verify EIP-3091 routes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          code=$(curl -sS -o /tmp/tx.html -w '%{http_code}' "$BASE/tx/$TX")
+          test "$code" = '200'
+          grep -q 'ZORYQ Explorer' /tmp/tx.html
+
+          code=$(curl -sS -o /tmp/address.html -w '%{http_code}' "$BASE/address/$ADDRESS")
+          test "$code" = '200'
+          grep -q 'ZORYQ Explorer' /tmp/address.html
+
+          block=$(curl -fsS "$BASE/rpc" \
+            -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' \
+            | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).result")
+          code=$(curl -sS -o /tmp/block.html -w '%{http_code}' "$BASE/block/$block")
+          test "$code" = '200'
+          grep -q 'ZORYQ Explorer' /tmp/block.html
+
+      - name: Verify faucet status without consuming funds
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=$(curl -fsS "$BASE/faucet/status")
+          printf '%s' "$status" | grep -q '"ok":true'
+          printf '%s' "$status" | grep -q '"amount":"100"'
+          printf '%s' "$status" | grep -q '"symbol":"ZQ"'
+
+      - name: Verify maturity disclosure
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS "$BASE/network-maturity.json" -o /tmp/maturity.json
+          grep -q '"mainnet": false' /tmp/maturity.json
+          grep -q '"decentralized": false' /tmp/maturity.json
+          grep -q '"multiValidatorConsensus": false' /tmp/maturity.json
+
+      - name: Verify developer evidence surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for path in developer build devkit proof launch-project why problems; do
+            code=$(curl -sS -o /tmp/page.html -w '%{http_code}' "$BASE/$path")
+            test "$code" = '200' || { echo "Route /$path returned $code"; exit 1; }
+          done
+          curl -fsS "$BASE/agent/action-schema.json" | grep -q 'requiresWalletConfirmation'
+          curl -fsS "$BASE/agent/execution-schema.json" | grep -q 'successfulStatusRequired'
+
+      - name: Summary
+        run: |
+          echo 'ZORYQ public smoke test PASS'
+          echo 'Chain ID: 5919065'
+          echo 'RPC: PASS'
+          echo 'EIP-3091 routes: PASS'
+          echo 'Faucet status: PASS'
+          echo 'Maturity disclosure: PASS'
+          echo 'Developer evidence surfaces: PASS'

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "1.2.0",
+  "network": {
+    "name": "ZORYQ EVM Testnet",
+    "chainId": 5919065,
+    "caip2": "eip155:5919065",
+    "stage": "public-centralized-testnet",
+    "mainnet": false
+  },
+  "execution": {
+    "evmCompatible": true,
+    "engine": "Anvil-based execution environment",
+    "publicRpc": true,
+    "persistentState": true,
+    "adminNamespacesPubliclyBlocked": true,
+    "status": "live"
+  },
+  "operations": {
+    "publicSurfaceSmokeWorkflowDefined": true,
+    "canonicalContractBytecodeChecksDefined": true,
+    "chainIdentitySmokeCheckDefined": true,
+    "conservativeClaimsRegressionCheckDefined": true,
+    "workflowPath": ".github/workflows/zoryq-public-surface-smoke.yml",
+    "note": "Scheduled GitHub workflow execution depends on the workflow existing on the repository default branch; definition alone is not a successful run."
+  },
+  "consensus": {
+    "decentralized": false,
+    "independentValidators": 0,
+    "multiValidatorConsensus": false,
+    "faultToleranceVerified": false,
+    "status": "not-implemented",
+    "independentNodeSpecDocumented": true,
+    "specPath": "zoryq-developer/INDEPENDENT_NODE_SPEC.md",
+    "disclosure": "The current public Testnet is a centralized execution environment. It must not be described as decentralized or production-ready."
+  },
+  "rpcTopology": {
+    "publicGateways": 1,
+    "independentRpcProviders": 0,
+    "regionalRedundancyVerified": false,
+    "automaticFailoverVerified": false,
+    "status": "single-public-gateway"
+  },
+  "protocols": {
+    "swapLab": "deployed-live-verified",
+    "stake": "deployed-live-verified",
+    "zUSD": "deployed-live-verified",
+    "dexV1": {
+      "status": "deployed-live-verified",
+      "address": "0x686Ff70d8D551F0a183DbDc608486De9fA9Aa156",
+      "liveLiquidityVerified": true,
+      "liveSwapEventVerified": true
+    },
+    "lending": {
+      "status": "deployed-live-verified",
+      "address": "0xA08d491c06a2B01bbe6866CA87302c794aD9fB77"
+    },
+    "projectRegistry": {
+      "status": "deployed-live-verified",
+      "address": "0x180042c92A42f183A67005E8C0968a1F190aab33",
+      "projectCountAtLastVerification": 0
+    }
+  },
+  "adminSecurity": {
+    "treasury": "0xc0e03982FB8615ddf8b8faBd27e5A35541E12F33",
+    "controlProofMechanism": "EIP-191 personal_sign challenge",
+    "controlProofVerified": true,
+    "privateKeyStoredByPlatform": false,
+    "walletControlProofRequiredForPrivilegedProtocolActions": true
+  },
+  "dataIntegrity": {
+    "contractCanonicalityRequiresLiveBytecodeVerification": true,
+    "deploymentCanonicalityRequiresReceiptAndConfigurationVerification": true,
+    "genesisFinalizedOnchainScoreLive": false,
+    "projectRegistryContractLive": true,
+    "projectRegistryHasRegisteredProjectsAtLastVerification": false
+  },
+  "roadmap": [
+    {
+      "milestone": "independent-node-spec",
+      "status": "documented-not-validated-by-independent-operator",
+      "exitCriteria": [
+        "fresh external operator reproduces bootstrap without private infrastructure credentials",
+        "node identity and configuration fingerprint are documented",
+        "restart from persistent data is verified",
+        "full resync path is verified"
+      ]
+    },
+    {
+      "milestone": "multi-node-devnet",
+      "status": "planned",
+      "exitCriteria": [
+        "independent validator keys and operators",
+        "verified deterministic chain head agreement",
+        "node restart and catch-up tests",
+        "consensus continues under the documented fault assumption"
+      ]
+    },
+    {
+      "milestone": "fault-tested-testnet",
+      "status": "planned",
+      "exitCriteria": [
+        "network partition test",
+        "validator outage test",
+        "state recovery test",
+        "documented threat model and incident playbook",
+        "public RPC failover test"
+      ]
+    }
+  ],
+  "claimsPolicy": {
+    "allowed": [
+      "EVM-compatible public Testnet",
+      "centralized testing environment",
+      "agent-native developer tooling",
+      "verifiable contract and project activity",
+      "live native DEX with verified testnet liquidity and swap event",
+      "independent-node requirements documented but not externally validated"
+    ],
+    "prohibitedUntilEvidenceExists": [
+      "decentralized network",
+      "production-ready Mainnet",
+      "multi-validator consensus",
+      "Byzantine fault tolerant network",
+      "audited protocol suite",
+      "finalized on-chain Genesis Score"
+    ]
+  }
+}

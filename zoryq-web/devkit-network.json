@@ -1,0 +1,19 @@
+{
+  "name": "ZORYQ EVM Testnet",
+  "chainId": 5919065,
+  "chainIdHex": "0x5a5159",
+  "caip2": "eip155:5919065",
+  "testnet": true,
+  "nativeCurrency": {"name":"ZORYQ","symbol":"ZQ","decimals":18},
+  "rpc": "https://zoryq-evm-node-live-production.up.railway.app/rpc",
+  "explorer": "https://zoryq-evm-node-live-production.up.railway.app/explorer",
+  "faucet": "https://zoryq-evm-node-live-production.up.railway.app/faucet",
+  "contracts": {
+    "dexV1": "0x686Ff70d8D551F0a183DbDc608486De9fA9Aa156",
+    "lending": "0xA08d491c06a2B01bbe6866CA87302c794aD9fB77",
+    "projectRegistry": "0x180042c92A42f183A67005E8C0968a1F190aab33",
+    "stake": "0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1",
+    "zUSD": "0xd2121E96C6af936c0496fDB499c1D0613d26c2B9"
+  },
+  "disclosure": "Current topology is a centralized public testnet. ZQ and zUSD have no monetary value."
+}

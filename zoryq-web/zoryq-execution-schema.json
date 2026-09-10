@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZORYQ Agent Execution Envelope",
+  "type": "object",
+  "required": ["version","chainId","intentId","action","authorization","verification"],
+  "properties": {
+    "version": {"const": "0.1"},
+    "chainId": {"const": 5919065},
+    "intentId": {"type":"string","minLength":8,"maxLength":128},
+    "expiresAt": {"type":["string","null"],"format":"date-time"},
+    "action": {
+      "type":"object",
+      "required":["kind","target","method","args","valueWei"],
+      "properties": {
+        "kind":{"enum":["contract_call","native_transfer","deploy"]},
+        "target":{"type":["string","null"],"pattern":"^0x[0-9a-fA-F]{40}$"},
+        "method":{"type":"string"},
+        "args":{"type":"array"},
+        "valueWei":{"type":"string","pattern":"^[0-9]+$"},
+        "maxValueWei":{"type":["string","null"],"pattern":"^[0-9]+$"}
+      },
+      "additionalProperties": false
+    },
+    "simulation": {
+      "type":"object",
+      "properties": {
+        "performed":{"type":"boolean"},
+        "estimatedGas":{"type":["string","null"]},
+        "result":{"type":["string","null"]},
+        "warnings":{"type":"array","items":{"type":"string"}}
+      },
+      "additionalProperties": false
+    },
+    "humanPreview": {
+      "type":"object",
+      "properties": {
+        "summary":{"type":"string"},
+        "assetChanges":{"type":"array","items":{"type":"string"}},
+        "risks":{"type":"array","items":{"type":"string"}}
+      },
+      "additionalProperties": false
+    },
+    "authorization": {
+      "type":"object",
+      "required":["requiresWalletConfirmation","neverRequestSeedPhrase"],
+      "properties": {
+        "requiresWalletConfirmation":{"const":true},
+        "neverRequestSeedPhrase":{"const":true},
+        "authorizedAccount":{"type":["string","null"],"pattern":"^0x[0-9a-fA-F]{40}$"}
+      },
+      "additionalProperties": false
+    },
+    "verification": {
+      "type":"object",
+      "required":["receiptRequired","successfulStatusRequired"],
+      "properties": {
+        "receiptRequired":{"const":true},
+        "successfulStatusRequired":{"const":true},
+        "expectedLogs":{"type":"array","items":{"type":"string"}},
+        "postconditions":{"type":"array","items":{"type":"string"}}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

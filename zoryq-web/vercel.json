@@ -1,0 +1,35 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "rewrites": [
+    { "source": "/start", "destination": "/start.html" },
+    { "source": "/lab", "destination": "/testnet-lab.html" },
+    { "source": "/clock", "destination": "/network-clock.html" },
+    { "source": "/explorer", "destination": "/explorer.html" },
+    { "source": "/faucet", "destination": "/faucet.html" },
+    { "source": "/zoriq", "destination": "/zoriq-social.html" },
+    { "source": "/social", "destination": "/zoriq-social.html" },
+    { "source": "/zoriq-social", "destination": "/zoriq-social.html" },
+    { "source": "/proof", "destination": "/proof.html" },
+    { "source": "/developer", "destination": "/developer.html" },
+    { "source": "/swap", "destination": "/swap.html" },
+    { "source": "/stake", "destination": "/stake.html" },
+    { "source": "/lending", "destination": "/lending.html" },
+    { "source": "/tx/:hash", "destination": "/explorer.html" },
+    { "source": "/address/:address", "destination": "/explorer.html" },
+    { "source": "/block/:block", "destination": "/explorer.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=()" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://zoryq-evm-node-live-production.up.railway.app; upgrade-insecure-requests" }
+      ]
+    }
+  ]
+}

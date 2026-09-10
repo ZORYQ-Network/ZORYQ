@@ -1,0 +1,74 @@
+name: Package ZORYQ Web
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/**'
+      - '.github/workflows/zoryq-web-package.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate required web files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required=(
+            index.html
+            start.html
+            testnet-lab.html
+            network-clock.html
+            explorer.html
+            developer.html
+            build.html
+            devkit.html
+            project-launch.html
+            proof.html
+            problems.html
+            network-maturity.json
+            zoryq-action-schema.json
+            zoryq-execution-schema.json
+            vercel.json
+          )
+
+          for f in "${required[@]}"; do
+            test -s "zoryq-web/$f" || { echo "Missing zoryq-web/$f"; exit 1; }
+          done
+
+          # Product invariants: validate facts that must remain stable rather than
+          # optional marketing/social copy that may legitimately change.
+          grep -q '5919065' zoryq-web/start.html
+          grep -q '5919065' zoryq-web/developer.html
+          grep -q '5919065' zoryq-web/build.html
+          grep -q '5919065' zoryq-web/network-maturity.json
+          grep -q '"decentralized": false' zoryq-web/network-maturity.json
+          grep -q '"mainnet": false' zoryq-web/network-maturity.json
+          grep -q 'requiresWalletConfirmation' zoryq-web/zoryq-action-schema.json
+          grep -q 'successfulStatusRequired' zoryq-web/zoryq-execution-schema.json
+
+          # Guard against accidental secret files in the web deployment package.
+          if find zoryq-web -type f \( -name '.env' -o -name '.env.*' -o -name '*private-key*' -o -name '*mnemonic*' \) -print -quit | grep -q .; then
+            echo 'Potential secret file found under zoryq-web/'
+            exit 1
+          fi
+
+      - name: Create deployment package
+        run: |
+          cd zoryq-web
+          zip -r ../zoryq-web.zip .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-web-deploy
+          path: zoryq-web.zip
+          if-no-files-found: error
+          retention-days: 3

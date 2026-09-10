@@ -1,0 +1,185 @@
+name: ZORYQ Full Product E2E
+
+on:
+  push:
+    branches: [zoryq-release-candidate-full-product]
+    paths:
+      - 'zoryq-evm-node/**'
+      - 'zoryq-web/**'
+      - '.github/workflows/zoryq-evm-testnet.yml'
+  workflow_dispatch:
+
+jobs:
+  full-product-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Reth product image
+        run: docker build -t zoryq-evm-node ./zoryq-evm-node
+
+      - name: Start product with persistent database
+        run: |
+          set -euo pipefail
+          docker volume create zoryq-reth-ci
+          docker run -d --name zoryq-evm-node \
+            -p 8080:8080 \
+            -v zoryq-reth-ci:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-evm-node
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8080/health >/tmp/health.json; then
+              cat /tmp/health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs zoryq-evm-node
+          exit 1
+
+      - name: Verify Reth execution chain ID and readiness
+        run: |
+          set -euo pipefail
+          HEALTH=$(curl -fsS http://127.0.0.1:8080/health)
+          test "$(echo "$HEALTH" | jq -r '.chain.chainId // .chainId')" = "5919065"
+          test "$(echo "$HEALTH" | jq -r '.chain.executionClient // .executionClient')" = "reth"
+          test "$(echo "$HEALTH" | jq -r '.persistence.mode // .chain.persistence.mode')" = "reth-native-db"
+          test "$(echo "$HEALTH" | jq -r '.persistence.readyForTraffic // .chain.persistence.readyForTraffic')" = "true"
+          test "$(echo "$HEALTH" | jq -r '.product.social.chainReady')" = "true"
+          test "$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -r .result)" = "0x5a5159"
+          CLIENT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"web3_clientVersion","params":[]}' | jq -r .result)
+          echo "$CLIENT" | grep -qi reth
+
+      - name: Verify public RPC security guards
+        run: |
+          set -euo pipefail
+          for METHOD in anvil_setBalance eth_accounts eth_sendTransaction debug_traceTransaction; do
+            BODY=$(printf '{"jsonrpc":"2.0","id":7,"method":"%s","params":[]}' "$METHOD")
+            OUT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "$BODY")
+            test "$(echo "$OUT" | jq -r .error.code)" = "-32601"
+          done
+          BATCH=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '[{"jsonrpc":"2.0","id":3,"method":"eth_chainId","params":[]},{"jsonrpc":"2.0","id":4,"method":"eth_accounts","params":[]}]')
+          test "$(echo "$BATCH" | jq -r '.[] | select(.id==3) | .result')" = "0x5a5159"
+          test "$(echo "$BATCH" | jq -r '.[] | select(.id==4) | .error.code')" = "-32601"
+
+      - name: Verify faucet creates real transaction
+        run: |
+          set -euo pipefail
+          ADDR=0x000000000000000000000000000000000000dEaD
+          CLAIM=$(curl -fsS -X POST http://127.0.0.1:8080/faucet -H 'content-type: application/json' -d "{\"address\":\"$ADDR\"}")
+          echo "$CLAIM"
+          test "$(echo "$CLAIM" | jq -r .ok)" = "true"
+          test "$(echo "$CLAIM" | jq -r .mode)" = "signed-transfer"
+          TX=$(echo "$CLAIM" | jq -r .txHash)
+          test "$TX" != "null"
+          echo "$TX" >/tmp/faucet-tx
+          RECEIPT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX\"]}")
+          test "$(echo "$RECEIPT" | jq -r .result.status)" = "0x1"
+          BALANCE=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"eth_getBalance\",\"params\":[\"$ADDR\",\"latest\"]}" | jq -r .result)
+          test "$BALANCE" != "0x0"
+          echo "$BALANCE" >/tmp/dead-balance
+
+      - name: Verify transfers contracts ERC20 ERC721 calls and logs
+        working-directory: zoryq-evm-node
+        run: |
+          npm install --no-save solc@0.8.30
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import solc from 'solc';
+          import { ContractFactory, JsonRpcProvider, Wallet, NonceManager, parseEther } from 'ethers';
+          const rpc='http://127.0.0.1:8080/rpc';
+          const provider=new JsonRpcProvider(rpc,5919065,{staticNetwork:true});
+          const alice=new NonceManager(Wallet.createRandom().connect(provider));
+          const aliceAddress=await alice.getAddress();
+          const bob=Wallet.createRandom().connect(provider);
+          const faucet=await fetch('http://127.0.0.1:8080/faucet',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({address:aliceAddress})});
+          assert.equal(faucet.status,200);const faucetJson=await faucet.json();assert.equal(faucetJson.ok,true);assert.equal(faucetJson.mode,'signed-transfer');assert((await provider.getBalance(aliceAddress))>=parseEther('100'));
+          const nativeReceipt=await (await alice.sendTransaction({to:bob.address,value:parseEther('1')})).wait();assert.equal(nativeReceipt.status,1);assert.equal(await provider.getBalance(bob.address),parseEther('1'));
+          const source=`// SPDX-License-Identifier: MIT
+          pragma solidity ^0.8.20;
+          contract Probe { uint256 public value; event ValueChanged(uint256 value); constructor(uint256 initialValue){value=initialValue;} function set(uint256 nextValue) external {value=nextValue;emit ValueChanged(nextValue);} }
+          contract TestERC20 { string public constant name="ZORYQ Test Token"; string public constant symbol="ZT20"; uint8 public constant decimals=18; uint256 public totalSupply; mapping(address=>uint256) public balanceOf; event Transfer(address indexed from,address indexed to,uint256 value); constructor(uint256 supply){totalSupply=supply;balanceOf[msg.sender]=supply;emit Transfer(address(0),msg.sender,supply);} function transfer(address to,uint256 amount) external returns(bool){require(balanceOf[msg.sender]>=amount,"balance");balanceOf[msg.sender]-=amount;balanceOf[to]+=amount;emit Transfer(msg.sender,to,amount);return true;} }
+          contract TestERC721 { string public constant name="ZORYQ Test NFT"; string public constant symbol="ZT721"; mapping(uint256=>address) private _ownerOf; event Transfer(address indexed from,address indexed to,uint256 indexed tokenId); function mint(address to,uint256 tokenId) external {require(to!=address(0)&&_ownerOf[tokenId]==address(0),"mint");_ownerOf[tokenId]=to;emit Transfer(address(0),to,tokenId);} function ownerOf(uint256 tokenId) external view returns(address){address owner=_ownerOf[tokenId];require(owner!=address(0),"missing");return owner;} }`;
+          const input={language:'Solidity',sources:{'ZoryqE2E.sol':{content:source}},settings:{outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}}};const output=JSON.parse(solc.compile(JSON.stringify(input)));const errors=(output.errors||[]).filter(e=>e.severity==='error');assert.equal(errors.length,0,errors.map(e=>e.formattedMessage).join('\n'));const artifact=name=>output.contracts['ZoryqE2E.sol'][name];const deploy=async(name,args=[])=>{const a=artifact(name);const c=await new ContractFactory(a.abi,`0x${a.evm.bytecode.object}`,alice).deploy(...args);await c.waitForDeployment();return c;};
+          const probe=await deploy('Probe',[7n]);assert.equal(await probe.value(),7n);const setReceipt=await(await probe.set(42n)).wait();assert.equal(setReceipt.status,1);assert.equal(await probe.value(),42n);assert((await provider.getLogs({address:await probe.getAddress(),fromBlock:setReceipt.blockNumber,toBlock:setReceipt.blockNumber})).length>=1);
+          const erc20=await deploy('TestERC20',[1000n]);assert.equal(await erc20.balanceOf(aliceAddress),1000n);const tr=await(await erc20.transfer(bob.address,25n)).wait();assert.equal(tr.status,1);assert.equal(await erc20.balanceOf(bob.address),25n);
+          const erc721=await deploy('TestERC721');const mr=await(await erc721.mint(bob.address,1n)).wait();assert.equal(mr.status,1);assert.equal((await erc721.ownerOf(1n)).toLowerCase(),bob.address.toLowerCase());assert((await provider.getLogs({address:await erc721.getAddress(),fromBlock:mr.blockNumber,toBlock:mr.blockNumber})).length>=1);
+          NODE
+
+      - name: Verify explorer transaction chronology
+        run: |
+          set -euo pipefail
+          TX=$(cat /tmp/faucet-tx)
+          for i in $(seq 1 30); do
+            DATA=$(curl -fsS 'http://127.0.0.1:8080/explorer/transactions?limit=50&order=desc')
+            if echo "$DATA" | jq -e --arg tx "$TX" '.transactions | any(.hash == $tx)' >/dev/null; then echo "$DATA" >/tmp/explorer.json; break; fi
+            sleep 2
+          done
+          test -s /tmp/explorer.json
+          jq -e '.transactions | length > 0' /tmp/explorer.json >/dev/null
+          jq -e '[.transactions[] | [.blockNumber,.transactionIndex]] as $x | reduce range(1; $x|length) as $i (true; . and (($x[$i-1][0] > $x[$i][0]) or ($x[$i-1][0] == $x[$i][0] and $x[$i-1][1] >= $x[$i][1])))' /tmp/explorer.json >/dev/null
+          test "$(curl -fsS http://127.0.0.1:8080/explorer/stats | jq -r .ok)" = "true"
+
+      - name: Verify wallet-signed ZORIQ social lifecycle
+        working-directory: zoryq-evm-node
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict';
+          import {Wallet,JsonRpcProvider} from 'ethers';
+          const BASE='http://127.0.0.1:8080';const provider=new JsonRpcProvider(BASE+'/rpc',5919065,{staticNetwork:true});
+          const api=async(path,opt={})=>{const r=await fetch(BASE+path,{...opt,headers:{'content-type':'application/json',...(opt.headers||{})}});const j=await r.json().catch(()=>({}));assert(r.ok,`${path} ${r.status} ${JSON.stringify(j)}`);return j};
+          const signAction=async(wallet,action,payload)=>{const c=await api('/api/social/challenge',{method:'POST',body:JSON.stringify({address:wallet.address,action,payload})});const signature=await wallet.signMessage(c.message);return api('/api/social/commit',{method:'POST',body:JSON.stringify({challengeId:c.challengeId,signature})})};
+          const alice=Wallet.createRandom();const bob=Wallet.createRandom();
+          const p1=await signAction(alice,'profile',{username:'alice_zq',displayName:'Alice ZQ',bio:'Building on ZORYQ'});assert.equal(p1.profile.username,'alice_zq');assert(/^0x[0-9a-f]{64}$/i.test(p1.anchorTxHash));assert.equal((await provider.getTransactionReceipt(p1.anchorTxHash)).status,1);
+          const p2=await signAction(bob,'profile',{username:'bob_zq',displayName:'Bob ZQ',bio:'SocialFi tester'});assert.equal(p2.profile.username,'bob_zq');
+          const post=await signAction(alice,'post',{text:'Hello ZORIQ — wallet signed and anchored on ZORYQ.'});assert(post.post.id);assert(/^0x[0-9a-f]{64}$/i.test(post.anchorTxHash));const postId=post.post.id;
+          const like=await signAction(bob,'like',{postId});assert.equal(like.active,true);assert.equal(like.post.likes,1);
+          const repost=await signAction(bob,'repost',{postId});assert.equal(repost.active,true);assert.equal(repost.post.reposts,1);
+          const save=await signAction(bob,'bookmark',{postId});assert.equal(save.active,true);assert.equal(save.anchorTxHash,null);
+          const follow=await signAction(bob,'follow',{target:alice.address});assert.equal(follow.active,true);
+          const feed=await api(`/api/social/feed?viewer=${bob.address}`);assert(feed.posts.some(p=>p.id===postId&&p.liked&&p.reposted&&p.saved));
+          const bookmarks=await api(`/api/social/bookmarks?viewer=${bob.address}`);assert(bookmarks.posts.some(p=>p.id===postId));
+          const profile=await api(`/api/social/profile?address=${alice.address}&viewer=${bob.address}`);assert.equal(profile.profile.viewerFollowing,true);assert.equal(profile.profile.followers,1);
+          await BunWrite('/tmp/social-post-id',postId);await BunWrite('/tmp/social-alice',alice.address);
+          async function BunWrite(file,value){const fs=await import('node:fs/promises');await fs.writeFile(file,value)}
+          NODE
+
+      - name: Verify Reth and social state survive SIGKILL
+        run: |
+          set -euo pipefail
+          EXPECTED=$(cat /tmp/dead-balance)
+          POST_ID=$(cat /tmp/social-post-id)
+          ALICE=$(cat /tmp/social-alice)
+          docker kill -s KILL zoryq-evm-node
+          docker rm zoryq-evm-node
+          docker run -d --name zoryq-evm-node \
+            -p 8080:8080 \
+            -v zoryq-reth-ci:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-evm-node
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:8080/health >/tmp/restart-health.json; then break; fi
+            sleep 2
+          done
+          test "$(jq -r '.chain.executionClient // .executionClient' /tmp/restart-health.json)" = "reth"
+          ACTUAL=$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":9,"method":"eth_getBalance","params":["0x000000000000000000000000000000000000dEaD","latest"]}' | jq -r .result)
+          test "$ACTUAL" = "$EXPECTED"
+          TX=$(cat /tmp/faucet-tx)
+          test "$(curl -fsS -X POST http://127.0.0.1:8080/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"eth_getTransactionReceipt\",\"params\":[\"$TX\"]}" | jq -r .result.status)" = "0x1"
+          PROFILE=$(curl -fsS "http://127.0.0.1:8080/api/social/profile?address=$ALICE")
+          test "$(echo "$PROFILE" | jq -r .profile.username)" = "alice_zq"
+          FEED=$(curl -fsS http://127.0.0.1:8080/api/social/feed)
+          echo "$FEED" | jq -e --arg id "$POST_ID" '.posts | any(.id == $id)' >/dev/null
+
+      - name: Show product logs on failure
+        if: failure()
+        run: docker logs zoryq-evm-node || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker rm -f zoryq-evm-node 2>/dev/null || true
+          docker volume rm zoryq-reth-ci 2>/dev/null || true

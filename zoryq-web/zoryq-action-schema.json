@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ZORYQ Action Manifest",
+  "type": "object",
+  "required": ["version", "chainId", "title", "action", "transaction", "safety"],
+  "properties": {
+    "version": {"type": "string"},
+    "chainId": {"const": 5919065},
+    "title": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "action": {"type": "object", "required": ["id", "kind"], "properties": {"id": {"type": "string", "pattern": "^[a-z0-9._-]+$"}, "kind": {"enum": ["contract_call", "native_transfer", "deploy"]}}, "additionalProperties": false},
+    "transaction": {"type": "object", "required": ["to", "method", "valueWei", "args"], "properties": {"to": {"type": ["string", "null"]}, "method": {"type": "string"}, "valueWei": {"type": "string", "pattern": "^[0-9]+$"}, "args": {"type": "array"}}},
+    "preview": {"type": "object"},
+    "safety": {"type": "object", "required": ["requiresWalletConfirmation", "testnetOnly"], "properties": {"requiresWalletConfirmation": {"const": true}, "testnetOnly": {"const": true}, "neverRequestSeedPhrase": {"const": true}}}
+  },
+  "additionalProperties": false
+}

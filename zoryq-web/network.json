@@ -1,0 +1,11 @@
+{
+  "name": "ZORYQ EVM Testnet",
+  "chainId": 5919065,
+  "nativeCurrency": {"name": "ZORYQ", "symbol": "ZQ", "decimals": 18},
+  "rpc": "https://zoryq-evm-node-live-production.up.railway.app/rpc",
+  "explorer": "https://zoryq-testnet.vercel.app/explorer",
+  "officialX": "https://x.com/ZORIQNetwork",
+  "faucet": "https://zoryq-evm-node-live-production.up.railway.app/faucet",
+  "environment": "testnet",
+  "disclaimer": "Testnet assets only. No guaranteed monetary value."
+}

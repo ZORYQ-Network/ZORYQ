@@ -1,0 +1,38 @@
+name: ZORIQ Social Readiness
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-web/zoriq-social.html'
+      - 'zoryq-web/config.js'
+      - 'zoryq-web/vercel.json'
+      - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
+      - '.github/workflows/zoriq-social-readiness.yml'
+  push:
+    branches:
+      - zoryq-evm-testnet-node
+    paths:
+      - 'zoryq-web/zoriq-social.html'
+      - 'zoryq-web/config.js'
+      - 'zoryq-web/vercel.json'
+      - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
+      - '.github/workflows/zoriq-social-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    name: Static deploy readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate ZORIQ Social deployment package
+        run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs

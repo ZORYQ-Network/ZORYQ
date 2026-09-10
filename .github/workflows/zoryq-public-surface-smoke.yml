@@ -1,0 +1,59 @@
+name: ZORYQ Public Surface Smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Verify public HTTP surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE='https://zoryq-evm-node-live-production.up.railway.app'
+          for p in /health /start /developer /build /metrics /ecosystem /challenge /investors /node-operators /network-maturity /network-maturity.json /i18n.js; do
+            code="$(curl -L --silent --show-error --output /tmp/body --write-out '%{http_code}' "$BASE$p")"
+            test "$code" = '200' || { echo "$p returned HTTP $code"; cat /tmp/body; exit 1; }
+          done
+
+      - name: Verify canonical chain identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          RPC='https://zoryq-evm-node-live-production.up.railway.app/rpc'
+          CHAIN="$(curl --silent --show-error -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "$RPC" | jq -r '.result')"
+          test "$CHAIN" = '0x5a5159' || { echo "Unexpected chain id: $CHAIN"; exit 1; }
+
+      - name: Verify canonical protocol bytecode
+        shell: bash
+        run: |
+          set -euo pipefail
+          RPC='https://zoryq-evm-node-live-production.up.railway.app/rpc'
+          for address in \
+            0x686Ff70d8D551F0a183DbDc608486De9fA9Aa156 \
+            0xA08d491c06a2B01bbe6866CA87302c794aD9fB77 \
+            0x180042c92A42f183A67005E8C0968a1F190aab33 \
+            0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1 \
+            0xd2121E96C6af936c0496fDB499c1D0613d26c2B9; do
+            body="$(jq -nc --arg a "$address" '{jsonrpc:"2.0",id:1,method:"eth_getCode",params:[$a,"latest"]}')"
+            code="$(curl --silent --show-error -H 'content-type: application/json' --data "$body" "$RPC" | jq -r '.result')"
+            test -n "$code" && test "$code" != '0x' || { echo "No bytecode at $address"; exit 1; }
+          done
+
+      - name: Verify maturity disclosure remains conservative
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://zoryq-evm-node-live-production.up.railway.app/network-maturity.json'
+          curl --silent --show-error "$URL" > /tmp/maturity.json
+          test "$(jq -r '.network.mainnet' /tmp/maturity.json)" = 'false'
+          test "$(jq -r '.consensus.decentralized' /tmp/maturity.json)" = 'false'
+          test "$(jq -r '.consensus.multiValidatorConsensus' /tmp/maturity.json)" = 'false'
+          test "$(jq -r '.dataIntegrity.genesisFinalizedOnchainScoreLive' /tmp/maturity.json)" = 'false'

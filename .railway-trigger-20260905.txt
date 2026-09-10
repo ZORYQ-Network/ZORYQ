@@ -1,0 +1,3 @@
+Trigger Railway initial deployment for ZORYQ EVM Testnet.
+Project: c6ab6e77-fc37-4632-b143-0ec877523b8c
+Service: zoryq-evm-node

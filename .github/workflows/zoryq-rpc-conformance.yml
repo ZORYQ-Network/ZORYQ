@@ -1,0 +1,68 @@
+name: ZORYQ RPC Conformance Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - zoryq-evm-testnet-node
+    paths:
+      - 'zoryq-developer/verification/**'
+      - '.github/workflows/zoryq-rpc-conformance.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'zoryq-developer/verification/**'
+      - '.github/workflows/zoryq-rpc-conformance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  gate-a-read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Capture reproducibility manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/rpc-conformance
+          {
+            echo "commit_sha=$GITHUB_SHA"
+            echo "runner_os=$RUNNER_OS"
+            echo "runner_arch=$RUNNER_ARCH"
+            echo "kernel=$(uname -srmo)"
+            echo "node=$(node --version)"
+            echo "cpu=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -1)"
+            echo "cores=$(nproc)"
+            echo "memory_kib=$(awk '/MemTotal/ {print $2}' /proc/meminfo)"
+            echo "rpc=https://zoryq-evm-node-live-production.up.railway.app/rpc"
+            echo "suite=zoryq-developer/verification/rpc-conformance.mjs"
+          } | tee evidence/rpc-conformance/manifest.txt
+
+      - name: Run Gate A read-only conformance
+        env:
+          ZORYQ_RPC: https://zoryq-evm-node-live-production.up.railway.app/rpc
+          ZORYQ_CHAIN_ID: '0x5a5159'
+          ZORYQ_NET_VERSION: '5919065'
+        shell: bash
+        run: |
+          set -o pipefail
+          node zoryq-developer/verification/rpc-conformance.mjs | tee evidence/rpc-conformance/result.json
+
+      - name: Upload raw evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-rpc-conformance-${{ github.sha }}
+          path: evidence/rpc-conformance/
+          retention-days: 30

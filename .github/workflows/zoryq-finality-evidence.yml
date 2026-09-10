@@ -1,0 +1,106 @@
+name: ZORYQ Finality Semantics Evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'zoryq-evm-node/**'
+      - 'zoryq-developer/ZORYQ_FINALITY_SEMANTICS.md'
+      - 'zoryq-developer/verification/finality-probe.mjs'
+      - '.github/workflows/zoryq-finality-evidence.yml'
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-evm-node/**'
+      - 'zoryq-developer/ZORYQ_FINALITY_SEMANTICS.md'
+      - 'zoryq-developer/verification/finality-probe.mjs'
+      - '.github/workflows/zoryq-finality-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inclusion-and-finality-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capture reproducibility manifest
+        run: |
+          set -euo pipefail
+          mkdir -p zoryq-evidence
+          {
+            echo "commit_sha=${GITHUB_SHA}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "kernel=$(uname -a)"
+            echo "node=$(node --version)"
+            echo "docker=$(docker --version)"
+            echo "cpu_model=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -n1)"
+            echo "cpu_count=$(nproc)"
+            echo "memory_kib=$(awk '/MemTotal/ {print $2}' /proc/meminfo)"
+            echo "disk=$(df -h / | tail -n1)"
+            echo "probe_samples=20"
+            echo "poll_ms=100"
+          } | tee zoryq-evidence/finality-hardware-manifest.txt
+          sha256sum zoryq-evm-node/genesis-policy.json | tee zoryq-evidence/genesis-policy.sha256
+
+      - name: Build isolated ZORYQ node image
+        run: docker build -t zoryq-finality-evidence ./zoryq-evm-node
+
+      - name: Start isolated measurement node
+        run: |
+          set -euo pipefail
+          docker volume create zoryq-finality-db
+          docker run -d --name zoryq-finality-node \
+            -p 8080:8080 \
+            -v zoryq-finality-db:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-finality-evidence
+          ok=0
+          for i in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:8080/health >/tmp/finality-health.json; then
+              ok=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ok" != "1" ]; then
+            docker logs zoryq-finality-node || true
+            exit 1
+          fi
+          cp /tmp/finality-health.json zoryq-evidence/finality-health.json
+
+      - name: Run inclusion/finality boundary probe
+        env:
+          ZORYQ_RPC: http://127.0.0.1:8080/rpc
+          ZORYQ_BASE: http://127.0.0.1:8080
+          ZORYQ_FINALITY_SAMPLES: '20'
+          ZORYQ_FINALITY_POLL_MS: '100'
+          ZORYQ_FINALITY_OUT: zoryq-evidence/finality-probe-results.json
+        run: node zoryq-developer/verification/finality-probe.mjs
+
+      - name: Enforce conservative finality claim boundary
+        run: |
+          set -euo pipefail
+          jq -e '.gateCStatus == "BLOCKED_PROTOCOL_FINALITY_UNDEFINED"' zoryq-evidence/finality-probe-results.json >/dev/null
+          jq -e '.protocolFinalityDefinitionAvailable == false' zoryq-evidence/finality-probe-results.json >/dev/null
+          jq -e '.latency.includedToFinalMs.samples == 0' zoryq-evidence/finality-probe-results.json >/dev/null
+          jq -e '.latency.submissionToFinalityMs.samples == 0' zoryq-evidence/finality-probe-results.json >/dev/null
+          echo "Acceptance/inclusion can be measured. ZORYQ protocol finality remains intentionally unclaimed until a protocol rule and multi-node fault evidence exist." | tee zoryq-evidence/FINALITY_CLAIM_STATUS.txt
+
+      - name: Capture isolated node logs
+        if: always()
+        run: docker logs zoryq-finality-node > zoryq-evidence/finality-node.log 2>&1 || true
+
+      - name: Upload raw evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-finality-evidence-${{ github.sha }}
+          path: zoryq-evidence/
+          if-no-files-found: error
+          retention-days: 30

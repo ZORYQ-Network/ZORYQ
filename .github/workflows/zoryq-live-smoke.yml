@@ -1,0 +1,149 @@
+name: ZORYQ Production Smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/**'
+      - 'zoryq-evm-node/**'
+      - '.github/workflows/zoryq-live-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
+      RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
+      TOKEN: '0xd2121E96C6af936c0496fDB499c1D0613d26c2B9'
+      ADDRESS: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+      TX: '0x23036c7656330368cb8cacee20455c268413085eab31d5f1868c4b042e5eb3f6'
+    steps:
+      - name: Verify chain health
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/health")"
+          echo "$body" | jq -e '.ok == true and .chainId == 5919065 and .evm == true and .rpc == true' >/dev/null
+          echo "Chain health OK"
+
+      - name: Verify public RPC identity and core reads
+        shell: bash
+        run: |
+          set -euo pipefail
+          call(){ curl --fail --silent --show-error --retry 5 --retry-delay 2 -H 'content-type: application/json' --data "$1" "$RPC"; }
+          call '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -e '.result == "0x5a5159"' >/dev/null
+          call '{"jsonrpc":"2.0","id":2,"method":"net_version","params":[]}' | jq -e '.result == "5919065"' >/dev/null
+          call '{"jsonrpc":"2.0","id":3,"method":"eth_blockNumber","params":[]}' | jq -e '.result | startswith("0x")' >/dev/null
+          call "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"eth_getCode\",\"params\":[\"$TOKEN\",\"latest\"]}" | jq -e '.result != "0x"' >/dev/null
+          echo "RPC identity + core reads OK"
+
+      - name: Verify canonical product surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          for route in /start /developer /docs /explorer /faucet /stake /swap /intelligence /admin-control /protocol-launch /network-maturity; do
+            code="$(curl --silent --show-error --location --output /tmp/zoryq-page --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE$route")"
+            test "$code" = '200'
+            grep -q 'ZORYQ' /tmp/zoryq-page
+            echo "$route OK"
+          done
+
+      - name: Verify machine-readable network maturity
+        shell: bash
+        run: |
+          set -euo pipefail
+          maturity="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/network-maturity.json")"
+          echo "$maturity" | jq -e '.network.chainId == 5919065 and .network.mainnet == false and .consensus.decentralized == false and .consensus.multiValidatorConsensus == false and .rpcTopology.publicGateways >= 1 and .dataIntegrity.genesisFinalizedOnchainScoreLive == false' >/dev/null
+          echo "Network maturity disclosure OK"
+
+      - name: Verify Treasury control proof service
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/status")"
+          echo "$status" | jq -e '.ok == true and .proven == true and (.treasury | ascii_downcase) == "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33"' >/dev/null
+          deployments="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/admin/control/deployments")"
+          echo "$deployments" | jq -e '.ok == true and .controlProven == true and (.deployments | type == "object")' >/dev/null
+          code="$(curl --silent --show-error --output /tmp/admin-challenge-reject --write-out '%{http_code}' "$BASE/admin/control/challenge?address=0x000000000000000000000000000000000000dEaD")"
+          test "$code" = '403'
+          grep -q 'signer_must_equal_configured_treasury' /tmp/admin-challenge-reject
+          echo "Treasury control proof is valid."
+
+      - name: Report protocol launch gas readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          balance_hex="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 -H 'content-type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":11,\"method\":\"eth_getBalance\",\"params\":[\"$ADDRESS\",\"latest\"]}" "$RPC" | jq -r '.result')"
+          balance_wei="$(python3 -c 'import sys; print(int(sys.argv[1],16))' "$balance_hex")"
+          balance_zq="$(python3 -c 'import sys; from decimal import Decimal; print(Decimal(sys.argv[1])/Decimal(10**18))' "$balance_wei")"
+          echo "Treasury deployment balance: $balance_zq ZQ"
+          min='20000000000000000000'
+          if python3 -c 'import sys; raise SystemExit(0 if int(sys.argv[1]) >= int(sys.argv[2]) else 1)' "$balance_wei" "$min"; then
+            echo "Protocol launch gas readiness: READY"
+          else
+            echo "::warning title=Protocol launch blocked::Treasury has less than 20 ZQ. This is a deployment-readiness blocker, not a production-health failure."
+          fi
+
+      - name: Verify CI-built protocol artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          for artifact in dexV1 lending projectRegistry; do
+            body="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 "$BASE/protocol-artifacts/$artifact.json")"
+            echo "$body" | jq -e '.bytecode.object | type == "string" and length > 100' >/dev/null
+            echo "$artifact creation artifact OK"
+          done
+
+      - name: Verify machine-readable builder surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error "$BASE/llms.txt" | grep -q 'ZORYQ EVM Testnet'
+          curl --fail --silent --show-error "$BASE/.well-known/zoryq-agent.json" | jq -e '.chainId == 5919065 and .entrypoints.actionsSchema and .entrypoints.projectSchema' >/dev/null
+          curl --fail --silent --show-error "$BASE/agent/action-schema.json" | jq -e '.title == "ZORYQ Action Manifest"' >/dev/null
+          curl --fail --silent --show-error "$BASE/agent/project-schema.json" | jq -e '.title == "ZORYQ Project Manifest"' >/dev/null
+          curl --fail --silent --show-error "$BASE/agent/project-intelligence-schema.json" | jq -e '.title == "ZORYQ Project Intelligence Result"' >/dev/null
+          curl --fail --silent --show-error "$BASE/agent/builder-reputation.json" | jq -e '.maxScore == 100 and .status == "specification"' >/dev/null
+          echo "Agent/builder discovery surfaces OK"
+
+      - name: Verify EIP-3091-style explorer routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          for route in "/address/$ADDRESS" "/token/$TOKEN" '/block/0'; do
+            code="$(curl --silent --show-error --location --output /tmp/explorer-route --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE$route")"
+            test "$code" = '200'
+            grep -q 'ZORYQ Explorer' /tmp/explorer-route
+            echo "$route OK"
+          done
+          code="$(curl --silent --show-error --location --output /tmp/explorer-tx --write-out '%{http_code}' --retry 5 --retry-delay 2 "$BASE/tx/$TX")"
+          test "$code" = '200'
+          grep -q 'ZORYQ Explorer' /tmp/explorer-tx
+          echo "EIP-3091-style route surface OK"
+
+      - name: Verify Genesis APIs keep verification classes separate
+        shell: bash
+        run: |
+          set -euo pipefail
+          WALLET='0x000000000000000000000000000000000000dEaD'
+          body="$(curl --fail --silent --show-error "$BASE/genesis/status?address=$WALLET")"
+          echo "$body" | jq -e '.ok == true and .pendingScore >= 0 and .verifiedOnchainScore >= 0 and .socialPendingScore >= 0 and .genesis.total == 4 and .finalizedOnchainScore == 0' >/dev/null
+          network="$(curl --fail --silent --show-error "$BASE/genesis/network")"
+          echo "$network" | jq -e '.ok == true and .actions.total >= 0 and .actions.onchain >= 0' >/dev/null
+          code="$(curl --silent --show-error --output /tmp/genesis-reject --write-out '%{http_code}' -H 'content-type: application/json' --data "{\"address\":\"$WALLET\",\"action\":\"swap\",\"txHash\":\"0x00\"}" "$BASE/genesis/action")"
+          test "$code" = '400'
+          grep -q 'tx_hash_required' /tmp/genesis-reject
+          echo "Genesis verification separation OK"
+
+      - name: Verify public administrative RPC namespaces stay blocked
+        shell: bash
+        run: |
+          set -euo pipefail
+          body="$(curl --fail --silent --show-error -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":9,"method":"anvil_setBalance","params":["0x000000000000000000000000000000000000dEaD","0x1"]}' "$RPC")"
+          echo "$body" | jq -e '.error.code == -32601' >/dev/null
+          echo "Administrative RPC namespaces blocked"

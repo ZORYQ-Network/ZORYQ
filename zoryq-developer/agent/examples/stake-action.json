@@ -1,0 +1,24 @@
+{
+  "version": "0.1.0",
+  "chainId": 5919065,
+  "title": "Stake ZQ on ZORYQ",
+  "description": "Example action manifest for staking test ZQ through the native Stake contract.",
+  "action": {"id": "zoryq.stake", "kind": "contract_call"},
+  "transaction": {
+    "to": "0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1",
+    "method": "stake()",
+    "valueWei": "1000000000000000000",
+    "args": []
+  },
+  "preview": {
+    "expectedAssetIn": "1 ZQ",
+    "expectedAssetOut": "Stake position increase",
+    "minimumReceived": "n/a",
+    "estimatedGas": "must-be-simulated-before-signing"
+  },
+  "safety": {
+    "requiresWalletConfirmation": true,
+    "testnetOnly": true,
+    "neverRequestSeedPhrase": true
+  }
+}

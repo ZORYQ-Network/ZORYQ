@@ -1,0 +1,45 @@
+name: Build ZORYQ Validator Agent
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-validator-agent/**'
+      - '.github/workflows/zoryq-validator-agent.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Build standalone executables
+        run: |
+          mkdir -p dist/windows dist/linux
+          npx --yes @yao-pkg/pkg@6.6.0 zoryq-validator-agent/index.mjs --targets node20-win-x64 --output dist/windows/zoryq-validator.exe
+          npx --yes @yao-pkg/pkg@6.6.0 zoryq-validator-agent/index.mjs --targets node20-linux-x64 --output dist/linux/zoryq-validator
+          chmod +x dist/linux/zoryq-validator
+          printf '{"nodeId":"PASTE_NODE_ID","secret":"PASTE_NODE_SECRET","base":"https://zoryq-evm-node-v4-production.up.railway.app"}\n' | tee dist/windows/zoryq-node.example.json dist/linux/zoryq-node.example.json
+          cp zoryq-validator-agent/README.md dist/windows/README.txt
+          cp zoryq-validator-agent/README.md dist/linux/README.txt
+      - name: Checksums
+        run: |
+          (cd dist/windows && sha256sum zoryq-validator.exe > SHA256SUMS.txt)
+          (cd dist/linux && sha256sum zoryq-validator > SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Validator-Windows-x64-${{ github.run_number }}
+          path: dist/windows
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Validator-Linux-x64-${{ github.run_number }}
+          path: dist/linux
+          retention-days: 30

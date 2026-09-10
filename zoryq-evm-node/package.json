@@ -1,0 +1,14 @@
+{
+  "name": "zoryq-evm-testnet-node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node traffic-gateway.mjs",
+    "test": "node --test project-intelligence.test.mjs project-indexer.test.mjs project-rpc-scanner.test.mjs"
+  },
+  "dependencies": {
+    "ethers": "^6.17.0",
+    "stream-json": "^1.9.1"
+  }
+}
