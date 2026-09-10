@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 30
     env:
       TEST_MNEMONIC: test test test test test test test test test test test junk
+      REVM_VOLUME: zoryq-revm-ground-truth-db-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
 
@@ -33,6 +34,7 @@ jobs:
             echo "cpu_model=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -n1)"
             echo "cpu_count=$(nproc)"
             echo "memory_kib=$(awk '/MemTotal/ {print $2}' /proc/meminfo)"
+            echo "volume=${REVM_VOLUME}"
           } | tee zoryq-evidence/revm-ground-truth-manifest.txt
 
       - name: Build isolated ZORYQ node image
@@ -41,11 +43,17 @@ jobs:
       - name: Start disposable Reth-backed node
         run: |
           set -euo pipefail
-          docker volume create zoryq-revm-ground-truth-db
+          docker rm -f zoryq-revm-ground-truth >/dev/null 2>&1 || true
+          docker volume rm -f "$REVM_VOLUME" >/dev/null 2>&1 || true
+          docker volume create "$REVM_VOLUME"
           docker run -d --name zoryq-revm-ground-truth \
             -p 8081:8080 \
-            -v zoryq-revm-ground-truth-db:/data \
+            -v "$REVM_VOLUME:/data" \
             -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            -e ZORYQ_AUTONOMOUS_DEMO_ENABLED=false \
+            -e ZORYQ_ONE_PROMPT_DEMO_ENABLED=false \
+            -e ZORYQ_AUTONOMOUS_COMPANY_V2_ENABLED=false \
+            -e ZORYQ_AUTONOMOUS_COMPANY_V3_ENABLED=false \
             zoryq-revm-ground-truth
           ok=0
           for i in $(seq 1 120); do
@@ -104,6 +112,12 @@ jobs:
       - name: Capture isolated node logs
         if: always()
         run: docker logs zoryq-revm-ground-truth > zoryq-evidence/revm-node.log 2>&1 || true
+
+      - name: Cleanup disposable node and volume
+        if: always()
+        run: |
+          docker rm -f zoryq-revm-ground-truth >/dev/null 2>&1 || true
+          docker volume rm -f "$REVM_VOLUME" >/dev/null 2>&1 || true
 
       - name: Upload ground-truth evidence
         if: always()
