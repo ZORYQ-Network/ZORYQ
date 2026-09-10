@@ -16,6 +16,9 @@ RUN cargo build --release
 FROM ghcr.io/paradigmxyz/reth:v2.5.2 AS reth
 FROM node:22-bookworm-slim AS node
 FROM ubuntu:24.04
+LABEL org.opencontainers.image.title="ZORYQ EVM Testnet" \
+      org.opencontainers.image.description="ZORYQ public testnet node, gateway and developer surfaces" \
+      org.opencontainers.image.source="https://github.com/ZORYQ-Network/ZORYQ"
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libstdc++6 libgcc-s1 libatomic1 && rm -rf /var/lib/apt/lists/*
 COPY --from=reth /usr/local/bin/reth /usr/local/bin/reth
 COPY --from=node /usr/local /usr/local
