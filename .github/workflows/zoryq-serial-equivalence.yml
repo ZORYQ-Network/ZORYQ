@@ -1,0 +1,119 @@
+name: ZORYQ Serial Equivalence Evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'zoryq-evm-node/**'
+      - 'zoryq-developer/verification/serial-equivalence.mjs'
+      - '.github/workflows/zoryq-serial-equivalence.yml'
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-evm-node/**'
+      - 'zoryq-developer/verification/serial-equivalence.mjs'
+      - '.github/workflows/zoryq-serial-equivalence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  canonical-serial-replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Capture evidence manifest
+        run: |
+          set -euo pipefail
+          mkdir -p zoryq-evidence
+          {
+            echo "commit_sha=${GITHUB_SHA}"
+            echo "runner_os=${RUNNER_OS}"
+            echo "kernel=$(uname -a)"
+            echo "node=$(node --version)"
+            echo "docker=$(docker --version)"
+            echo "cpu_model=$(lscpu | sed -n 's/^Model name:[[:space:]]*//p' | head -n1)"
+            echo "cpu_count=$(nproc)"
+            echo "memory_kib=$(awk '/MemTotal/ {print $2}' /proc/meminfo)"
+            echo "disk=$(df -h / | tail -n1)"
+          } | tee zoryq-evidence/hardware-manifest.txt
+          sha256sum zoryq-evm-node/genesis-policy.json | tee zoryq-evidence/genesis-policy.sha256
+
+      - name: Build identical local ZORYQ node image
+        run: docker build -t zoryq-serial-equivalence ./zoryq-evm-node
+
+      - name: Start isolated concurrent and serial-reference nodes
+        run: |
+          set -euo pipefail
+          docker volume create zoryq-concurrent-db
+          docker volume create zoryq-serial-db
+          docker run -d --name zoryq-concurrent \
+            -p 8081:8080 \
+            -v zoryq-concurrent-db:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-serial-equivalence
+          docker run -d --name zoryq-serial-reference \
+            -p 8082:8080 \
+            -v zoryq-serial-db:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-serial-equivalence
+          for port in 8081 8082; do
+            ok=0
+            for i in $(seq 1 120); do
+              if curl -fsS "http://127.0.0.1:${port}/health" >/tmp/health-${port}.json; then
+                test "$(jq -r '.chain.chainId // .chainId' /tmp/health-${port}.json)" = "5919065"
+                ok=1
+                break
+              fi
+              sleep 1
+            done
+            if [ "$ok" != "1" ]; then
+              docker logs zoryq-concurrent || true
+              docker logs zoryq-serial-reference || true
+              exit 1
+            fi
+          done
+          cp /tmp/health-8081.json zoryq-evidence/concurrent-health.json
+          cp /tmp/health-8082.json zoryq-evidence/serial-reference-health.json
+
+      - name: Install verification-only compiler dependency
+        working-directory: zoryq-evm-node
+        run: npm install --no-save solc@0.8.30
+
+      - name: Run canonical serial replay equivalence harness
+        env:
+          ZORYQ_CONCURRENT_RPC: http://127.0.0.1:8081/rpc
+          ZORYQ_SERIAL_RPC: http://127.0.0.1:8082/rpc
+          ZORYQ_CONCURRENT_BASE: http://127.0.0.1:8081
+          ZORYQ_SERIAL_BASE: http://127.0.0.1:8082
+          ZORYQ_SERIAL_EQ_OUT: zoryq-evidence/serial-equivalence-results.json
+        run: node zoryq-developer/verification/serial-equivalence.mjs
+
+      - name: Enforce evidence semantics
+        run: |
+          set -euo pipefail
+          jq -e '.equality.finalState == true' zoryq-evidence/serial-equivalence-results.json >/dev/null
+          jq -e '.equality.receiptStatuses == true' zoryq-evidence/serial-equivalence-results.json >/dev/null
+          jq -e '.gateBStatus == "PARTIAL_BLOCKED_CONFLICT_TELEMETRY"' zoryq-evidence/serial-equivalence-results.json >/dev/null
+          jq -e '.conflictCount == null and .reexecutionCount == null' zoryq-evidence/serial-equivalence-results.json >/dev/null
+          echo "Serial-equivalence precursor passed. Parallel-execution Gate B remains intentionally blocked until conflict/re-execution telemetry exists." | tee zoryq-evidence/CLAIM_STATUS.txt
+
+      - name: Capture node logs
+        if: always()
+        run: |
+          docker logs zoryq-concurrent > zoryq-evidence/concurrent-node.log 2>&1 || true
+          docker logs zoryq-serial-reference > zoryq-evidence/serial-reference-node.log 2>&1 || true
+
+      - name: Upload raw evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-serial-equivalence-${{ github.sha }}
+          path: zoryq-evidence/
+          if-no-files-found: error
+          retention-days: 30
