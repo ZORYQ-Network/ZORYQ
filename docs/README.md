@@ -1,6 +1,6 @@
-# KYVO Documentation Hub
+# ZORYQ Documentation Hub
 
-A documentação da KYVO é tratada como parte do produto. Mudanças relevantes de segurança, wallet, taxas, XP, elegibilidade, token, integrações ou arquitetura devem atualizar estes documentos no mesmo ciclo de desenvolvimento.
+A documentação da ZORYQ é tratada como parte do produto. Mudanças relevantes de segurança, wallet, taxas, XP, elegibilidade, token, integrações ou arquitetura devem atualizar estes documentos no mesmo ciclo de desenvolvimento.
 
 ## Produto
 - [Visão do projeto](PROJECT_OVERVIEW.md)

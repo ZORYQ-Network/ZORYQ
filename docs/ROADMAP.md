@@ -1,7 +1,7 @@
-# KYVO Roadmap
+# ZORYQ Roadmap
 
 ## Fase 0 — Foundation
-- marca KYVO;
+- marca ZORYQ;
 - mobile shell;
 - i18n;
 - GitHub CI APK;
@@ -9,7 +9,7 @@
 
 ## Fase 1 — Closed Alpha
 - auth;
-- KYVO Vault em ambiente de teste;
+- ZORYQ Vault em ambiente de teste;
 - testnet send/receive;
 - Home portfolio;
 - SocialFi básico;
@@ -28,7 +28,7 @@
 - wallet production provider;
 - mainnet wallet/send;
 - swap com limites e providers aprovados;
-- fee KYVO transparente;
+- fee ZORYQ transparente;
 - treasury reconciliation;
 - incident monitoring.
 

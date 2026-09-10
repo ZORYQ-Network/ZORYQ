@@ -1,4 +1,4 @@
-# Contributing to KYVO
+# Contributing to ZORYQ
 
 ## Workflow
 1. abra issue/design note para mudança material;

@@ -1,0 +1,36 @@
+name: ZORYQ Brand Guard
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  brand-check:
+    name: Prevent legacy brand references
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Check repository text
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='KYVO|Kyvo|kyvo|KYVRA|Kyvra|kyvra|KYVORA|Kyvora|kyvora'
+          if grep -RInE "$pattern" . \
+            --exclude-dir=.git \
+            --exclude='brand-guard.yml' \
+            --exclude='*.tgz' \
+            --exclude='*.zip' \
+            --exclude='*.png' \
+            --exclude='*.jpg' \
+            --exclude='*.jpeg' \
+            --exclude='*.webp'; then
+            echo 'Legacy brand reference found. Use ZORYQ for branding and zoryq for lowercase technical identifiers.'
+            exit 1
+          fi
+          echo 'ZORYQ brand check passed.'
