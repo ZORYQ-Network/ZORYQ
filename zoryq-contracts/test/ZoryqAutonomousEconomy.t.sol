@@ -89,6 +89,42 @@ contract ZoryqAutonomousEconomyTest {
         require(status == ZoryqAutonomousEconomy.TaskStatus.Settled, "task settled");
     }
 
+    function testAssignedCancellationRefundsEscrowAndRecordsWorkerFailure() public {
+        ZoryqAutonomousEconomy e = new ZoryqAutonomousEconomy();
+        address worker = address(0xCA11CE);
+        vm.deal(address(this), 30 ether);
+
+        vm.prank(worker);
+        e.registerAgent(bytes32("AI Worker"), keccak256("worker-meta"), keccak256("worker-capabilities"));
+
+        uint256 orgId = e.createOrganization(bytes32("Cancellation DAO"), keccak256("cancel-org"), 10 ether);
+        e.fundOrganization{value: 8 ether}(orgId);
+        uint256 taskId = e.createTask(orgId, keccak256("Cancelable assigned task"), 2 ether, uint64(block.timestamp + 1 days));
+
+        vm.prank(worker);
+        e.bidForTask(taskId, 1 ether, keccak256("cancel-proposal"));
+        e.assignTask(taskId, worker);
+
+        (, , uint256 beforeCancelBalance, , , , , ) = e.organizationSummary(orgId);
+        require(beforeCancelBalance == 6 ether, "escrow should leave org balance");
+
+        e.cancelTask(taskId);
+
+        (, , uint256 afterCancelBalance, , , , , ) = e.organizationSummary(orgId);
+        require(afterCancelBalance == 8 ether, "full escrow should return to org");
+
+        (, , , uint256 successes, uint256 failures, uint256 earned, , bool active) = e.agentSummary(worker);
+        require(active, "worker active");
+        require(successes == 0, "cancelled task must not count as success");
+        require(failures == 1, "assigned cancellation must count worker failure");
+        require(earned == 0, "cancelled task must not pay worker");
+
+        (, , address assignedWorker, , , , , uint256 escrowed, , ZoryqAutonomousEconomy.TaskStatus status) = e.taskSummary(taskId);
+        require(assignedWorker == worker, "worker assignment should remain auditable");
+        require(escrowed == 0, "cancelled escrow must be cleared");
+        require(status == ZoryqAutonomousEconomy.TaskStatus.Cancelled, "task cancelled");
+    }
+
     function testDirectAgentToAgentEconomy() public {
         ZoryqAutonomousEconomy e = new ZoryqAutonomousEconomy();
         address manager = address(0xA001);
