@@ -24,7 +24,6 @@ WORKDIR /app
 COPY zoryq-evm-node/package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 COPY zoryq-evm-node/server.mjs ./server.mjs
-COPY zoryq-evm-node/public-gateway.mjs ./public-gateway.mjs
 COPY zoryq-evm-node/admin-control.mjs ./admin-control.mjs
 COPY zoryq-evm-node/prepare-reth-genesis.mjs ./prepare-reth-genesis.mjs
 COPY zoryq-evm-node/social-service.mjs ./social-service.mjs
