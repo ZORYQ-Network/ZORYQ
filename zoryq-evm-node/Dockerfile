@@ -14,6 +14,8 @@ COPY public-gateway.mjs ./
 COPY admin-control.mjs ./
 COPY edge-gateway.mjs ./
 COPY traffic-gateway.mjs ./
+COPY memory-governor.mjs ./
+COPY memory-watchdog.mjs ./
 COPY prepare-reth-genesis.mjs ./
 COPY social-service.mjs ./
 COPY product-gateway.mjs ./
