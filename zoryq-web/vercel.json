@@ -15,6 +15,7 @@
     { "source": "/swap", "destination": "/swap.html" },
     { "source": "/stake", "destination": "/stake.html" },
     { "source": "/lending", "destination": "/lending.html" },
+    { "source": "/command-center", "destination": "/command-center.html" },
     { "source": "/tx/:hash", "destination": "/explorer.html" },
     { "source": "/address/:address", "destination": "/explorer.html" },
     { "source": "/block/:block", "destination": "/explorer.html" }
