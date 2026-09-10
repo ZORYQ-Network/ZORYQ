@@ -31,4 +31,4 @@ export PATH="/tmp/zoryq-bin:$PATH"
 # verified Anvil account state into the Reth genesis allocation.
 node /app/prepare-reth-genesis.mjs
 
-exec node /app/product-gateway.mjs
+exec node --max-old-space-size=96 /app/product-gateway.mjs
