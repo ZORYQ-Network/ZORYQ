@@ -54,7 +54,7 @@ if(legacyStateExists()&&!dirHasEntries(RETH_DATA_DIR)&&String(process.env.ZORYQ_
 }
 
 const RETH_MNEMONIC=loadOrCreateMnemonic();
-const rethArgs=['node','--chain',RETH_CHAIN_SPEC,'--datadir',RETH_DATA_DIR,'--dev','--dev.block-time','2s','--dev.finality-depth','1','--dev.mnemonic',RETH_MNEMONIC,'--http','--http.addr','127.0.0.1','--http.port',String(RPC_PORT),'--http.api','eth,net,web3'];
+const rethArgs=['node','--chain',RETH_CHAIN_SPEC,'--datadir',RETH_DATA_DIR,'--dev','--dev.block-time','2s','--dev.finality-depth','1','--dev.mnemonic',RETH_MNEMONIC,'--http','--http.addr','127.0.0.1','--http.port',String(RPC_PORT),'--http.api','eth,net,web3,debug'];
 const reth=spawn('reth',rethArgs,{stdio:['ignore','pipe','pipe']});
 reth.stdout.on('data',d=>process.stdout.write('[reth] '+d));
 reth.stderr.on('data',d=>process.stderr.write('[reth] '+d));
@@ -118,68 +118,78 @@ async function signedFaucetTransfer(address){return enqueueFaucet(async()=>{
 async function faucetStatus(){
   const base={ok:true,amount:FAUCET_AMOUNT,symbol:'ZQ',officialX:'@'+OFFICIAL_X_HANDLE,xAttestationRequired:REQUIRE_X_ATTESTATION,mode:onchainFaucetConfigured()?'onchain':'signed-transfer'};
   if(!onchainFaucetConfigured())return {...base,executionClient:'reth',operatorPool:devFaucetWallets.length};
-  try{const c=new Contract(getAddress(FAUCET_CONTRACT),FAUCET_ABI,provider);const [amount,cooldown,paused,balance]=await Promise.all([c.claimAmount(),c.cooldown(),c.paused(),provider.getBalance(FAUCET_CONTRACT)]);return {...base,contract:getAddress(FAUCET_CONTRACT),claimAmountWei:amount.toString(),cooldownSeconds:Number(cooldown),paused,balanceWei:balance.toString()}}catch{return {...base,healthy:false,error:'onchain_faucet_unreachable'}}
+  try{
+    const c=new Contract(FAUCET_CONTRACT,FAUCET_ABI,provider);
+    const [amount,cooldown,paused]=await Promise.all([c.claimAmount(),c.cooldown(),c.paused()]);
+    return {...base,contract:FAUCET_CONTRACT,claimAmountWei:amount.toString(),cooldownSeconds:Number(cooldown),paused:Boolean(paused)};
+  }catch(e){return {...base,ok:false,contract:FAUCET_CONTRACT,error:e.message}}
 }
+function fileValidators(){const j=loadJson(VALIDATOR_FILE,{validators:{}});if(!j.validators||typeof j.validators!=='object')j.validators={};return j}
+function saveValidators(x){saveJson(VALIDATOR_FILE,x)}
+function randomHex(n){return randomBytes(n).toString('hex')}
+function hmacHex(secret,msg){return createHmac('sha256',secret).update(msg).digest('hex')}
+function challengeId(){return randomUUID()}
+function nowIso(){return new Date().toISOString()}
+function validatorChallenge(operator){cleanChallenges();const nonce=randomHex(24);const id=challengeId();const message=registrationMessage(operator,nonce);challenges.set(id,{operator,nonce,message,createdAt:Date.now()});return {challengeId:id,message,expiresAt:new Date(Date.now()+CHALLENGE_TTL).toISOString()}}
+function takeChallenge(id){cleanChallenges();const c=challenges.get(id);if(c)challenges.delete(id);return c}
+function issueNodeToken(nodeId,operator){const secret=randomHex(32);return {token:`zoryq_node_${nodeId}_${secret}`,hash:keccak256(toUtf8Bytes(secret)),secret}}
+function parseNodeToken(token){const m=/^zoryq_node_([^_]+)_([0-9a-f]{64})$/.exec(String(token||''));return m?{nodeId:m[1],secret:m[2]}:null}
+function heartbeatMessage(nodeId,timestamp,lastBlock){return `${nodeId}:${timestamp}:${lastBlock}`}
+function verifyNodeAuth(token,node,provided,ts,lastBlock){const parsed=parseNodeToken(token);if(!parsed||parsed.nodeId!==node.nodeId)return false;const expectedSecretHash=keccak256(toUtf8Bytes(parsed.secret));if(expectedSecretHash!==node.tokenHash)return false;const expected=hmacHex(parsed.secret,heartbeatMessage(node.nodeId,ts,lastBlock));return safeEqHex(expected,provided)}
+function findValidator(nodeId){const s=fileValidators();return {state:s,node:s.validators[nodeId]}}
+function sanitizeError(e){return String(e?.message||e||'error').slice(0,500)}
 
-const server=http.createServer(async(req,res)=>{try{
- if(req.method==='OPTIONS'){cors(res);res.writeHead(204);return res.end()}
- await nodeReady;
- const url=new URL(req.url,'http://localhost');
- if(req.method==='GET'&&url.pathname==='/health'){const block=await provider.getBlockNumber();const vals=Object.values(loadJson(VALIDATOR_FILE,{}));const healthy=vals.filter(v=>Date.now()-Number(v.lastHeartbeat||0)<=HEARTBEAT_HEALTHY_WINDOW).length;const persistence=persistenceInfo();return send(res,200,{ok:true,name:'ZORYQ EVM Testnet',chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,symbol:'ZQ',block,evm:true,contracts:true,erc20:true,erc721:true,rpc:true,executionClient:'reth',executionClientVersion:rethClientVersion,registeredNodes:vals.length,healthyNodes:healthy,faucetMode:onchainFaucetConfigured()?'onchain':'signed-transfer',xFaucetGate:REQUIRE_X_ATTESTATION,readyForTraffic:persistence.readyForTraffic,persistence})}
- if(req.method==='GET'&&url.pathname==='/network'){return send(res,200,{chainName:'ZORYQ EVM Testnet',chainId:CHAIN_HEX,nativeCurrency:{name:'ZORYQ',symbol:'ZQ',decimals:18},executionClient:'reth',rpcUrls:[process.env.PUBLIC_RPC_URL||'SET_PUBLIC_RPC_URL'],blockExplorerUrls:[process.env.PUBLIC_EXPLORER_URL||'https://zoryq-testnet.vercel.app/explorer']})}
- if(req.method==='GET'&&url.pathname==='/ai-ceo/status'){return send(res,200,aiCeoStatus())}
- if(req.method==='POST'&&url.pathname==='/ai-ceo/plan'){
-   const b=await body(req);
-   try{return send(res,200,await createAiCeoPlan(provider,b))}catch(e){
-     const code=e?.code;
-     const status=code==='AI_NOT_CONFIGURED'||code==='AI_NOT_READY'?503:code==='AI_PROVIDER'?502:code==='AI_PLAN_POLICY'?422:code==='AI_BAD_INPUT'?400:500;
-     console.error('[zoryq-ai-ceo]',code||'AI_ERROR',e?.message||e);
-     return send(res,status,{ok:false,error:code||'AI_ERROR',message:e?.message||'ai_ceo_error'});
-   }
- }
- if(req.method==='GET'&&url.pathname==='/faucet/status'){return send(res,200,await faucetStatus())}
- if(req.method==='POST'&&url.pathname==='/faucet'){
-   const b=await body(req);let address;
-   try{address=getAddress(String(b.address||''))}catch{return send(res,400,{ok:false,error:'invalid_address'})}
-   if(!xAttestationValid(b))return send(res,403,{ok:false,error:'x_follow_attestation_required',officialX:'@'+OFFICIAL_X_HANDLE});
-   const f=loadJson(FAUCET_FILE,{}),k=address.toLowerCase(),last=Number(f[k]||0),now=Date.now();
-   if(now-last<86400000)return send(res,429,{ok:false,error:'cooldown',nextClaim:new Date(last+86400000).toISOString()});
-   if(onchainFaucetConfigured()){
-     try{const wallet=new Wallet(FAUCET_OPERATOR_KEY,provider);const c=new Contract(getAddress(FAUCET_CONTRACT),FAUCET_ABI,wallet);const claimId=keccak256(toUtf8Bytes(`zoryq-faucet:${address.toLowerCase()}:${now}:${randomUUID()}`));const tx=await c.fulfill(claimId,address);const receipt=await tx.wait();if(!receipt||receipt.status!==1)throw Error('faucet_tx_failed');f[k]=now;saveJson(FAUCET_FILE,f);return send(res,200,{ok:true,address,amount:FAUCET_AMOUNT,symbol:'ZQ',mode:'onchain',txHash:tx.hash,claimId,contract:getAddress(FAUCET_CONTRACT)})}catch(e){console.error('Onchain faucet fulfill failed',e?.shortMessage||e?.message||e);return send(res,503,{ok:false,error:'onchain_faucet_unavailable'})}
-   }
-   try{const result=await signedFaucetTransfer(address);f[k]=now;saveJson(FAUCET_FILE,f);return send(res,200,{ok:true,address,amount:FAUCET_AMOUNT,symbol:'ZQ',mode:'signed-transfer',txHash:result.txHash,blockNumber:result.blockNumber})}catch(e){console.error('Signed faucet transfer failed',e?.shortMessage||e?.message||e);return send(res,503,{ok:false,error:e?.message==='faucet_pool_depleted'?'faucet_pool_depleted':'faucet_transfer_failed'})}
- }
- if(req.method==='GET'&&url.pathname==='/validator/challenge'){
-   cleanChallenges();let operator;try{operator=getAddress(String(url.searchParams.get('operator')||''))}catch{return send(res,400,{ok:false,error:'invalid_operator'})}
-   const nonce=randomBytes(18).toString('hex');challenges.set(operator.toLowerCase(),{nonce,createdAt:Date.now()});return send(res,200,{ok:true,operator,nonce,message:registrationMessage(operator,nonce),expiresInSeconds:CHALLENGE_TTL/1000})
- }
- if(req.method==='POST'&&url.pathname==='/validator/register'){
-   cleanChallenges();const b=await body(req);let operator;try{operator=getAddress(String(b.operator||''))}catch{return send(res,400,{ok:false,error:'invalid_operator'})}
-   const c=challenges.get(operator.toLowerCase());if(!c||c.nonce!==String(b.nonce||''))return send(res,400,{ok:false,error:'invalid_or_expired_challenge'});
-   let signer;try{signer=getAddress(verifyMessage(registrationMessage(operator,c.nonce),String(b.signature||'')))}catch{return send(res,400,{ok:false,error:'invalid_signature'})}
-   if(signer!==operator)return send(res,403,{ok:false,error:'signature_not_operator'});challenges.delete(operator.toLowerCase());
-   const validators=loadJson(VALIDATOR_FILE,{});const nodeId=randomUUID();const secret=randomBytes(32).toString('hex');validators[nodeId]={nodeId,operator,secret,createdAt:Date.now(),lastHeartbeat:null,lastBlock:null,heartbeatCount:0,onlineMs:0};saveJson(VALIDATOR_FILE,validators);
-   return send(res,201,{ok:true,nodeId,operator,secret,heartbeatUrl:(process.env.PUBLIC_RPC_URL||'').replace(/\/rpc$/,'')+'/validator/heartbeat',warning:'Store the node secret locally. It is shown only at registration and is not your wallet private key.'})
- }
- if(req.method==='POST'&&url.pathname==='/validator/heartbeat'){
-   const b=await body(req);const nodeId=String(b.nodeId||''),ts=Number(b.timestamp),block=Number(b.block),mac=String(b.mac||'');if(!nodeId||!Number.isFinite(ts)||!Number.isFinite(block))return send(res,400,{ok:false,error:'invalid_heartbeat'});if(Math.abs(Date.now()-ts)>HEARTBEAT_MAX_SKEW)return send(res,400,{ok:false,error:'timestamp_out_of_range'});
-   const validators=loadJson(VALIDATOR_FILE,{}),v=validators[nodeId];if(!v)return send(res,404,{ok:false,error:'node_not_found'});const expected=createHmac('sha256',v.secret).update(`${nodeId}:${ts}:${block}`).digest('hex');if(!safeEqHex(expected,mac))return send(res,403,{ok:false,error:'invalid_mac'});
-   const chainBlock=await provider.getBlockNumber();if(Math.abs(chainBlock-block)>40)return send(res,400,{ok:false,error:'node_not_synced',chainBlock});const now=Date.now();if(v.lastHeartbeat){const delta=Math.max(0,Math.min(now-v.lastHeartbeat,HEARTBEAT_HEALTHY_WINDOW));v.onlineMs=Number(v.onlineMs||0)+delta}v.lastHeartbeat=now;v.lastBlock=block;v.heartbeatCount=Number(v.heartbeatCount||0)+1;validators[nodeId]=v;saveJson(VALIDATOR_FILE,validators);return send(res,200,{ok:true,...publicValidator(v),chainBlock})
- }
- if(req.method==='GET'&&url.pathname==='/validators'){const vals=Object.values(loadJson(VALIDATOR_FILE,{})).map(publicValidator).sort((a,b)=>b.pendingValidatorPointsEstimate-a.pendingValidatorPointsEstimate);return send(res,200,{ok:true,count:vals.length,validators:vals})}
- if(req.method==='GET'&&url.pathname.startsWith('/validator/')){const nodeId=decodeURIComponent(url.pathname.slice('/validator/'.length));const v=loadJson(VALIDATOR_FILE,{})[nodeId];if(!v)return send(res,404,{ok:false,error:'node_not_found'});return send(res,200,{ok:true,...publicValidator(v)})}
- if(req.method==='POST'&&(url.pathname==='/'||url.pathname==='/rpc')){
-   const raw=await body(req);if(Array.isArray(raw)){if(raw.length===0)return send(res,200,{jsonrpc:'2.0',id:null,error:{code:-32600,message:'Invalid Request'}});const results=await Promise.all(raw.map(async q=>{if(blocked(q))return blockedReply(q);const upstream=await rpcProxy(q);if(!upstream.text)return null;try{return JSON.parse(upstream.text)}catch{return {jsonrpc:'2.0',id:q?.id??null,error:{code:-32603,message:'Invalid upstream response'}}}}));const replies=results.filter(Boolean);cors(res);if(replies.length===0){res.writeHead(204);return res.end()}res.writeHead(200,{'content-type':'application/json; charset=utf-8'});return res.end(JSON.stringify(replies))}
-   if(blocked(raw)){const reply=blockedReply(raw);if(!reply){cors(res);res.writeHead(204);return res.end()}return send(res,200,reply)}const upstream=await rpcProxy(raw);cors(res);res.writeHead(upstream.status,{'content-type':'application/json; charset=utf-8'});return res.end(upstream.text)
- }
- return send(res,404,{ok:false,error:'not_found'});
- }catch(e){console.error(e);return send(res,500,{ok:false,error:e?.message||'internal_error'})}});
-
-try{
- await nodeReady;
- server.listen(PORT,'0.0.0.0',()=>console.log(`ZORYQ EVM gateway listening on :${PORT}; execution=reth; persistence=reth-native-db`));
-}catch(error){
- console.error('[zoryq-reth] FATAL: boot readiness failed',error?.message||error);
- reth.kill('SIGTERM');
- process.exit(70);
-}
+const server=http.createServer(async(req,res)=>{
+  try{
+    if(req.method==='OPTIONS'){cors(res);res.writeHead(204);return res.end()}
+    const url=new URL(req.url,'http://127.0.0.1');
+    if(url.pathname==='/health'){
+      await nodeReady;
+      const persistence=persistenceInfo();
+      return send(res,persistence.readyForTraffic?200:503,{ok:persistence.readyForTraffic,chain:{chainId:CHAIN_ID,chainIdHex:CHAIN_HEX,executionClient:'reth',clientVersion:rethClientVersion},persistence,aiCeo:aiCeoStatus()});
+    }
+    if(url.pathname==='/rpc'&&req.method==='POST'){
+      const raw=await body(req);
+      if(Array.isArray(raw)){
+        const blockedItems=raw.filter(blocked);
+        if(blockedItems.length){return send(res,200,raw.map(q=>blocked(q)?blockedReply(q):{jsonrpc:'2.0',id:q?.id??null,error:{code:-32600,message:'Batch rejected because it contains blocked RPC methods'}}).filter(Boolean))}
+      }else if(blocked(raw)){return send(res,200,blockedReply(raw))}
+      const out=await rpcProxy(raw);cors(res);res.writeHead(out.status,{'content-type':'application/json'});return res.end(out.text)
+    }
+    if(url.pathname==='/faucet/status')return send(res,200,await faucetStatus());
+    if(url.pathname==='/validator/challenge'&&req.method==='POST'){
+      const b=await body(req);let operator;try{operator=getAddress(String(b.operator||''))}catch{return send(res,400,{ok:false,error:'invalid_operator_address'})}
+      return send(res,200,{ok:true,...validatorChallenge(operator)});
+    }
+    if(url.pathname==='/validator/register'&&req.method==='POST'){
+      const b=await body(req);const c=takeChallenge(b.challengeId);if(!c)return send(res,400,{ok:false,error:'invalid_or_expired_challenge'});
+      let recovered;try{recovered=getAddress(verifyMessage(c.message,String(b.signature||'')))}catch{return send(res,400,{ok:false,error:'invalid_signature'})}
+      if(recovered!==c.operator)return send(res,403,{ok:false,error:'signature_operator_mismatch'});
+      const s=fileValidators();const nodeId=randomHex(16);const auth=issueNodeToken(nodeId,c.operator);s.validators[nodeId]={nodeId,operator:c.operator,tokenHash:auth.hash,createdAt:Date.now(),lastHeartbeat:null,lastBlock:null,heartbeatCount:0,onlineMs:0};saveValidators(s);
+      return send(res,200,{ok:true,nodeId,operator:c.operator,nodeToken:auth.token,heartbeatIntervalSeconds:60});
+    }
+    if(url.pathname==='/validator/heartbeat'&&req.method==='POST'){
+      const b=await body(req);const found=findValidator(String(b.nodeId||''));if(!found.node)return send(res,404,{ok:false,error:'node_not_found'});
+      const ts=Number(b.timestamp),lastBlock=Number(b.lastBlock);if(!Number.isFinite(ts)||Math.abs(Date.now()-ts)>HEARTBEAT_MAX_SKEW)return send(res,400,{ok:false,error:'invalid_timestamp'});
+      if(!Number.isFinite(lastBlock)||lastBlock<0)return send(res,400,{ok:false,error:'invalid_last_block'});
+      const token=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');const sig=String(b.signature||'');if(!verifyNodeAuth(token,found.node,sig,ts,lastBlock))return send(res,401,{ok:false,error:'invalid_node_auth'});
+      const now=Date.now();if(found.node.lastHeartbeat){const delta=Math.max(0,Math.min(now-found.node.lastHeartbeat,2*HEARTBEAT_HEALTHY_WINDOW));found.node.onlineMs=Number(found.node.onlineMs||0)+delta}found.node.lastHeartbeat=now;found.node.lastBlock=lastBlock;found.node.heartbeatCount=Number(found.node.heartbeatCount||0)+1;found.state.validators[found.node.nodeId]=found.node;saveValidators(found.state);
+      return send(res,200,{ok:true,validator:publicValidator(found.node)});
+    }
+    if(url.pathname==='/validators'){
+      const s=fileValidators();return send(res,200,{ok:true,validators:Object.values(s.validators).map(publicValidator)});
+    }
+    if(url.pathname==='/faucet/claim'&&req.method==='POST'){
+      const b=await body(req);let address;try{address=getAddress(String(b.address||''))}catch{return send(res,400,{ok:false,error:'invalid_address'})}
+      if(!xAttestationValid(b))return send(res,403,{ok:false,error:'x_attestation_required',officialX:'@'+OFFICIAL_X_HANDLE});
+      const state=loadJson(FAUCET_FILE,{claims:{}});const key=address.toLowerCase();const last=Number(state.claims?.[key]?.at||0);const cooldownMs=24*60*60*1000;if(Date.now()-last<cooldownMs)return send(res,429,{ok:false,error:'faucet_cooldown',retryAfterSeconds:Math.ceil((cooldownMs-(Date.now()-last))/1000)});
+      const transfer=await signedFaucetTransfer(address);state.claims=state.claims||{};state.claims[key]={at:Date.now(),txHash:transfer.txHash};saveJson(FAUCET_FILE,state);return send(res,200,{ok:true,address,amount:FAUCET_AMOUNT,symbol:'ZQ',...transfer});
+    }
+    if(url.pathname==='/ai-ceo/status')return send(res,200,aiCeoStatus());
+    if(url.pathname==='/ai-ceo/plan'&&req.method==='POST'){
+      await nodeReady;const b=await body(req);try{return send(res,200,{ok:true,...await createAiCeoPlan(provider,b.companyId,b.directive)})}catch(e){const code=e?.code||'';const status=code==='AI_BAD_INPUT'?400:code==='AI_NOT_CONFIGURED'||code==='AI_NOT_READY'?503:502;return send(res,status,{ok:false,error:sanitizeError(e),code})}
+    }
+    return send(res,404,{ok:false,error:'not_found'});
+  }catch(e){return send(res,500,{ok:false,error:sanitizeError(e)})}
+});
+server.listen(PORT,'0.0.0.0',()=>console.log(`[zoryq-node] listening on :${PORT}`));
