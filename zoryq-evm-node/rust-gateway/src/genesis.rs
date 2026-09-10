@@ -85,3 +85,17 @@ pub async fn record_social(address_raw:&str,action:&str,campaign_raw:&str,x_hand
     let entry=json!({"action":action,"points":points,"verification":"self-attested","campaignId":campaign_id,"proofRef":proof,"txHash":Value::Null,"metadata":{},"createdAt":now_ms()});actions.insert(key,entry.clone());state.get_mut("usedProofs").and_then(Value::as_object_mut).unwrap().insert(proof,json!(owner_key));save_score(&state).map_err(|e|(500,json!({"ok":false,"error":"score_persist_failed","detail":e})))?;
     Ok(json!({"ok":true,"entry":entry,"status":wallet_status(&address),"notice":"Social points are pending until X OAuth/API verification is enabled."}))
 }
+
+pub async fn record_ens_identity(address_raw:&str,identity:&Value)->Result<Value,(u16,Value)>{
+    let address=normalize_address(address_raw).ok_or((400,json!({"ok":false,"error":"invalid_address"})))?;
+    if identity.get("ok").and_then(Value::as_bool)!=Some(true){return Err((503,identity.clone()))}
+    let verified=identity.get("verified").and_then(Value::as_bool)==Some(true);
+    let ens_name=identity.get("ensName").and_then(Value::as_str).filter(|s|!s.trim().is_empty()).ok_or((400,json!({"ok":false,"error":"verified_ensv2_primary_name_required","identity":identity})))?;
+    if !verified{return Err((400,json!({"ok":false,"error":"verified_ensv2_primary_name_required","identity":identity})))}
+    let proof_ref=format!("ensv2:{}:{}",ens_name.to_ascii_lowercase(),address);let proof=proof_hash(&proof_ref);let owner_key=format!("{address}:ens_identity");
+    let _guard=score_lock().lock().await;let mut state=load_score();
+    if let Some(owner)=state.get("usedProofs").and_then(Value::as_object).and_then(|m|m.get(&proof)).and_then(Value::as_str){if owner!=owner_key{return Err((409,json!({"ok":false,"error":"proof_already_used"})))}}
+    let wallets=state.get_mut("wallets").and_then(Value::as_object_mut).unwrap();let wallet=wallets.entry(address.clone()).or_insert_with(||json!({"actions":{}}));if !wallet.get("actions").map(Value::is_object).unwrap_or(false){wallet["actions"]=json!({});}let actions=wallet.get_mut("actions").and_then(Value::as_object_mut).unwrap();if actions.contains_key("ens_identity"){return Ok(json!({"duplicate":true,"status":wallet_status(&address),"identity":identity}))}
+    let entry=json!({"action":"ens_identity","points":150,"verification":"external-ensv2","campaignId":"genesis-v1","proofRef":proof,"txHash":Value::Null,"metadata":{"ensName":ens_name,"network":identity.get("network").cloned().unwrap_or_else(||json!("ethereum-sepolia")),"ensVersion":identity.get("ensVersion").cloned().unwrap_or_else(||json!("v2-beta"))},"createdAt":now_ms()});actions.insert("ens_identity".into(),entry.clone());state.get_mut("usedProofs").and_then(Value::as_object_mut).unwrap().insert(proof,json!(owner_key));save_score(&state).map_err(|e|(500,json!({"ok":false,"error":"score_persist_failed","detail":e})))?;
+    Ok(json!({"ok":true,"entry":entry,"status":wallet_status(&address),"identity":identity,"notice":"ENSv2 identity verified on Ethereum Sepolia. Score is not finalized on ZORYQ until an on-chain finalization step exists."}))
+}
