@@ -61,7 +61,7 @@ async fn handler(axum::extract::State(state):axum::extract::State<State>,req:Req
  if method==Method::GET&&(p=="/health"||p=="/ready"){return health(&state).await}
  if method==Method::GET&&p=="/ops/process-memory"{return read_json(MEMORY_STATUS).map(|v|json_response(StatusCode::OK,v)).unwrap_or_else(||json_response(StatusCode::SERVICE_UNAVAILABLE,json!({"ok":false,"error":"native_memory_watchdog_initializing"})))}
  if method==Method::GET&&p=="/ops/memory"{let(band,limit,pause)=memory_band();return json_response(StatusCode::OK,json!({"ok":true,"release":"infra-v8-rust-static-surface","memory":{"percent":memory_percent(),"band":band},"rpc":{"inFlight":state.rpc_inflight.load(Ordering::Relaxed),"effectiveConcurrency":limit},"faucet":{"inFlight":state.faucet_inflight.load(Ordering::Relaxed)},"pauseNonEssential":pause}))}
- if method==Method::GET&&p=="/agent/execution-schema.json"{return json_response(StatusCode::NOT_FOUND,json!({"ok":false,"error":"agent_execution_schema_not_published"}))}
+ if method==Method::GET&&p=="/agent/execution-schema.json"{return serve(WEB_ROOT,"zoryq-execution-schema.json")}
  if method==Method::GET&&matches!(p.as_str(),"/social"|"/zoriq"|"/zoriq-social"|"/zoriq-social.html"){return serve(WEB_ROOT,"zoriq-social.html")}
  let pathq=uri.path_and_query().map(|x|x.as_str()).unwrap_or("/").to_string();
  if p.starts_with("/api/social"){let q=pathq.replacen("/api/social","",1);return proxy(&state,req,SOCIAL_PORT,if q.is_empty(){"/".into()}else{q}).await}
