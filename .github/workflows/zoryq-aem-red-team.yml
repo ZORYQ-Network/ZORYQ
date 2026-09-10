@@ -1,0 +1,48 @@
+name: ZORYQ AEM Red Team
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/verification/aem-adversarial.mjs'
+      - '.github/workflows/zoryq-aem-red-team.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  adversarial-simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Run adversarial scheduler harness
+        run: node zoryq-developer/verification/aem-adversarial.mjs
+
+      - name: Enforce fail-closed research invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e '
+            .ok == true
+            and .status == "ADVERSARIAL_SIMULATION"
+            and .canonical == false
+            and .chainIdTarget == 5919065
+            and .summary.failed == 0
+            and .summary.passed >= 7
+          ' aem-red-team-results.json >/dev/null
+          echo 'AEM Red Team simulation passed all current fail-closed invariants.'
+
+      - name: Upload adversarial evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-aem-red-team-${{ github.sha }}
+          path: aem-red-team-results.json
+          if-no-files-found: error
+          retention-days: 30
