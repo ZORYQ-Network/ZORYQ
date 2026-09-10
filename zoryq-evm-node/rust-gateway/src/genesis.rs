@@ -1,5 +1,5 @@
 use chrono::{SecondsFormat, Utc};
-use reqwest::Client;
+use reqwest::{Client, Url};
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::{env, fs, sync::OnceLock, time::{SystemTime, UNIX_EPOCH}};
@@ -53,4 +53,35 @@ pub async fn record_faucet(address_raw:&str,proof_ref:&str,tx_hash:&str)->Result
     if let Some(owner)=state.get("usedProofs").and_then(Value::as_object).and_then(|m|m.get(&proof)).and_then(Value::as_str){if owner!=owner_key{return Err((409,json!({"ok":false,"error":"proof_already_used"})))}}
     let wallets=state.get_mut("wallets").and_then(Value::as_object_mut).unwrap();let wallet=wallets.entry(address.clone()).or_insert_with(||json!({"actions":{}}));if !wallet.get("actions").map(Value::is_object).unwrap_or(false){wallet["actions"]=json!({});}let actions=wallet.get_mut("actions").and_then(Value::as_object_mut).unwrap();if actions.contains_key("faucet"){return Ok(json!({"duplicate":true,"status":wallet_status(&address)}))}
     let entry=json!({"action":"faucet","points":100,"verification":"server","campaignId":"genesis-v1","proofRef":proof,"txHash":if tx_hash.is_empty(){Value::Null}else{json!(tx_hash)},"metadata":{},"createdAt":now_ms()});actions.insert("faucet".into(),entry.clone());state.get_mut("usedProofs").and_then(Value::as_object_mut).unwrap().insert(proof,json!(owner_key));save_score(&state).map_err(|e|(500,json!({"ok":false,"error":"score_persist_failed","detail":e})))?;Ok(json!({"ok":true,"entry":entry,"status":wallet_status(&address)}))
+}
+
+fn normalize_campaign(value:&str)->Option<String>{
+    let s=value.trim().to_ascii_lowercase();
+    if s.is_empty()||s.len()>64{return None}
+    let mut chars=s.chars();let first=chars.next()?;
+    if !first.is_ascii_lowercase()&&!first.is_ascii_digit(){return None}
+    if chars.all(|c|c.is_ascii_lowercase()||c.is_ascii_digit()||matches!(c,'.'|'_'|'-')){Some(s)}else{None}
+}
+
+fn x_share_proof(value:&str)->Option<String>{
+    let u=Url::parse(value.trim()).ok()?;
+    let host=u.host_str()?.to_ascii_lowercase();
+    if host!="x.com"&&host!="www.x.com"{return None}
+    let parts=u.path_segments()?.collect::<Vec<_>>();
+    if parts.len()<3||parts[1]!="status"||parts[0].is_empty()||parts[2].is_empty()||!parts[2].bytes().all(|b|b.is_ascii_digit()){return None}
+    Some(format!("x-status:{}",parts[2]))
+}
+
+pub async fn record_social(address_raw:&str,action:&str,campaign_raw:&str,x_handle:&str,proof_raw:&str)->Result<Value,(u16,Value)>{
+    let address=normalize_address(address_raw).ok_or((400,json!({"ok":false,"error":"invalid_address"})))?;
+    if action!="x_follow"&&action!="x_share"{return Err((400,json!({"ok":false,"error":"unsupported_action"})))}
+    let campaign_id=normalize_campaign(if campaign_raw.trim().is_empty(){"genesis-v1"}else{campaign_raw}).ok_or((400,json!({"ok":false,"error":"invalid_campaign"})))?;
+    if action=="x_follow"&&x_handle.trim().trim_start_matches('@').to_ascii_lowercase()!="zoriqnetwork"{return Err((400,json!({"ok":false,"error":"official_x_handle_required"})))}
+    let proof_ref=if action=="x_share"{x_share_proof(proof_raw).ok_or((400,json!({"ok":false,"error":"valid_x_post_url_required"})))?}else if proof_raw.trim().is_empty(){format!("x_follow:{address}")}else{proof_raw.to_string()};
+    let key=if action=="x_share"{format!("x_share:{campaign_id}")}else{"x_follow".into()};let owner_key=format!("{address}:{key}");let proof=proof_hash(&proof_ref);let points=if action=="x_follow"{50}else{200};
+    let _guard=score_lock().lock().await;let mut state=load_score();
+    if let Some(owner)=state.get("usedProofs").and_then(Value::as_object).and_then(|m|m.get(&proof)).and_then(Value::as_str){if owner!=owner_key{return Err((409,json!({"ok":false,"error":"proof_already_used"})))}}
+    let wallets=state.get_mut("wallets").and_then(Value::as_object_mut).unwrap();let wallet=wallets.entry(address.clone()).or_insert_with(||json!({"actions":{}}));if !wallet.get("actions").map(Value::is_object).unwrap_or(false){wallet["actions"]=json!({});}let actions=wallet.get_mut("actions").and_then(Value::as_object_mut).unwrap();if actions.contains_key(&key){return Ok(json!({"duplicate":true,"status":wallet_status(&address)}))}
+    let entry=json!({"action":action,"points":points,"verification":"self-attested","campaignId":campaign_id,"proofRef":proof,"txHash":Value::Null,"metadata":{},"createdAt":now_ms()});actions.insert(key,entry.clone());state.get_mut("usedProofs").and_then(Value::as_object_mut).unwrap().insert(proof,json!(owner_key));save_score(&state).map_err(|e|(500,json!({"ok":false,"error":"score_persist_failed","detail":e})))?;
+    Ok(json!({"ok":true,"entry":entry,"status":wallet_status(&address),"notice":"Social points are pending until X OAuth/API verification is enabled."}))
 }
