@@ -11,6 +11,10 @@ on:
       - '.github/workflows/zoryq-command-center.yml'
   workflow_dispatch:
 
+concurrency:
+  group: zoryq-command-center-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -41,3 +45,38 @@ jobs:
 
       - name: Verify evidence guardrails
         run: node -e "const fs=require('fs');const s=JSON.parse(fs.readFileSync('zoryq-web/command-center-snapshot.json','utf8'));const m=JSON.parse(fs.readFileSync('zoryq-web/network-maturity.json','utf8'));if(s.dataPolicy!=='REAL_DATA_ONLY'||s.scores.momentum.value!==null||s.scores.traction.value!==null||m.network.mainnet!==false)process.exit(1)"
+
+  preview:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: zoryq-web
+    env:
+      VERCEL_ORG_ID: team_2Y0pzJPPode5346QpOXbdFtM
+      VERCEL_PROJECT_ID: prj_SNwO7G3CnGoG7j5kYVtmqevRDmy9
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || secrets.VERCEL_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Verify preview credential
+        run: |
+          test -n "$VERCEL_TOKEN"
+
+      - name: Link existing ZORYQ Vercel project
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      - name: Deploy preview only
+        id: deploy
+        run: |
+          url=$(npx --yes vercel@latest deploy --yes --token "$VERCEL_TOKEN" | tail -n 1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### ZORYQ Command Center Preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url/command-center" >> "$GITHUB_STEP_SUMMARY"
