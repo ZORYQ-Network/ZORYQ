@@ -11,6 +11,11 @@ const CONTROLS = [
   'independent-security-audit','contract-security','recovery-drill','incident-response','observability-alerting',
   'rpc-abuse-protection','supply-chain-provenance','release-governance','testnet-burn-in','launch-approvals'
 ];
+const REQUIRED_GOVERNANCE_CHECKS = [
+  'ZORYQ Mainnet Readiness Gate','ZORYQ Mainnet Launch Guard','ZORYQ Mainnet Runtime Preflight',
+  'ZORYQ Mainnet Supply Chain Evidence','ZORYQ Mainnet Release Integrity','ZORYQ Mainnet Multi-Operator Evidence',
+  'ZORYQ Contract Tests'
+];
 
 function sha256(file) {
   return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -25,22 +30,37 @@ function assert(ok, message) {
   if (!ok) throw new Error(message);
 }
 function writeEvidence(name, full, observedAt) {
-  const body = name === 'consensus-multivalidator'
-    ? {
-        pass: true,
-        status: 'MULTI_OPERATOR_CONVERGENCE_EVIDENCE_ACCEPTED',
-        network: 'ZORYQ Mainnet',
-        chainId: 5919066,
-        consensusEngine: 'zoryq-bft-rehearsal',
-        nodeCount: 4,
-        operatorCount: 4,
-        regionCount: 3,
-        commonFinalizedCheckpoint: { height: 1000, hash: `0x${'a'.repeat(64)}` },
-        blockers: [],
-        evidenceSha256: 'c'.repeat(64),
-        rule: 'zoryq-mainnet-multi-operator-evidence-v1'
-      }
-    : { control: name, observedAt, fixture: false };
+  let body;
+  if (name === 'consensus-multivalidator') {
+    body = {
+      pass: true,
+      status: 'MULTI_OPERATOR_CONVERGENCE_EVIDENCE_ACCEPTED',
+      network: 'ZORYQ Mainnet',
+      chainId: 5919066,
+      consensusEngine: 'zoryq-bft-rehearsal',
+      nodeCount: 4,
+      operatorCount: 4,
+      regionCount: 3,
+      commonFinalizedCheckpoint: { height: 1000, hash: `0x${'a'.repeat(64)}` },
+      blockers: [],
+      evidenceSha256: 'c'.repeat(64),
+      rule: 'zoryq-mainnet-multi-operator-evidence-v1'
+    };
+  } else if (name === 'release-governance') {
+    body = {
+      pass: true,
+      status: 'RELEASE_GOVERNANCE_EVIDENCE_ACCEPTED',
+      repository: 'ZORYQ-Network/ZORYQ',
+      releaseCommit: 'a'.repeat(40),
+      observedAt,
+      requiredChecks: REQUIRED_GOVERNANCE_CHECKS,
+      observedRequiredChecks: [...REQUIRED_GOVERNANCE_CHECKS].sort(),
+      blockers: [],
+      rule: 'zoryq-mainnet-release-governance-evidence-v1'
+    };
+  } else {
+    body = { control: name, observedAt, fixture: false };
+  }
   fs.writeFileSync(full, JSON.stringify(body) + '\n');
 }
 function makeFixture(dir) {
@@ -87,6 +107,18 @@ try {
   assert(good.status === 0 && good.body.ready === true, `valid dossier rejected: ${JSON.stringify(good.body)}`);
   assert(good.body.verifiedControls?.length === CONTROLS.length, 'not all evidence controls were verified');
 
+  const governancePath = path.join(dir, dossier.controls['release-governance'].evidencePath);
+  const weakGovernance = JSON.parse(fs.readFileSync(governancePath, 'utf8'));
+  weakGovernance.status = 'RELEASE_GOVERNANCE_EVIDENCE_REJECTED';
+  fs.writeFileSync(governancePath, JSON.stringify(weakGovernance) + '\n');
+  dossier.controls['release-governance'].evidenceSha256 = sha256(governancePath);
+  fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
+  const semanticGovernance = run(input);
+  assert(semanticGovernance.status === 82, `weak governance evidence exit=${semanticGovernance.status}`);
+  assert(semanticGovernance.body.blockers?.includes('release_governance_not_accepted'), 'weak semantic governance evidence was not rejected');
+  writeEvidence('release-governance', governancePath, dossier.controls['release-governance'].observedAt);
+  dossier.controls['release-governance'].evidenceSha256 = sha256(governancePath);
+
   const consensusPath = path.join(dir, dossier.controls['consensus-multivalidator'].evidencePath);
   const weakConsensus = JSON.parse(fs.readFileSync(consensusPath, 'utf8'));
   weakConsensus.operatorCount = 3;
@@ -121,7 +153,7 @@ try {
   assert(concentration.status === 82, `operator concentration exit=${concentration.status}`);
   assert(concentration.body.blockers?.includes('validator_operator_count_below_policy'), 'validator operator concentration was not rejected');
 
-  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
+  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','semantic-governance-rejection','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
