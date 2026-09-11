@@ -4,10 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07080d">
-<meta name="description" content="ZORIQ Social — uma rede social que evolui com você. Perfil evolutivo, Pulse, Worlds, Powers, ZORIQ DNA e ZORI.">
+<meta name="description" content="ZORIQ Social — uma rede social que evolui com você. Perfil evolutivo, Pulse, Worlds, Powers, ZORIQ DNA, ZORI, wallet e pagamentos sociais multichain.">
 <title>ZORIQ Social — Your social world evolves with you</title>
 <link rel="stylesheet" href="/zoriq-social-v2.css">
 <link rel="stylesheet" href="/zoriq-social-suite.css">
+<link rel="stylesheet" href="/zoriq-app-parity.css">
 </head>
 <body>
 <header class="topbar">
@@ -36,7 +37,7 @@
         <div class="eyebrow">YOUR SOCIAL WORLD EVOLVES WITH YOU</div>
         <h1>Uma rede social que <span class="gradient">evolui com você.</span></h1>
         <p>Seu perfil ganha identidade, reputação, Powers, conquistas e um DNA social próprio. Você escolhe o que quer ver, participa de Worlds e acompanha o que está acontecendo agora no Pulse.</p>
-        <div class="hero-badges"><span class="hero-badge">Perfil Evolutivo</span><span class="hero-badge">ZORIQ XP</span><span class="hero-badge">Powers</span><span class="hero-badge">Pulse</span><span class="hero-badge">Worlds</span><span class="hero-badge">Human First</span><span class="hero-badge">ZORIQ DNA</span></div>
+        <div class="hero-badges"><span class="hero-badge">Perfil Evolutivo</span><span class="hero-badge">ZORIQ XP</span><span class="hero-badge">Powers</span><span class="hero-badge">Pulse</span><span class="hero-badge">Worlds</span><span class="hero-badge">Human First</span><span class="hero-badge">ZORIQ DNA</span><span class="hero-badge">Social Pay</span><span class="hero-badge">Web + APK</span></div>
       </div>
       <div class="modes" aria-label="Controle do feed">
         <button class="mode" data-mode="explore">🌎 Explorar</button><button class="mode" data-mode="fun">😂 Divertir</button><button class="mode" data-mode="learn">🧠 Aprender</button><button class="mode" data-mode="trend">🔥 Tendências</button><button class="mode" data-mode="meet">🤝 Conhecer pessoas</button><button class="mode" data-mode="tech">💻 Tecnologia</button><button class="mode" data-mode="gaming">🎮 Games</button><button class="mode" data-mode="crypto">₿ Cripto</button><button class="mode" data-mode="following">👥 Seguindo</button>
@@ -82,14 +83,14 @@
   </section>
 
   <aside class="rail">
-    <section class="card"><h3>Seu progresso</h3><div class="row"><div class="avatar small power-electric" data-me>YOU</div><div><b data-level>Creator</b><div class="tiny"><span data-xp>1.280</span> XP · rep <span data-reputation>86</span></div></div></div><div class="xp-track"><div class="xp-fill"></div></div></section>
+    <section class="card"><h3>Seu progresso</h3><div class="row"><div class="avatar small power-electric" data-me>YOU</div><div><b data-level>Creator</b><div class="tiny"><span data-xp>1.280</span> XP · rep <span data-reputation>86</span></div></div></div><div class="xp-track"><div class="xp-fill"></div></section>
     <section class="card"><h3>Pulse agora</h3><div class="pulse-list"><div class="pulse-item"><span>₿ Bitcoin</span><span class="pulse-live">18.3K</span></div><div class="pulse-item"><span>✦ AI Builders</span><span class="pulse-live">12.8K</span></div><div class="pulse-item"><span>♫ Music Live</span><span class="pulse-live">11.2K</span></div></div><button class="secondary" data-view="pulse" style="width:100%;margin-top:10px">Abrir Pulse</button></section>
     <section class="card"><h3>Human First</h3><div class="human"><span class="human-dot"></span><span>Sinal <b data-human-score>94</b>/100</span></div><p class="tiny">Heurística local de demonstração. Não é uma prova de identidade.</p></section>
     <section class="card"><h3>Princípio do XP</h3><p class="small">Conteúdo e participação podem gerar XP com limites. Uma curtida isolada não compra reputação.</p></section>
-    <section class="card"><h3>Modo híbrido</h3><p class="tiny">A interface continua utilizável localmente. Quando há uma sessão SIWE válida, posts, perfis, follows, mensagens, notificações e preferências suportadas são sincronizados pelo backend Supabase com RLS. E2EE, mídia e push ainda exigem etapas próprias.</p><button class="secondary" id="resetDemo" style="width:100%">Restaurar demo local</button></section>
+    <section class="card"><h3>Modo híbrido</h3><p class="tiny">Web DApp e APK compartilham o mesmo backend social. A web usa wallet instalada para autorização; o APK também pode usar wallet local e biometria. Social Pay, Verified, perfis, posts, follows, mensagens, notificações e preferências usam as mesmas regras de backend.</p><button class="secondary" id="resetDemo" style="width:100%">Restaurar demo local</button></section>
   </aside>
 </main>
-<footer style="max-width:1500px;margin:auto;padding:0 4vw 110px;color:#606a7d;font-size:11px">ZORIQ Social Evolution · <span id="year"></span> · interface híbrida local + backend compartilhado do ecossistema ZORYQ.</footer>
+<footer style="max-width:1500px;margin:auto;padding:0 4vw 110px;color:#606a7d;font-size:11px">ZORIQ Social Evolution · <span id="year"></span> · Web DApp + APK com backend compartilhado.</footer>
 <div class="toast" id="toast" role="status"></div>
 <script src="/config.js"></script>
 <script src="/zoriq-social-v2.js"></script>
@@ -97,5 +98,6 @@
 <script src="/zoriq-social-backend.js"></script>
 <script src="/zoriq-wallet-connect.js"></script>
 <script src="/zoriq-social-sync.js"></script>
+<script src="/zoriq-app-parity.js"></script>
 </body>
 </html>
