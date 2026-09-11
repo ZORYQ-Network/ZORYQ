@@ -104,8 +104,46 @@ jobs:
           node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/mainnet-config.json --out /tmp/ceremony-b
           cmp /tmp/ceremony-a/genesis.json /tmp/ceremony-b/genesis.json
           cmp /tmp/ceremony-a/genesis.sha256 /tmp/ceremony-b/genesis.sha256
-          jq -e '.secretMaterialAccepted == false and .chainId == 15919065 and .allocations == 2' /tmp/ceremony-a/ceremony.json
+          jq -e '.secretMaterialAccepted == false and .chainId == 15919065 and .allocations == 2 and .allocationTotalWei == "3" and .supplyInvariantVerified == false' /tmp/ceremony-a/ceremony.json
           test "$(jq -r '.alloc | keys[0]' /tmp/ceremony-a/genesis.json)" = "0x1111111111111111111111111111111111111111"
+
+      - name: Enforce production genesis treasury and supply invariants
+        run: |
+          set -euo pipefail
+          cat > /tmp/production-genesis.json <<'JSON'
+          {
+            "network": "ZORYQ Mainnet",
+            "chainId": 15919065,
+            "consensus": "external-engine",
+            "timestamp": "0x1",
+            "treasuryAddress": "0x1111111111111111111111111111111111111111",
+            "expectedAllocTotalWei": "0x3",
+            "allocations": [
+              {"address":"0x1111111111111111111111111111111111111111","balanceWei":"0x1"},
+              {"address":"0x2222222222222222222222222222222222222222","balanceWei":"0x2"}
+            ]
+          }
+          JSON
+          node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/production-genesis.json --out /tmp/production-ceremony
+          jq -e '.network == "ZORYQ Mainnet" and .allocationTotalWei == "3" and .expectedAllocTotalWei == "3" and .supplyInvariantVerified == true and .treasuryAddress == "0x1111111111111111111111111111111111111111"' /tmp/production-ceremony/ceremony.json
+
+          jq '.expectedAllocTotalWei = "0x4"' /tmp/production-genesis.json > /tmp/bad-supply.json
+          if node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/bad-supply.json --out /tmp/bad-supply-out; then
+            echo 'ceremony unexpectedly accepted mismatched production supply' >&2
+            exit 1
+          fi
+
+          jq '.treasuryAddress = "0x3333333333333333333333333333333333333333"' /tmp/production-genesis.json > /tmp/bad-treasury.json
+          if node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/bad-treasury.json --out /tmp/bad-treasury-out; then
+            echo 'ceremony unexpectedly accepted an unallocated production treasury' >&2
+            exit 1
+          fi
+
+          jq 'del(.treasuryAddress)' /tmp/production-genesis.json > /tmp/no-treasury.json
+          if node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/no-treasury.json --out /tmp/no-treasury-out; then
+            echo 'ceremony unexpectedly accepted production genesis without treasuryAddress' >&2
+            exit 1
+          fi
 
       - name: Reject testnet chain id and secret material in mainnet ceremony
         run: |
