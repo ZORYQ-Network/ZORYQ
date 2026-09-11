@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, createPublicKey } from 'node:crypto';
 
 function fail(message, code = 2) {
   console.error(`[zoryq-mainnet] ${message}`);
@@ -20,6 +20,23 @@ function canonical(value) {
   return value;
 }
 function sha(bytes) { return createHash('sha256').update(bytes).digest('hex'); }
+function parseAttestationKey(value, operatorId) {
+  if (typeof value !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(value)) fail(`invalid Ed25519 attestation public key for ${operatorId}`);
+  try {
+    const der = Buffer.from(value, 'base64');
+    if (!der.length || der.toString('base64') !== value) fail(`invalid Ed25519 attestation public key for ${operatorId}`);
+    const key = createPublicKey({ key: der, format: 'der', type: 'spki' });
+    if (key.asymmetricKeyType !== 'ed25519') fail(`attestation public key must be Ed25519 for ${operatorId}`);
+    const canonicalDer = key.export({ format: 'der', type: 'spki' });
+    return {
+      attestationPublicKeySpkiBase64: canonicalDer.toString('base64'),
+      attestationKeyFingerprintSha256: sha(canonicalDer)
+    };
+  } catch (error) {
+    if (error?.code === 2) throw error;
+    fail(`invalid Ed25519 attestation public key for ${operatorId}`);
+  }
+}
 
 const input = args(process.argv);
 if (!input.config || !input.out) fail('usage: node validator-registry.mjs --config <file> --out <directory>');
@@ -40,6 +57,7 @@ if (validators.length < minimumValidators) fail(`at least ${minimumValidators} v
 
 const operatorIds = new Set();
 const publicKeys = new Set();
+const attestationKeys = new Set();
 const endpointKeys = new Set();
 const regions = new Set();
 const normalized = [];
@@ -60,21 +78,25 @@ for (const item of validators) {
   if (!Number.isSafeInteger(p2pPort) || p2pPort < 1024 || p2pPort > 65535) fail(`invalid p2pPort for ${operatorId}`);
   const endpointKey = `${p2pHost}:${p2pPort}`;
   if (endpointKeys.has(endpointKey)) fail(`duplicate P2P endpoint: ${endpointKey}`);
+  const attestation = parseAttestationKey(item?.attestationPublicKeySpkiBase64, operatorId);
+  if (attestationKeys.has(attestation.attestationKeyFingerprintSha256)) fail(`duplicate attestation public key for ${operatorId}`);
   operatorIds.add(operatorId.toLowerCase());
   publicKeys.add(consensusPublicKey);
+  attestationKeys.add(attestation.attestationKeyFingerprintSha256);
   endpointKeys.add(endpointKey);
   regions.add(region);
-  normalized.push({ operatorId, consensusPublicKey, withdrawalAddress, region, p2pHost, p2pPort });
+  normalized.push({ operatorId, consensusPublicKey, withdrawalAddress, region, p2pHost, p2pPort, ...attestation });
 }
 if (regions.size < minimumRegions) fail(`validator registry requires at least ${minimumRegions} distinct regions`);
 normalized.sort((a, b) => a.operatorId.toLowerCase().localeCompare(b.operatorId.toLowerCase()));
 const registry = canonical({
-  formatVersion: 1,
+  formatVersion: 2,
   network: 'ZORYQ Mainnet',
   minimumValidators,
   minimumRegions,
   validatorCount: normalized.length,
   regionCount: regions.size,
+  attestationKeyCount: attestationKeys.size,
   validators: normalized,
   containsPrivateKeyMaterial: false
 });
@@ -84,4 +106,4 @@ const outDir = path.resolve(input.out);
 fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'validator-registry.json'), serialized, { mode: 0o644 });
 fs.writeFileSync(path.join(outDir, 'validator-registry.sha256'), `${digest}  validator-registry.json\n`, { mode: 0o644 });
-console.log(JSON.stringify({ ok: true, validatorCount: normalized.length, regionCount: regions.size, validatorRegistrySha256: digest, privateKeysAccepted: false }, null, 2));
+console.log(JSON.stringify({ ok: true, validatorCount: normalized.length, regionCount: regions.size, attestationKeyCount: attestationKeys.size, validatorRegistrySha256: digest, privateKeysAccepted: false }, null, 2));
