@@ -21,6 +21,7 @@ const REQUIRED_REHEARSAL_PHASES = [
   'network-partition-injected','partition-healed','node-restart-injected','node-rejoined','state-root-converged',
   'rpc-protection-verified','debug-publicly-inaccessible'
 ];
+const REQUIRED_FAULT_TESTS = ['producer-loss','network-partition-recovery','node-restart-recovery'];
 
 function sha256(file) {
   return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -47,9 +48,10 @@ function writeEvidence(name, full, observedAt) {
       operatorCount: 4,
       regionCount: 3,
       commonFinalizedCheckpoint: { height: 1000, hash: `0x${'a'.repeat(64)}` },
+      faultTestsRequired: REQUIRED_FAULT_TESTS,
       blockers: [],
       evidenceSha256: 'c'.repeat(64),
-      rule: 'zoryq-mainnet-multi-operator-evidence-v1'
+      rule: 'zoryq-mainnet-multi-operator-evidence-v2'
     };
   } else if (name === 'launch-rehearsal') {
     body = {
@@ -127,6 +129,18 @@ try {
   assert(good.status === 0 && good.body.ready === true, `valid dossier rejected: ${JSON.stringify(good.body)}`);
   assert(good.body.verifiedControls?.length === CONTROLS.length, 'not all evidence controls were verified');
 
+  const consensusPath = path.join(dir, dossier.controls['consensus-multivalidator'].evidencePath);
+  const legacyConsensus = JSON.parse(fs.readFileSync(consensusPath, 'utf8'));
+  legacyConsensus.rule = 'zoryq-mainnet-multi-operator-evidence-v1';
+  fs.writeFileSync(consensusPath, JSON.stringify(legacyConsensus) + '\n');
+  dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
+  fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
+  const legacyRule = run(input);
+  assert(legacyRule.status === 82, `legacy consensus rule exit=${legacyRule.status}`);
+  assert(legacyRule.body.blockers?.includes('consensus_evidence_rule_invalid'), 'legacy v1 consensus evidence was not rejected');
+  writeEvidence('consensus-multivalidator', consensusPath, dossier.controls['consensus-multivalidator'].observedAt);
+  dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
+
   const rehearsalPath = path.join(dir, dossier.controls['launch-rehearsal'].evidencePath);
   const weakRehearsal = JSON.parse(fs.readFileSync(rehearsalPath, 'utf8'));
   weakRehearsal.status = 'LAUNCH_REHEARSAL_EVIDENCE_REJECTED';
@@ -151,7 +165,6 @@ try {
   writeEvidence('release-governance', governancePath, dossier.controls['release-governance'].observedAt);
   dossier.controls['release-governance'].evidenceSha256 = sha256(governancePath);
 
-  const consensusPath = path.join(dir, dossier.controls['consensus-multivalidator'].evidencePath);
   const weakConsensus = JSON.parse(fs.readFileSync(consensusPath, 'utf8'));
   weakConsensus.operatorCount = 3;
   fs.writeFileSync(consensusPath, JSON.stringify(weakConsensus) + '\n');
@@ -185,7 +198,7 @@ try {
   assert(concentration.status === 82, `operator concentration exit=${concentration.status}`);
   assert(concentration.body.blockers?.includes('validator_operator_count_below_policy'), 'validator operator concentration was not rejected');
 
-  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','semantic-rehearsal-rejection','semantic-governance-rejection','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
+  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','legacy-consensus-v1-rejection','semantic-rehearsal-rejection','semantic-governance-rejection','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
