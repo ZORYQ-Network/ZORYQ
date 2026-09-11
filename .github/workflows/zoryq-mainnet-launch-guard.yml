@@ -11,6 +11,7 @@ on:
       - 'zoryq-evm-node/server.mjs'
       - 'zoryq-evm-node/prepare-reth-genesis.mjs'
       - 'zoryq-evm-node/zoryq-reth-genesis.json'
+      - 'zoryq-mainnet/**'
       - '.github/workflows/zoryq-mainnet-launch-guard.yml'
   pull_request:
     paths:
@@ -21,6 +22,7 @@ on:
       - 'zoryq-evm-node/server.mjs'
       - 'zoryq-evm-node/prepare-reth-genesis.mjs'
       - 'zoryq-evm-node/zoryq-reth-genesis.json'
+      - 'zoryq-mainnet/**'
       - '.github/workflows/zoryq-mainnet-launch-guard.yml'
   workflow_dispatch:
 
@@ -79,3 +81,46 @@ jobs:
           grep -F "debug_" zoryq-evm-node/server.mjs
           grep -F "BLOCKED_PREFIXES" zoryq-evm-node/server.mjs
           grep -F "Administrative or node-managed signing RPC method disabled" zoryq-evm-node/server.mjs
+
+      - name: Generate deterministic secret-free genesis artifact
+        run: |
+          set -euo pipefail
+          cat > /tmp/mainnet-config.json <<'JSON'
+          {
+            "network": "ZORYQ Mainnet Ceremony Test",
+            "chainId": 15919065,
+            "consensus": "external-engine",
+            "timestamp": "0x1",
+            "gasLimit": "0x1c9c380",
+            "baseFeePerGas": "0x3b9aca00",
+            "extraData": "0x",
+            "allocations": [
+              {"address":"0x2222222222222222222222222222222222222222","balanceWei":"0x2"},
+              {"address":"0x1111111111111111111111111111111111111111","balanceWei":"0x1"}
+            ]
+          }
+          JSON
+          node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/mainnet-config.json --out /tmp/ceremony-a
+          node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/mainnet-config.json --out /tmp/ceremony-b
+          cmp /tmp/ceremony-a/genesis.json /tmp/ceremony-b/genesis.json
+          cmp /tmp/ceremony-a/genesis.sha256 /tmp/ceremony-b/genesis.sha256
+          jq -e '.secretMaterialAccepted == false and .chainId == 15919065 and .allocations == 2' /tmp/ceremony-a/ceremony.json
+          test "$(jq -r '.alloc | keys[0]' /tmp/ceremony-a/genesis.json)" = "0x1111111111111111111111111111111111111111"
+
+      - name: Reject testnet chain id and secret material in mainnet ceremony
+        run: |
+          set -euo pipefail
+          cat > /tmp/reused-testnet.json <<'JSON'
+          {"network":"bad","chainId":5919065,"consensus":"external-engine","timestamp":"0x1","allocations":[]}
+          JSON
+          if node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/reused-testnet.json --out /tmp/reused; then
+            echo 'ceremony unexpectedly accepted the testnet chain id' >&2
+            exit 1
+          fi
+          cat > /tmp/secret-config.json <<'JSON'
+          {"network":"bad","chainId":15919065,"consensus":"external-engine","timestamp":"0x1","mnemonic":"never accept this","allocations":[]}
+          JSON
+          if node zoryq-mainnet/genesis-ceremony.mjs --config /tmp/secret-config.json --out /tmp/secret; then
+            echo 'ceremony unexpectedly accepted secret material' >&2
+            exit 1
+          fi
