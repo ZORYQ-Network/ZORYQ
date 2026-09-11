@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
+    "@supabase/supabase-js": "2.116.0",
     "ethers": "^6.17.0",
     "expo": "^54.0.0",
     "expo-clipboard": "~8.0.7",
