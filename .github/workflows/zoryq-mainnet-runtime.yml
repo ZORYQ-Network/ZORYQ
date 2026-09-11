@@ -36,17 +36,24 @@ jobs:
           fi
           grep -F -- '--http.api eth,net,web3' zoryq-mainnet/entrypoint.sh
           grep -F -- '--authrpc.jwtsecret' zoryq-mainnet/entrypoint.sh
+          grep -F -- '--p2p-secret-key' zoryq-mainnet/entrypoint.sh
+          grep -F -- '--bootnodes' zoryq-mainnet/entrypoint.sh
+          grep -F -- '--peers-file' zoryq-mainnet/entrypoint.sh
+          grep -F -- 'at least two bootnodes are required' zoryq-mainnet/entrypoint.sh
 
       - name: Build isolated mainnet execution image
         run: docker build -f zoryq-mainnet/Dockerfile -t zoryq-mainnet-preflight .
 
-      - name: Verify pinned Reth supports authenticated Engine API
+      - name: Verify pinned Reth supports authenticated Engine API and P2P controls
         run: |
           set -euo pipefail
           docker run --rm --entrypoint reth zoryq-mainnet-preflight node --help > /tmp/reth-help.txt
           grep -F -- '--authrpc.jwtsecret' /tmp/reth-help.txt
           grep -F -- '--authrpc.addr' /tmp/reth-help.txt
           grep -F -- '--http.api' /tmp/reth-help.txt
+          grep -F -- '--p2p-secret-key' /tmp/reth-help.txt
+          grep -F -- '--bootnodes' /tmp/reth-help.txt
+          grep -F -- '--peers-file' /tmp/reth-help.txt
 
       - name: Generate ephemeral preflight evidence
         run: |
