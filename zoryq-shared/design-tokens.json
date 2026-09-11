@@ -1,0 +1,43 @@
+{
+  "schema": "zoryq-design-tokens-v2",
+  "brand": "ZORYQ",
+  "mode": "dark-vivid",
+  "colors": {
+    "background": "#050609",
+    "backgroundRaised": "#0B0D14",
+    "surface": "#10131D",
+    "surfaceGlass": "rgba(16,19,29,0.78)",
+    "border": "rgba(255,255,255,0.10)",
+    "text": "#F3F0EB",
+    "muted": "#A8A2B3",
+    "lime": "#DAFF02",
+    "orange": "#FE572A",
+    "violet": "#685BC7",
+    "magenta": "#F30EBB",
+    "cyan": "#00B0FF",
+    "green": "#25D366",
+    "greenDark": "#075E54",
+    "greenMid": "#128C7E",
+    "black": "#201E1F"
+  },
+  "gradients": {
+    "primary": "linear-gradient(135deg,#685BC7 0%,#F30EBB 48%,#FE572A 100%)",
+    "electric": "linear-gradient(135deg,#00B0FF 0%,#685BC7 52%,#F30EBB 100%)",
+    "success": "linear-gradient(135deg,#075E54 0%,#128C7E 48%,#25D366 100%)",
+    "impact": "linear-gradient(135deg,#DAFF02 0%,#25D366 48%,#00B0FF 100%)"
+  },
+  "radius": {"sm": 10, "md": 16, "lg": 22, "xl": 30},
+  "effects": {
+    "glassBlur": 22,
+    "glowPrimary": "0 0 42px rgba(243,14,187,0.18)",
+    "glowCyan": "0 0 42px rgba(0,176,255,0.16)",
+    "shadow": "0 24px 80px rgba(0,0,0,0.42)"
+  },
+  "rules": {
+    "publicBrandSpelling": "ZORYQ",
+    "forbidPublicAliases": ["ZORIQ", "KYVO", "KYVRA", "KYVORA"],
+    "statusSuccessColor": "#25D366",
+    "statusWarningColor": "#DAFF02",
+    "statusDangerColor": "#FE572A"
+  }
+}
