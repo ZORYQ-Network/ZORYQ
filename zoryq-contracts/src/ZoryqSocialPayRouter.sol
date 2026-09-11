@@ -19,7 +19,7 @@ contract ZoryqSocialPayRouter {
         uint256 grossAmount,
         uint256 recipientAmount,
         uint256 protocolFee,
-        bytes32 reference
+        bytes32 paymentRef
     );
     event TreasuryUpdated(address indexed treasury);
     event FeeUpdated(uint16 feeBps);
@@ -60,7 +60,7 @@ contract ZoryqSocialPayRouter {
     }
 
     /// @notice Pay with the native coin of the current EVM network (ETH, ZQ, POL, AVAX, etc.).
-    function payNative(address payable recipient, bytes32 reference) external payable nonReentrant {
+    function payNative(address payable recipient, bytes32 paymentRef) external payable nonReentrant {
         if (recipient == address(0)) revert InvalidAddress();
         if (msg.value == 0) revert InvalidAmount();
         (uint256 net, uint256 fee) = quote(msg.value);
@@ -72,11 +72,11 @@ contract ZoryqSocialPayRouter {
         (bool recipientOk,) = recipient.call{value: net}("");
         if (!recipientOk) revert TransferFailed();
 
-        emit SocialPayment(msg.sender, recipient, address(0), msg.value, net, fee, reference);
+        emit SocialPayment(msg.sender, recipient, address(0), msg.value, net, fee, paymentRef);
     }
 
     /// @notice Pay with an ERC-20 token after approving this router for `amount`.
-    function payToken(address token, address recipient, uint256 amount, bytes32 reference) external nonReentrant {
+    function payToken(address token, address recipient, uint256 amount, bytes32 paymentRef) external nonReentrant {
         if (token == address(0) || recipient == address(0)) revert InvalidAddress();
         if (amount == 0) revert InvalidAmount();
         (uint256 net, uint256 fee) = quote(amount);
@@ -84,7 +84,7 @@ contract ZoryqSocialPayRouter {
         _safeTransferFrom(token, msg.sender, recipient, net);
         if (fee != 0) _safeTransferFrom(token, msg.sender, treasury, fee);
 
-        emit SocialPayment(msg.sender, recipient, token, amount, net, fee, reference);
+        emit SocialPayment(msg.sender, recipient, token, amount, net, fee, paymentRef);
     }
 
     function setTreasury(address payable nextTreasury) external onlyOwner {
