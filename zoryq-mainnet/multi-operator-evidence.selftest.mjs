@@ -19,12 +19,14 @@ function canonicalize(value) {
   return ordered;
 }
 function canonicalJson(value) { return JSON.stringify(canonicalize(value)); }
+function publicKeyDer(keyPair) { return keyPair.publicKey.export({ format: 'der', type: 'spki' }); }
 function attestationStatement(evidence, node) {
   return canonicalJson({
-    domain: 'zoryq-mainnet-multi-operator-node-attestation-v1',
+    domain: 'zoryq-mainnet-multi-operator-node-attestation-v2-registry-bound',
     network: evidence.network,
     chainId: evidence.chainId,
     genesisSha256: evidence.genesisSha256,
+    validatorRegistrySha256: evidence.validatorRegistrySha256,
     consensusEngine: evidence.consensusEngine,
     operatorId: node.operatorId,
     region: node.region,
@@ -42,10 +44,34 @@ function attestationStatement(evidence, node) {
 function signNode(evidence, node, keyPair) {
   node.operatorAttestation = {
     algorithm: 'ed25519',
-    publicKeySpkiBase64: keyPair.publicKey.export({ format: 'der', type: 'spki' }).toString('base64'),
+    publicKeySpkiBase64: publicKeyDer(keyPair).toString('base64'),
     signatureBase64: sign(null, Buffer.from(attestationStatement(evidence, node)), keyPair.privateKey).toString('base64')
   };
 }
+function buildRegistry(nodes, keyPairs) {
+  const validators = nodes.map((node, i) => ({
+    operatorId: node.operatorId,
+    consensusPublicKey: `0x${String(i + 1).padStart(2, '0').repeat(48)}`,
+    withdrawalAddress: `0x${String(i + 1).padStart(2, '0').repeat(20)}`,
+    region: node.region,
+    p2pHost: `validator-${i + 1}.example.net`,
+    p2pPort: 30304 + i,
+    attestationPublicKeySpkiBase64: publicKeyDer(keyPairs[i]).toString('base64'),
+    attestationKeyFingerprintSha256: hash(publicKeyDer(keyPairs[i]))
+  }));
+  return canonicalize({
+    formatVersion: 2,
+    network: 'ZORYQ Mainnet',
+    minimumValidators: 4,
+    minimumRegions: 3,
+    validatorCount: validators.length,
+    regionCount: new Set(validators.map((item) => item.region)).size,
+    attestationKeyCount: validators.length,
+    validators,
+    containsPrivateKeyMaterial: false
+  });
+}
+function registryText(registry) { return `${JSON.stringify(registry, null, 2)}\n`; }
 
 function fixture() {
   const nodes = Array.from({ length: 4 }, (_, i) => ({
@@ -63,6 +89,8 @@ function fixture() {
     observedAt: now,
     checkpointHashes: { '1000': checkpointHash }
   }));
+  const keyPairs = nodes.map(() => generateKeyPairSync('ed25519'));
+  const registry = buildRegistry(nodes, keyPairs);
   const evidence = {
     network: 'ZORYQ Mainnet',
     productionEvidence: true,
@@ -70,6 +98,7 @@ function fixture() {
     fixtureOnly: false,
     chainId: 881122,
     genesisSha256: genesis,
+    validatorRegistrySha256: hash(registryText(registry)),
     consensusEngine: 'zoryq-bft-rehearsal',
     observedAt: now,
     commonFinalizedCheckpoint: { height: 1000, hash: checkpointHash },
@@ -80,15 +109,16 @@ function fixture() {
       { name: 'node-restart-recovery', status: 'pass', evidenceSha256: hash('restart'), recoverySeconds: 53 }
     ]
   };
-  const keyPairs = nodes.map(() => generateKeyPairSync('ed25519'));
   nodes.forEach((node, i) => signNode(evidence, node, keyPairs[i]));
-  return { evidence, keyPairs };
+  return { evidence, keyPairs, registry };
 }
 
-function run(name, evidence, shouldPass, expectedBlocker = null) {
-  const file = path.join(temp, `${name}.json`);
-  fs.writeFileSync(file, `${JSON.stringify(evidence, null, 2)}\n`);
-  const result = spawnSync(process.execPath, [gate, '--input', file], { encoding: 'utf8' });
+function run(name, evidence, registry, shouldPass, expectedBlocker = null) {
+  const evidenceFile = path.join(temp, `${name}.json`);
+  const registryFile = path.join(temp, `${name}.registry.json`);
+  fs.writeFileSync(evidenceFile, `${JSON.stringify(evidence, null, 2)}\n`);
+  fs.writeFileSync(registryFile, registryText(registry));
+  const result = spawnSync(process.execPath, [gate, '--input', evidenceFile, '--registry', registryFile], { encoding: 'utf8' });
   let report;
   try { report = JSON.parse(result.stdout); } catch { throw new Error(`${name}: invalid gate output: ${result.stdout}\n${result.stderr}`); }
   if (shouldPass && (result.status !== 0 || report.pass !== true)) throw new Error(`${name}: expected pass, got ${result.status}: ${result.stdout}`);
@@ -99,16 +129,16 @@ function run(name, evidence, shouldPass, expectedBlocker = null) {
 }
 
 try {
-  const { evidence: baseline } = fixture();
-  const baselineReport = run('valid-signed-operators', baseline, true);
-  if (baselineReport.operatorAttestationKeyCount !== 4) throw new Error('expected four independent operator attestation keys');
-
-  const { evidence: nestedMutation } = fixture();
-  nestedMutation.faultTests[0].evidenceSha256 = hash('producer-loss-mutated');
-  const nestedMutationReport = run('nested-digest-mutation', nestedMutation, true);
-  if (nestedMutationReport.evidenceSha256 === baselineReport.evidenceSha256) {
-    throw new Error('nested evidence mutation did not change evidenceSha256');
+  const { evidence: baseline, registry: baselineRegistry } = fixture();
+  const baselineReport = run('valid-registry-bound-signed-operators', baseline, baselineRegistry, true);
+  if (baselineReport.operatorAttestationKeyCount !== 4 || baselineReport.authorizedRegistryOperatorCount !== 4) {
+    throw new Error('expected four independent, registry-authorized operator attestation keys');
   }
+
+  const { evidence: nestedMutation, registry: nestedRegistry } = fixture();
+  nestedMutation.faultTests[0].evidenceSha256 = hash('producer-loss-mutated');
+  const nestedMutationReport = run('nested-digest-mutation', nestedMutation, nestedRegistry, true);
+  if (nestedMutationReport.evidenceSha256 === baselineReport.evidenceSha256) throw new Error('nested evidence mutation did not change evidenceSha256');
   process.stdout.write('nested evidence fields are bound into evidenceSha256\n');
 
   const reordered = {
@@ -117,6 +147,7 @@ try {
     commonFinalizedCheckpoint: baseline.commonFinalizedCheckpoint,
     observedAt: baseline.observedAt,
     consensusEngine: baseline.consensusEngine,
+    validatorRegistrySha256: baseline.validatorRegistrySha256,
     genesisSha256: baseline.genesisSha256,
     chainId: baseline.chainId,
     fixtureOnly: baseline.fixtureOnly,
@@ -124,48 +155,65 @@ try {
     productionEvidence: baseline.productionEvidence,
     network: baseline.network
   };
-  const reorderedReport = run('canonical-key-order', reordered, true);
-  if (reorderedReport.evidenceSha256 !== baselineReport.evidenceSha256) {
-    throw new Error('canonical digest changed after top-level key reordering');
-  }
+  const reorderedReport = run('canonical-key-order', reordered, baselineRegistry, true);
+  if (reorderedReport.evidenceSha256 !== baselineReport.evidenceSha256) throw new Error('canonical digest changed after top-level key reordering');
   process.stdout.write('evidenceSha256 is stable across object key ordering\n');
 
-  const { evidence: unsigned } = fixture();
+  const { evidence: unsigned, registry: unsignedRegistry } = fixture();
   delete unsigned.nodes[0].operatorAttestation;
-  run('unsigned-operator', unsigned, false, 'operator_attestation_missing_or_algorithm_invalid');
+  run('unsigned-operator', unsigned, unsignedRegistry, false, 'operator_attestation_missing_or_algorithm_invalid');
 
-  const { evidence: tamperedSignedField } = fixture();
+  const { evidence: tamperedSignedField, registry: tamperedRegistry } = fixture();
   tamperedSignedField.nodes[0].hostFingerprint = hash('tampered-host');
-  run('tampered-signed-observation', tamperedSignedField, false, 'operator_attestation_signature_invalid');
+  run('tampered-signed-observation', tamperedSignedField, tamperedRegistry, false, 'operator_attestation_signature_invalid');
 
-  const { evidence: duplicateKey, keyPairs: duplicateKeyPairs } = fixture();
+  const { evidence: duplicateKey, keyPairs: duplicateKeyPairs, registry: duplicateRegistry } = fixture();
   signNode(duplicateKey, duplicateKey.nodes[3], duplicateKeyPairs[0]);
-  run('operator-key-reuse', duplicateKey, false, 'duplicate_operator_attestation_key');
+  run('operator-key-reuse', duplicateKey, duplicateRegistry, false, 'duplicate_operator_attestation_key');
 
-  const { evidence: reusedTestnet, keyPairs: reusedKeys } = fixture();
+  const { evidence: unauthorizedKey, keyPairs: unauthorizedKeyPairs, registry: unauthorizedRegistry } = fixture();
+  const rogueKey = generateKeyPairSync('ed25519');
+  signNode(unauthorizedKey, unauthorizedKey.nodes[0], rogueKey);
+  run('operator-key-not-in-registry', unauthorizedKey, unauthorizedRegistry, false, 'operator_attestation_key_not_authorized_by_validator_registry');
+
+  const { evidence: registryMismatch, registry: mismatchedRegistry } = fixture();
+  registryMismatch.validatorRegistrySha256 = hash('wrong-registry');
+  run('registry-hash-mismatch', registryMismatch, mismatchedRegistry, false, 'validator_registry_sha256_mismatch');
+
+  const { evidence: unknownOperator, keyPairs: unknownKeys, registry: unknownRegistry } = fixture();
+  unknownOperator.nodes[0].operatorId = 'operator-rogue';
+  signNode(unknownOperator, unknownOperator.nodes[0], unknownKeys[0]);
+  run('operator-not-registered', unknownOperator, unknownRegistry, false, 'operator_not_authorized_by_validator_registry');
+
+  const { evidence: regionMismatch, keyPairs: regionKeys, registry: regionRegistry } = fixture();
+  regionMismatch.nodes[0].region = 'ap-south';
+  signNode(regionMismatch, regionMismatch.nodes[0], regionKeys[0]);
+  run('region-registry-mismatch', regionMismatch, regionRegistry, false, 'region_mismatch_with_validator_registry');
+
+  const { evidence: reusedTestnet, keyPairs: reusedKeys, registry: reusedRegistry } = fixture();
   reusedTestnet.chainId = 5919065;
   reusedTestnet.nodes.forEach((node, i) => { node.chainId = 5919065; signNode(reusedTestnet, node, reusedKeys[i]); });
-  run('testnet-chain-id', reusedTestnet, false, 'chain_id_reuses_testnet');
+  run('testnet-chain-id', reusedTestnet, reusedRegistry, false, 'chain_id_reuses_testnet');
 
-  const { evidence: duplicateOperator } = fixture();
+  const { evidence: duplicateOperator, registry: duplicateOperatorRegistry } = fixture();
   duplicateOperator.nodes[3].operatorId = duplicateOperator.nodes[0].operatorId;
-  run('operator-concentration', duplicateOperator, false, 'minimum_four_independent_operators_required');
+  run('operator-concentration', duplicateOperator, duplicateOperatorRegistry, false, 'minimum_four_independent_operators_required');
 
-  const { evidence: duplicateHost } = fixture();
+  const { evidence: duplicateHost, registry: duplicateHostRegistry } = fixture();
   duplicateHost.nodes[3].hostFingerprint = duplicateHost.nodes[0].hostFingerprint;
-  run('host-reuse', duplicateHost, false, 'duplicate_host_fingerprint');
+  run('host-reuse', duplicateHost, duplicateHostRegistry, false, 'duplicate_host_fingerprint');
 
-  const { evidence: debugExposed } = fixture();
+  const { evidence: debugExposed, registry: debugRegistry } = fixture();
   debugExposed.nodes[2].publicDebugEnabled = true;
-  run('public-debug', debugExposed, false, 'public_debug_must_be_false');
+  run('public-debug', debugExposed, debugRegistry, false, 'public_debug_must_be_false');
 
-  const { evidence: divergentCheckpoint } = fixture();
+  const { evidence: divergentCheckpoint, registry: divergentRegistry } = fixture();
   divergentCheckpoint.nodes[1].checkpointHashes['1000'] = `0x${'cd'.repeat(32)}`;
-  run('checkpoint-divergence', divergentCheckpoint, false, 'common_checkpoint_hash_mismatch');
+  run('checkpoint-divergence', divergentCheckpoint, divergentRegistry, false, 'common_checkpoint_hash_mismatch');
 
-  const { evidence: weakFaultEvidence } = fixture();
+  const { evidence: weakFaultEvidence, registry: weakFaultRegistry } = fixture();
   weakFaultEvidence.faultTests[1].status = 'fail';
-  run('fault-test-failure', weakFaultEvidence, false, 'fault_test_not_passed:network-partition-recovery');
+  run('fault-test-failure', weakFaultEvidence, weakFaultRegistry, false, 'fault_test_not_passed:network-partition-recovery');
 
   process.stdout.write('multi-operator evidence adversarial self-test: PASS\n');
 } finally {
