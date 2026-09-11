@@ -19,9 +19,12 @@ on:
       - 'zoryq-mobile/index.js'
       - 'zoryq-mobile/package.json'
       - 'database/migrations/*zoriq_social*.sql'
+      - 'database/migrations/*zoriq_verified*.sql'
+      - 'supabase/functions/zoriq-verified-payment/**'
       - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
       - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-verified.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   push:
     branches:
@@ -43,9 +46,12 @@ on:
       - 'zoryq-mobile/index.js'
       - 'zoryq-mobile/package.json'
       - 'database/migrations/*zoriq_social*.sql'
+      - 'database/migrations/*zoriq_verified*.sql'
+      - 'supabase/functions/zoriq-verified-payment/**'
       - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
       - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-verified.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   workflow_dispatch:
 
@@ -70,3 +76,5 @@ jobs:
           node --check zoryq-web/zoriq-social-sync.js
       - name: Validate ZORIQ Social deployment package
         run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs
+      - name: Validate ZORIQ Verified annual ETH package
+        run: node zoryq-developer/scripts/check-zoriq-verified.mjs
