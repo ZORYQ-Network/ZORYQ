@@ -2,13 +2,26 @@
   "expo": {
     "name": "ZORIQ",
     "slug": "zoryq-wallet",
-    "version": "0.2.0",
+    "scheme": "zoriq",
+    "version": "0.3.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/zoryq-icon.png",
+    "ios": {
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "metamask",
+          "trust",
+          "safe",
+          "rainbow",
+          "uniswap",
+          "zerion"
+        ]
+      }
+    },
     "android": {
       "package": "com.zoryq.wallet",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./assets/zoryq-icon.png",
@@ -17,6 +30,7 @@
     },
     "plugins": [
       "expo-secure-store",
+      "./queries.js",
       [
         "expo-local-authentication",
         {
