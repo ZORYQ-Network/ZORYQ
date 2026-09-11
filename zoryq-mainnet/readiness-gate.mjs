@@ -14,6 +14,7 @@ const REQUIRED_CONTROLS = Object.freeze([
   'independent-security-audit',
   'contract-security',
   'recovery-drill',
+  'launch-rehearsal',
   'incident-response',
   'observability-alerting',
   'rpc-abuse-protection',
@@ -71,6 +72,23 @@ function validateConsensusEvidence(file, expectedChainId, blockers) {
   if (!Number.isSafeInteger(evidence.operatorCount) || evidence.operatorCount < 4) blockers.push('consensus_evidence_operator_count_below_policy');
   if (!Number.isSafeInteger(evidence.regionCount) || evidence.regionCount < 3) blockers.push('consensus_evidence_region_count_below_policy');
   if (Array.isArray(evidence.blockers) && evidence.blockers.length) blockers.push('consensus_evidence_contains_blockers');
+}
+function validateLaunchRehearsalEvidence(file, expectedChainId, blockers) {
+  let evidence;
+  try { evidence = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
+    blockers.push('launch_rehearsal_evidence_invalid_json');
+    return;
+  }
+  if (evidence.rule !== 'zoryq-mainnet-launch-rehearsal-evidence-v1') blockers.push('launch_rehearsal_rule_invalid');
+  if (evidence.pass !== true || evidence.status !== 'LAUNCH_REHEARSAL_EVIDENCE_ACCEPTED') blockers.push('launch_rehearsal_not_accepted');
+  if (evidence.network !== 'ZORYQ Mainnet') blockers.push('launch_rehearsal_network_invalid');
+  if (Number(evidence.chainId) !== expectedChainId) blockers.push('launch_rehearsal_chain_id_mismatch');
+  if (!Number.isSafeInteger(evidence.nodeCount) || evidence.nodeCount < 4) blockers.push('launch_rehearsal_node_count_below_policy');
+  if (!Number.isSafeInteger(evidence.operatorCount) || evidence.operatorCount < 4) blockers.push('launch_rehearsal_operator_count_below_policy');
+  if (!Number.isSafeInteger(evidence.regionCount) || evidence.regionCount < 3) blockers.push('launch_rehearsal_region_count_below_policy');
+  if (!Number.isSafeInteger(evidence.phaseCount) || evidence.phaseCount < 12) blockers.push('launch_rehearsal_phase_count_below_policy');
+  if (!Array.isArray(evidence.requiredPhases) || evidence.requiredPhases.length < 12) blockers.push('launch_rehearsal_required_phases_incomplete');
+  if (Array.isArray(evidence.blockers) && evidence.blockers.length) blockers.push('launch_rehearsal_contains_blockers');
 }
 function validateGovernanceEvidence(file, expectedCommit, blockers) {
   let evidence;
@@ -145,6 +163,7 @@ for (const name of REQUIRED_CONTROLS) {
       } else {
         verifiedEvidence[name] = { path: evidencePath, sha256: actual };
         if (name === 'consensus-multivalidator') validateConsensusEvidence(resolved, chainId, blockers);
+        if (name === 'launch-rehearsal') validateLaunchRehearsalEvidence(resolved, chainId, blockers);
         if (name === 'release-governance') validateGovernanceEvidence(resolved, dossier.releaseCommit, blockers);
       }
     }
@@ -174,7 +193,7 @@ const report = {
   verifiedControls: Object.keys(verifiedEvidence).sort(),
   verifiedEvidence,
   blockers,
-  rule: 'zoryq-mainnet-readiness-v4-semantic-governance'
+  rule: 'zoryq-mainnet-readiness-v5-rehearsal-bound'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
