@@ -8,7 +8,9 @@ const FEE_BPS=Math.max(0,Math.min(100,Number(process.env.ZORYQ_WALLET_SWAP_FEE_B
 const ZEROX_URL='https://api.0x.org/swap/allowance-holder/quote';
 const ADDRESS=/^0x[0-9a-fA-F]{40}$/;
 const NATIVE='0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
-const SUPPORTED=new Set([1,10,56,137,8453,42161,43114,59144,42220,81457]);
+// Current 0x EVM Swap API matrix. Keep this synchronized with the provider's
+// supported-chains documentation; wallet network support is intentionally broader.
+const SUPPORTED=new Set([1,2741,42161,43114,8453,80094,56,999,57073,59144,5000,143,9745,10,137,4663,534352,146,4217,130,480]);
 
 function send(res,status,body){res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','access-control-allow-origin':'*','access-control-allow-headers':'content-type','access-control-allow-methods':'GET,POST,OPTIONS'});res.end(JSON.stringify(body));}
 function validToken(v){return v===NATIVE||ADDRESS.test(v)}
