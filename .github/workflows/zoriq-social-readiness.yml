@@ -3,18 +3,24 @@ name: ZORIQ Social Readiness
 on:
   pull_request:
     paths:
-      - 'zoryq-web/zoriq-social.html'
+      - 'zoryq-web/zoriq-social-v2.html'
+      - 'zoryq-web/zoriq-social-v2.css'
+      - 'zoryq-web/zoriq-social-v2.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
+      - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   push:
     branches:
-      - zoryq-evm-testnet-node
+      - zoryq-p0-social-financial
     paths:
-      - 'zoryq-web/zoriq-social.html'
+      - 'zoryq-web/zoriq-social-v2.html'
+      - 'zoryq-web/zoriq-social-v2.css'
+      - 'zoryq-web/zoriq-social-v2.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
+      - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   workflow_dispatch:
