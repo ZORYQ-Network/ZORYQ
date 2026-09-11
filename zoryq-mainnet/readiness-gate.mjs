@@ -57,6 +57,21 @@ function containsSecretKey(value, currentPath = '') {
   }
   return null;
 }
+function validateConsensusEvidence(file, expectedChainId, blockers) {
+  let evidence;
+  try { evidence = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
+    blockers.push('consensus_evidence_invalid_json');
+    return;
+  }
+  if (evidence.rule !== 'zoryq-mainnet-multi-operator-evidence-v1') blockers.push('consensus_evidence_rule_invalid');
+  if (evidence.pass !== true || evidence.status !== 'MULTI_OPERATOR_CONVERGENCE_EVIDENCE_ACCEPTED') blockers.push('consensus_evidence_not_accepted');
+  if (evidence.network !== 'ZORYQ Mainnet') blockers.push('consensus_evidence_network_invalid');
+  if (Number(evidence.chainId) !== expectedChainId) blockers.push('consensus_evidence_chain_id_mismatch');
+  if (!Number.isSafeInteger(evidence.nodeCount) || evidence.nodeCount < 4) blockers.push('consensus_evidence_node_count_below_policy');
+  if (!Number.isSafeInteger(evidence.operatorCount) || evidence.operatorCount < 4) blockers.push('consensus_evidence_operator_count_below_policy');
+  if (!Number.isSafeInteger(evidence.regionCount) || evidence.regionCount < 3) blockers.push('consensus_evidence_region_count_below_policy');
+  if (Array.isArray(evidence.blockers) && evidence.blockers.length) blockers.push('consensus_evidence_contains_blockers');
+}
 
 const args = parseArgs(process.argv);
 if (!args.input) fail('usage: node readiness-gate.mjs --input <readiness.json>');
@@ -116,6 +131,7 @@ for (const name of REQUIRED_CONTROLS) {
         blockers.push(`control_evidence_hash_mismatch:${name}`);
       } else {
         verifiedEvidence[name] = { path: evidencePath, sha256: actual };
+        if (name === 'consensus-multivalidator') validateConsensusEvidence(resolved, chainId, blockers);
       }
     }
   }
@@ -144,7 +160,7 @@ const report = {
   verifiedControls: Object.keys(verifiedEvidence).sort(),
   verifiedEvidence,
   blockers,
-  rule: 'zoryq-mainnet-readiness-v2-evidence-backed'
+  rule: 'zoryq-mainnet-readiness-v3-semantic-evidence'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
