@@ -64,13 +64,18 @@ function validateConsensusEvidence(file, expectedChainId, blockers) {
     blockers.push('consensus_evidence_invalid_json');
     return;
   }
-  if (evidence.rule !== 'zoryq-mainnet-multi-operator-evidence-v1') blockers.push('consensus_evidence_rule_invalid');
+  if (evidence.rule !== 'zoryq-mainnet-multi-operator-evidence-v2') blockers.push('consensus_evidence_rule_invalid');
   if (evidence.pass !== true || evidence.status !== 'MULTI_OPERATOR_CONVERGENCE_EVIDENCE_ACCEPTED') blockers.push('consensus_evidence_not_accepted');
   if (evidence.network !== 'ZORYQ Mainnet') blockers.push('consensus_evidence_network_invalid');
   if (Number(evidence.chainId) !== expectedChainId) blockers.push('consensus_evidence_chain_id_mismatch');
   if (!Number.isSafeInteger(evidence.nodeCount) || evidence.nodeCount < 4) blockers.push('consensus_evidence_node_count_below_policy');
   if (!Number.isSafeInteger(evidence.operatorCount) || evidence.operatorCount < 4) blockers.push('consensus_evidence_operator_count_below_policy');
   if (!Number.isSafeInteger(evidence.regionCount) || evidence.regionCount < 3) blockers.push('consensus_evidence_region_count_below_policy');
+  if (!isHex64(evidence.evidenceSha256)) blockers.push('consensus_evidence_digest_invalid');
+  const requiredFaults = new Set(['producer-loss','network-partition-recovery','node-restart-recovery']);
+  if (!Array.isArray(evidence.faultTestsRequired) || evidence.faultTestsRequired.length !== requiredFaults.size || evidence.faultTestsRequired.some((name) => !requiredFaults.has(name))) blockers.push('consensus_evidence_fault_policy_invalid');
+  const checkpoint = evidence.commonFinalizedCheckpoint || {};
+  if (!Number.isSafeInteger(checkpoint.height) || checkpoint.height < 1 || !/^0x[0-9a-f]{64}$/i.test(String(checkpoint.hash || ''))) blockers.push('consensus_evidence_common_checkpoint_invalid');
   if (Array.isArray(evidence.blockers) && evidence.blockers.length) blockers.push('consensus_evidence_contains_blockers');
 }
 function validateLaunchRehearsalEvidence(file, expectedChainId, blockers) {
@@ -193,7 +198,7 @@ const report = {
   verifiedControls: Object.keys(verifiedEvidence).sort(),
   verifiedEvidence,
   blockers,
-  rule: 'zoryq-mainnet-readiness-v5-rehearsal-bound'
+  rule: 'zoryq-mainnet-readiness-v6-multi-operator-v2-bound'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
