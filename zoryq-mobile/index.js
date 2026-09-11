@@ -9,7 +9,7 @@ function Root(){
   return <View style={s.root}>
     <View style={s.switcher}>
       <Pressable onPress={()=>setSurface('social')} style={[s.tab,surface==='social'&&s.active]}><Text style={[s.text,surface==='social'&&s.activeText]}>ZORIQ Social</Text></Pressable>
-      <Pressable onPress={()=>setSurface('wallet')} style={[s.tab,surface==='wallet'&&s.active]}><Text style={[s.text,surface==='wallet'&&s.activeText]}>ZORYQ Wallet</Text></Pressable>
+      <Pressable onPress={()=>setSurface('wallet')} style={[s.tab,surface==='wallet'&&s.active]}><Text style={[s.text,surface==='wallet'&&s.activeText]}>Wallet / Recovery</Text></Pressable>
     </View>
     <View style={s.body}>{surface==='social'?<Social/>:<WalletApp/>}</View>
   </View>
