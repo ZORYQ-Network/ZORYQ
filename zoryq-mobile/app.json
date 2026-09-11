@@ -15,6 +15,14 @@
         "backgroundColor": "#050609"
       }
     },
-    "plugins": ["expo-secure-store"]
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permitir que o ZORIQ use Face ID para desbloquear o aplicativo e proteger o acesso à wallet."
+        }
+      ]
+    ]
   }
 }
