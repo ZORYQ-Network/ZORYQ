@@ -1,0 +1,91 @@
+name: ZORYQ Peer Observability
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 * * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  peer-observability:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
+    steps:
+      - name: Observe live network state
+        id: observe
+        shell: bash
+        run: |
+          set -euo pipefail
+          rpc() {
+            local method="$1"
+            curl -fsS "$BASE/rpc" \
+              -H 'content-type: application/json' \
+              --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":[]}"
+          }
+
+          chain_hex=$(rpc eth_chainId | jq -r '.result')
+          block_hex=$(rpc eth_blockNumber | jq -r '.result')
+          peers_hex=$(rpc net_peerCount | jq -r '.result')
+          client=$(rpc web3_clientVersion | jq -r '.result')
+
+          test "$chain_hex" = '0x5a5159'
+          block_dec=$((16#${block_hex#0x}))
+          peers_dec=$((16#${peers_hex#0x}))
+          observed_at=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+
+          if [ "$peers_dec" -eq 0 ]; then
+            isolated=true
+            maturity='single-node-isolated-testnet'
+          else
+            isolated=false
+            maturity='peered-testnet'
+          fi
+
+          jq -n \
+            --arg observedAt "$observed_at" \
+            --arg chainIdHex "$chain_hex" \
+            --argjson chainId 5919065 \
+            --argjson blockNumber "$block_dec" \
+            --argjson peerCount "$peers_dec" \
+            --arg clientVersion "$client" \
+            --argjson isolated "$isolated" \
+            --arg maturity "$maturity" \
+            '{
+              observedAt: $observedAt,
+              network: "ZORYQ Public Testnet",
+              chainId: $chainId,
+              chainIdHex: $chainIdHex,
+              blockNumber: $blockNumber,
+              peerCount: $peerCount,
+              isolated: $isolated,
+              decentralized: false,
+              multiValidatorConsensus: false,
+              clientVersion: $clientVersion,
+              maturity: $maturity,
+              rule: "zoryq-peer-observability-v1"
+            }' | tee peer-observation.json
+
+          {
+            echo '### ZORYQ live peer observation'
+            echo
+            echo "- Observed: $observed_at"
+            echo '- Chain ID: 5919065'
+            echo "- Block: $block_dec"
+            echo "- Peers: $peers_dec"
+            echo "- Isolated: $isolated"
+            echo "- Maturity: $maturity"
+            echo '- Decentralized: false'
+            echo '- Multi-validator consensus: false'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload immutable observation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-peer-observation-${{ github.run_id }}
+          path: peer-observation.json
+          if-no-files-found: error
+          retention-days: 30
