@@ -64,15 +64,31 @@ function loadRegistry(file) {
   const validators = Array.isArray(registry.validators) ? registry.validators : [];
   if (validators.length < 4) fail('validator_registry_requires_at_least_four_validators');
   const byOperator = new Map();
+  const canonicalAttestationKeys = new Set();
   for (const validator of validators) {
     const operatorId = String(validator?.operatorId || '').trim();
     const fingerprint = String(validator?.attestationKeyFingerprintSha256 || '').toLowerCase();
+    const publicKeySpkiBase64 = validator?.attestationPublicKeySpkiBase64;
     if (!operatorId || !isHex64(fingerprint)) fail('validator_registry_operator_or_attestation_fingerprint_invalid');
+    if (typeof publicKeySpkiBase64 !== 'string' || publicKeySpkiBase64.length < 40) fail(`validator_registry_attestation_key_missing:${operatorId}`);
+    let canonicalDer;
+    try {
+      const publicKey = createPublicKey({ key: Buffer.from(publicKeySpkiBase64, 'base64'), format: 'der', type: 'spki' });
+      if (publicKey.asymmetricKeyType !== 'ed25519') fail(`validator_registry_attestation_key_not_ed25519:${operatorId}`);
+      canonicalDer = publicKey.export({ format: 'der', type: 'spki' });
+    } catch (error) {
+      if (String(error?.message || '').startsWith('validator_registry_')) throw error;
+      fail(`validator_registry_attestation_key_invalid:${operatorId}`);
+    }
+    const computedFingerprint = sha256(canonicalDer);
+    if (computedFingerprint !== fingerprint) fail(`validator_registry_attestation_fingerprint_mismatch:${operatorId}`);
+    if (canonicalAttestationKeys.has(computedFingerprint)) fail(`validator_registry_duplicate_attestation_key:${operatorId}`);
+    canonicalAttestationKeys.add(computedFingerprint);
     const key = operatorId.toLowerCase();
     if (byOperator.has(key)) fail(`validator_registry_duplicate_operator:${operatorId}`);
-    byOperator.set(key, validator);
+    byOperator.set(key, { ...validator, attestationKeyFingerprintSha256: computedFingerprint });
   }
-  return { registry, byOperator, sha256: sha256(raw) };
+  return { registry, byOperator, sha256: sha256(raw), attestationKeyCount: canonicalAttestationKeys.size };
 }
 function attestationStatement(evidence, node) {
   return canonicalJson({
@@ -237,6 +253,7 @@ const report = {
   operatorCount: operators.size,
   authorizedRegistryOperatorCount: authorizedRegistryOperators.size,
   operatorAttestationKeyCount: operatorKeys.size,
+  registryAttestationKeyCount: registryContext.attestationKeyCount,
   regionCount: regions.size,
   validatorRegistrySha256: registryContext.sha256,
   commonFinalizedCheckpoint: commonCheckpoint,
