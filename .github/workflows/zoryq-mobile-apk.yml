@@ -81,8 +81,7 @@ jobs:
           grep -q "/v1/explore" zoryq-mobile/SocialProApp.tsx
           grep -q "/v1/search" zoryq-mobile/SocialProApp.tsx
           grep -q "/v1/notifications" zoryq-mobile/SocialProApp.tsx
-          grep -q "/repost" zoryq-mobile/SocialProApp.tsx
-          grep -q "/bookmark" zoryq-mobile/SocialProApp.tsx
+          grep -q "action:'like'|'repost'|'bookmark'" zoryq-mobile/SocialProApp.tsx
           grep -q "/v1/media/image" zoryq-mobile/SocialProApp.tsx
           grep -q "provider.estimateGas" zoryq-mobile/SocialProApp.tsx
           grep -q "provider.call" zoryq-mobile/SocialProApp.tsx
