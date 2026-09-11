@@ -59,11 +59,16 @@ export async function getMyProfile():Promise<SocialProfile|null>{
  if(error)throw error;return data as SocialProfile|null;
 }
 
+export async function listProfileCards(ids:string[]):Promise<SocialProfile[]>{
+ if(!ids.length)return [];
+ const {data,error}=await socialSupabase.rpc('social_public_profiles',{p_search:null,p_ids:ids,p_limit:Math.min(ids.length,50)});
+ if(error)throw error;return (data||[]) as SocialProfile[];
+}
+
 export async function listDiscoverableProfiles(search=''):Promise<SocialProfile[]>{
- let query=socialSupabase.from('profiles').select('id,username,display_name,bio,avatar_url,reputation_score,interests,power_key,human_score,profile_visibility,discoverable,show_reputation').eq('discoverable',true).order('reputation_score',{ascending:false}).limit(30);
- const clean=search.trim().replace(/[%_,()]/g,' ');
- if(clean)query=query.or(`username.ilike.%${clean}%,display_name.ilike.%${clean}%,bio.ilike.%${clean}%`);
- const {data,error}=await query;if(error)throw error;return (data||[]) as SocialProfile[];
+ const clean=search.trim().slice(0,80)||null;
+ const {data,error}=await socialSupabase.rpc('social_public_profiles',{p_search:clean,p_ids:null,p_limit:30});
+ if(error)throw error;return (data||[]) as SocialProfile[];
 }
 
 export async function listVisibleFeed(limit=30):Promise<SocialPost[]>{
@@ -120,8 +125,7 @@ export async function listConversations():Promise<ConversationSummary[]>{
  ]);
  if(convError)throw convError;if(memberError)throw memberError;if(messageError)throw messageError;
  const otherIds=[...new Set((members||[]).map(x=>String(x.user_id)).filter(id=>id!==session.user.id))];
- let profiles:SocialProfile[]=[];
- if(otherIds.length){const {data,error}=await socialSupabase.from('profiles').select('id,username,display_name,bio,avatar_url,reputation_score,interests,power_key,human_score,profile_visibility,discoverable,show_reputation').in('id',otherIds);if(error)throw error;profiles=(data||[]) as SocialProfile[]}
+ const profiles=await listProfileCards(otherIds);
  const profileMap=new Map(profiles.map(p=>[p.id,p]));
  const mineMap=new Map((mine||[]).map(x=>[String(x.conversation_id),x.last_read_at?String(x.last_read_at):'']));
  const lastByConv=new Map<string,any>();for(const m of messages||[]){const id=String(m.conversation_id);if(!lastByConv.has(id))lastByConv.set(id,m)}
