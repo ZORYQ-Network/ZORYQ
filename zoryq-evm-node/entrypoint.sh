@@ -6,6 +6,11 @@ export ZORYQ_RETH_OPERATOR_COUNT="${ZORYQ_RETH_OPERATOR_COUNT:-24}"
 export ZORYQ_SOCIAL_RELAYER_INDEX="${ZORYQ_SOCIAL_RELAYER_INDEX:-23}"
 export ZORYQ_RETH_CHAIN_SPEC="${ZORYQ_RETH_CHAIN_SPEC:-/data/zoryq-reth-effective-genesis.json}"
 
+# Fail closed before touching chain state. Testnet remains the default; an
+# explicit mainnet launch is refused until the production consensus, signer,
+# genesis and audit requirements are genuinely satisfied.
+node /app/mainnet-guard.mjs
+
 # Railway production currently runs inside a ~1 GB memory budget. Keep Reth
 # within conservative cache ceilings while preserving execution semantics.
 mkdir -p /tmp/zoryq-bin
