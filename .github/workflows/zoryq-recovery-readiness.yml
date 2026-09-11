@@ -47,7 +47,8 @@ jobs:
           grep -q 'sha256sum -c' "$genesis"
           grep -q 'Never copy.*mnemonic' "$genesis"
           grep -q 'peerCount > 0' "$genesis"
-          grep -q '>=3 independently stateful nodes' "$redundancy"
+          grep -q 'At least three independently stateful nodes' "$redundancy"
+          grep -q 'At least two failure domains' "$redundancy"
           echo 'Runbook invariants OK.'
       - name: Prove testnet guard remains accepted
         run: ZORYQ_NETWORK_MODE=testnet node zoryq-evm-node/mainnet-guard.mjs
