@@ -24,6 +24,7 @@ jobs:
       EXPO_PUBLIC_ZORYQ_BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
       EXPO_PUBLIC_ZORYQ_RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
       EXPO_PUBLIC_ZORYQ_TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+      EXPO_PUBLIC_ZORYQ_SWAP_BACKEND: 'https://zoryq-wallet-swap-production.up.railway.app'
     steps:
       - uses: actions/checkout@v6
 
@@ -68,7 +69,7 @@ jobs:
       - name: Wallet security and revenue policy gate
         run: |
           set -euo pipefail
-          grep -q "export {default} from './MainnetWallet'" zoryq-mobile/App.tsx
+          grep -q "export {default} from './WalletApp'" zoryq-mobile/App.tsx
           grep -q "requireAuthentication" zoryq-mobile/MainnetWallet.tsx
           grep -q "provider.call" zoryq-mobile/MainnetWallet.tsx
           grep -q "estimateGas" zoryq-mobile/MainnetWallet.tsx
@@ -76,6 +77,11 @@ jobs:
           grep -q "hiddenFees:false" zoryq-mobile/revenue.ts
           grep -q "swapFeeBps:25" zoryq-mobile/revenue.ts
           grep -q "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33" zoryq-mobile/revenue.ts
+          grep -q "zoryq-wallet-swap-production.up.railway.app" zoryq-mobile/revenue.ts
+          grep -q "Quote rejeitado: política da Treasury não confere" zoryq-mobile/SwapEngine.tsx
+          grep -q "approve(getAddress(spender),needed)" zoryq-mobile/SwapEngine.tsx
+          grep -q "provider.call({...req,from:wallet.address})" zoryq-mobile/SwapEngine.tsx
+          grep -q "Swap + Treasury" zoryq-mobile/WalletApp.tsx
           grep -q "Ethereum Mainnet" zoryq-mobile/networks.ts
           grep -q "Arbitrum One" zoryq-mobile/networks.ts
           grep -q "BNB Smart Chain" zoryq-mobile/networks.ts
@@ -111,22 +117,22 @@ jobs:
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
           test -n "$APK"
           unzip -l "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' >/dev/null
-          grep -q '"version": "1.1.1"' zoryq-mobile/app.json
-          grep -q '"versionCode": 4' zoryq-mobile/app.json
+          grep -q '"version": "1.1.2"' zoryq-mobile/app.json
+          grep -q '"versionCode": 5' zoryq-mobile/app.json
           grep -q '"package": "com.zoryq.wallet"' zoryq-mobile/app.json
 
       - name: Package artifact
         run: |
           mkdir -p dist
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
-          cp "$APK" dist/ZORYQ-Wallet-1.1.1.apk
+          cp "$APK" dist/ZORYQ-Wallet-1.1.2.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ZORYQ-Wallet-1.1.1-APK
+          name: ZORYQ-Wallet-1.1.2-APK
           path: |
-            dist/ZORYQ-Wallet-1.1.1.apk
+            dist/ZORYQ-Wallet-1.1.2.apk
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
