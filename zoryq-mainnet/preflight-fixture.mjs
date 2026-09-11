@@ -10,6 +10,15 @@ function canonical(value) {
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
   return value;
 }
+function runNode(script, argv) {
+  const result = spawnSync(process.execPath, [script, ...argv], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    process.stderr.write(result.stdout || '');
+    process.stderr.write(result.stderr || '');
+    process.exit(result.status || 2);
+  }
+  return result.stdout;
+}
 const outIndex = process.argv.indexOf('--out');
 const out = outIndex >= 0 ? process.argv[outIndex + 1] : null;
 if (!out) fail('usage: node preflight-fixture.mjs --out <directory>');
@@ -27,19 +36,37 @@ const config = {
 };
 const configPath = path.join(out, 'genesis-config.json');
 fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-const ceremony = spawnSync(process.execPath, [new URL('./genesis-ceremony.mjs', import.meta.url).pathname, '--config', configPath, '--out', out], { encoding: 'utf8' });
-if (ceremony.status !== 0) {
-  process.stderr.write(ceremony.stdout || '');
-  process.stderr.write(ceremony.stderr || '');
-  process.exit(ceremony.status || 2);
-}
+runNode(new URL('./genesis-ceremony.mjs', import.meta.url).pathname, ['--config', configPath, '--out', out]);
+
+const validatorConfig = {
+  network: 'ZORYQ Mainnet',
+  minimumValidators: 4,
+  minimumRegions: 3,
+  validators: [
+    { operatorId: 'preflight-a', consensusPublicKey: `0x${'11'.repeat(48)}`, withdrawalAddress: `0x${'11'.repeat(20)}`, region: 'sa-east', p2pHost: 'validator-a.example.net', p2pPort: 30304 },
+    { operatorId: 'preflight-b', consensusPublicKey: `0x${'22'.repeat(48)}`, withdrawalAddress: `0x${'22'.repeat(20)}`, region: 'us-east', p2pHost: 'validator-b.example.net', p2pPort: 30305 },
+    { operatorId: 'preflight-c', consensusPublicKey: `0x${'33'.repeat(48)}`, withdrawalAddress: `0x${'33'.repeat(20)}`, region: 'eu-west', p2pHost: 'validator-c.example.net', p2pPort: 30306 },
+    { operatorId: 'preflight-d', consensusPublicKey: `0x${'44'.repeat(48)}`, withdrawalAddress: `0x${'44'.repeat(20)}`, region: 'sa-east', p2pHost: 'validator-d.example.net', p2pPort: 30307 }
+  ]
+};
+const validatorConfigPath = path.join(out, 'validator-config.json');
+fs.writeFileSync(validatorConfigPath, JSON.stringify(validatorConfig, null, 2));
+runNode(new URL('./validator-registry.mjs', import.meta.url).pathname, ['--config', validatorConfigPath, '--out', out]);
 
 const audit = path.join(out, 'audit-report.txt');
 const runbook = path.join(out, 'incident-runbook.txt');
 const recovery = path.join(out, 'recovery-evidence.txt');
+const consensus = path.join(out, 'consensus-evidence.txt');
+const keyCustody = path.join(out, 'key-custody-evidence.txt');
+const governance = path.join(out, 'release-governance.txt');
+const observability = path.join(out, 'observability-evidence.txt');
 fs.writeFileSync(audit, 'CI PREFLIGHT FIXTURE — not a production audit\n');
 fs.writeFileSync(runbook, 'CI PREFLIGHT FIXTURE — not a production incident runbook\n');
 fs.writeFileSync(recovery, 'CI PREFLIGHT FIXTURE — not production recovery evidence\n');
+fs.writeFileSync(consensus, 'CI PREFLIGHT FIXTURE — not production consensus evidence\n');
+fs.writeFileSync(keyCustody, 'CI PREFLIGHT FIXTURE — not production key-custody evidence\n');
+fs.writeFileSync(governance, 'CI PREFLIGHT FIXTURE — not production release-governance evidence\n');
+fs.writeFileSync(observability, 'CI PREFLIGHT FIXTURE — not production observability evidence\n');
 fs.writeFileSync(path.join(out, 'jwt.hex'), `${randomBytes(32).toString('hex')}\n`, { mode: 0o600 });
 
 const releaseCommit = 'a'.repeat(40);
@@ -58,6 +85,11 @@ const manifest = {
   auditReportSha256: sha(audit),
   incidentRunbookSha256: sha(runbook),
   recoveryDrillSha256: sha(recovery),
+  validatorRegistrySha256: sha(path.join(out, 'validator-registry.json')),
+  consensusEvidenceSha256: sha(consensus),
+  keyCustodyEvidenceSha256: sha(keyCustody),
+  releaseGovernanceSha256: sha(governance),
+  observabilityEvidenceSha256: sha(observability),
   devMode: false,
   faucetEnabled: false,
   debugPublic: false
@@ -87,6 +119,7 @@ fs.writeFileSync(path.join(out, 'fixture-meta.json'), JSON.stringify({
   productionEvidence: false,
   chainId: config.chainId,
   genesisSha256: manifest.genesisSha256,
+  validatorRegistrySha256: manifest.validatorRegistrySha256,
   releaseCommit,
   imageDigest,
   ceremonyId: manifest.ceremonyId,
@@ -99,6 +132,8 @@ console.log(JSON.stringify({
   out,
   chainId: config.chainId,
   genesisSha256: manifest.genesisSha256,
+  validatorRegistrySha256: manifest.validatorRegistrySha256,
+  evidenceBound: true,
   ceremonyId: manifest.ceremonyId,
   validFrom,
   expiresAt,
