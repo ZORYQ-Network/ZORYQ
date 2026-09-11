@@ -28,9 +28,15 @@ function parseTimestamp(value) {
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
+function canonicalize(value) {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(canonicalize);
+  const ordered = {};
+  for (const key of Object.keys(value).sort()) ordered[key] = canonicalize(value[key]);
+  return ordered;
+}
 function canonicalSha256(value) {
-  const canonical = JSON.stringify(value, Object.keys(value).sort());
-  return createHash('sha256').update(canonical).digest('hex');
+  return createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
 }
 function hasSecretField(value, currentPath = '') {
   if (!value || typeof value !== 'object') return null;
@@ -142,7 +148,7 @@ const report = {
   faultTestsRequired: REQUIRED_FAULT_TESTS,
   blockers,
   evidenceSha256: canonicalSha256(evidence),
-  rule: 'zoryq-mainnet-multi-operator-evidence-v1'
+  rule: 'zoryq-mainnet-multi-operator-evidence-v2'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
