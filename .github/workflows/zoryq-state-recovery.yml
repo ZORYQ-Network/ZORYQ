@@ -158,8 +158,11 @@ jobs:
           test "$CHAIN_ID" = '0x5a5159'
 
           docker logs zoryq-recovered > /tmp/recovered.log 2>&1
-          grep -q '/data/reth/db' /tmp/recovered.log
-          echo "Native Reth DB recovery verified: durable state and genesis survived SIGKILL, and canonical head resumed to the pre-kill height."
+          docker exec zoryq-recovered test -d /data/reth/db
+          RECOVERED_DB_ENTRIES=$(docker exec zoryq-recovered sh -lc 'find /data/reth/db -type f 2>/dev/null | wc -l')
+          test "$RECOVERED_DB_ENTRIES" -gt 0
+          echo "recovered_reth_db_entries=$RECOVERED_DB_ENTRIES"
+          echo "Native Reth DB recovery verified: durable state and genesis survived SIGKILL, recovered Reth DB contains persisted files, and canonical head resumed to the pre-kill height."
 
       - name: Capture recovery diagnostics on failure
         if: failure()
