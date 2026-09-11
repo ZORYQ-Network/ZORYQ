@@ -20,9 +20,6 @@ permissions:
 jobs:
   production-runtime-preflight:
     runs-on: ubuntu-latest
-    # Pulling the pinned Reth image can exceed 15 minutes on a cold GitHub
-    # runner. Keep every gate intact and allow enough time to actually reach
-    # the Engine API, evidence-binding and RPC-hardening assertions below.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +37,10 @@ jobs:
           grep -F -- '--bootnodes' zoryq-mainnet/entrypoint.sh
           grep -F -- '--peers-file' zoryq-mainnet/entrypoint.sh
           grep -F -- 'at least two bootnodes are required' zoryq-mainnet/entrypoint.sh
+          grep -F -- 'key-custody-evidence.mjs' zoryq-mainnet/entrypoint.sh
+
+      - name: Run key custody evidence adversarial self-test
+        run: node zoryq-mainnet/key-custody-evidence.selftest.mjs
 
       - name: Build isolated mainnet execution image
         run: docker build -f zoryq-mainnet/Dockerfile -t zoryq-mainnet-preflight .
@@ -60,7 +61,8 @@ jobs:
           set -euo pipefail
           node zoryq-mainnet/preflight-fixture.mjs --out /tmp/zoryq-mainnet-fixture | tee /tmp/preflight-fixture.json
           jq -e '.ok == true and .fixtureOnly == true and .evidenceBound == true' /tmp/preflight-fixture.json
-          jq -e '.productionEvidence == false and .fixtureOnly == true and (.validatorRegistrySha256 | length == 64)' /tmp/zoryq-mainnet-fixture/fixture-meta.json
+          jq -e '.productionEvidence == false and .fixtureOnly == true and (.validatorRegistrySha256 | length == 64) and (.keyCustodyEvidenceSha256 | length == 64)' /tmp/zoryq-mainnet-fixture/fixture-meta.json
+          node zoryq-mainnet/key-custody-evidence.mjs --input /tmp/zoryq-mainnet-fixture/key-custody-evidence.json --allow-fixture
 
       - name: Run fail-closed mainnet image preflight
         run: |
@@ -84,7 +86,7 @@ jobs:
             -e ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH=/fixture/recovery-evidence.txt \
             -e ZORYQ_MAINNET_VALIDATOR_REGISTRY_PATH=/fixture/validator-registry.json \
             -e ZORYQ_MAINNET_CONSENSUS_EVIDENCE_PATH=/fixture/consensus-evidence.txt \
-            -e ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH=/fixture/key-custody-evidence.txt \
+            -e ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH=/fixture/key-custody-evidence.json \
             -e ZORYQ_MAINNET_RELEASE_GOVERNANCE_PATH=/fixture/release-governance.txt \
             -e ZORYQ_MAINNET_OBSERVABILITY_EVIDENCE_PATH=/fixture/observability-evidence.txt \
             -e ZORYQ_MAINNET_LAUNCH_MANIFEST=/fixture/launch-manifest.json \
@@ -95,6 +97,7 @@ jobs:
             -e ZORYQ_MAINNET_AUDIT_READY=true \
             -e ZORYQ_MAINNET_INCIDENT_RUNBOOK_READY=true \
             zoryq-mainnet-preflight | tee /tmp/mainnet-image-preflight.log
+          grep -F 'KEY_CUSTODY_EVIDENCE_ACCEPTED' /tmp/mainnet-image-preflight.log
           grep -F '[zoryq-mainnet] preflight complete; runtime intentionally not started' /tmp/mainnet-image-preflight.log
           grep -F 'threshold-ed25519-offline-approvals-v3-evidence-bound' /tmp/mainnet-image-preflight.log
 
