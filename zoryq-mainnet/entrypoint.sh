@@ -10,6 +10,11 @@ set -euo pipefail
 : "${ZORYQ_MAINNET_AUDIT_REPORT_PATH:?ZORYQ_MAINNET_AUDIT_REPORT_PATH is required}"
 : "${ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH:?ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH is required}"
 : "${ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH:?ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH is required}"
+: "${ZORYQ_MAINNET_VALIDATOR_REGISTRY_PATH:?ZORYQ_MAINNET_VALIDATOR_REGISTRY_PATH is required}"
+: "${ZORYQ_MAINNET_CONSENSUS_EVIDENCE_PATH:?ZORYQ_MAINNET_CONSENSUS_EVIDENCE_PATH is required}"
+: "${ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH:?ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH is required}"
+: "${ZORYQ_MAINNET_RELEASE_GOVERNANCE_PATH:?ZORYQ_MAINNET_RELEASE_GOVERNANCE_PATH is required}"
+: "${ZORYQ_MAINNET_OBSERVABILITY_EVIDENCE_PATH:?ZORYQ_MAINNET_OBSERVABILITY_EVIDENCE_PATH is required}"
 : "${ZORYQ_MAINNET_LAUNCH_MANIFEST:?ZORYQ_MAINNET_LAUNCH_MANIFEST is required}"
 : "${ZORYQ_MAINNET_LAUNCH_POLICY:?ZORYQ_MAINNET_LAUNCH_POLICY is required}"
 : "${ZORYQ_MAINNET_LAUNCH_APPROVALS:?ZORYQ_MAINNET_LAUNCH_APPROVALS is required}"
@@ -37,6 +42,11 @@ required_files=(
   "$ZORYQ_MAINNET_AUDIT_REPORT_PATH"
   "$ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH"
   "$ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH"
+  "$ZORYQ_MAINNET_VALIDATOR_REGISTRY_PATH"
+  "$ZORYQ_MAINNET_CONSENSUS_EVIDENCE_PATH"
+  "$ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH"
+  "$ZORYQ_MAINNET_RELEASE_GOVERNANCE_PATH"
+  "$ZORYQ_MAINNET_OBSERVABILITY_EVIDENCE_PATH"
   "$ZORYQ_MAINNET_LAUNCH_MANIFEST"
   "$ZORYQ_MAINNET_LAUNCH_POLICY"
   "$ZORYQ_MAINNET_LAUNCH_APPROVALS"
@@ -59,6 +69,17 @@ sha_file() { sha256sum "$1" | awk '{print $1}'; }
 manifest_value() {
   node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const v=m[process.argv[2]]; if(v===undefined||v===null) process.exit(3); process.stdout.write(String(v));' "$ZORYQ_MAINNET_LAUNCH_MANIFEST" "$1"
 }
+require_manifest_hash() {
+  local field="$1"
+  local file="$2"
+  local label="$3"
+  local declared
+  declared="$(manifest_value "$field")"
+  if [[ "${declared,,}" != "$(sha_file "$file")" ]]; then
+    echo "[zoryq-mainnet] launch certificate is not bound to the supplied ${label}" >&2
+    exit 80
+  fi
+}
 
 actual_genesis_sha="$(sha_file "$ZORYQ_MAINNET_GENESIS_PATH")"
 if [[ "$actual_genesis_sha" != "${ZORYQ_MAINNET_GENESIS_SHA256,,}" ]]; then
@@ -70,9 +91,6 @@ manifest_chain_id="$(manifest_value chainId)"
 manifest_genesis_sha="$(manifest_value genesisSha256)"
 manifest_release_commit="$(manifest_value releaseCommit)"
 manifest_image_digest="$(manifest_value imageDigest)"
-manifest_audit_sha="$(manifest_value auditReportSha256)"
-manifest_runbook_sha="$(manifest_value incidentRunbookSha256)"
-manifest_recovery_sha="$(manifest_value recoveryDrillSha256)"
 
 if [[ "$manifest_chain_id" != "$ZORYQ_MAINNET_CHAIN_ID" ]]; then
   echo '[zoryq-mainnet] launch certificate chainId does not match runtime' >&2
@@ -90,18 +108,15 @@ if [[ "${manifest_image_digest,,}" != "${ZORYQ_MAINNET_IMAGE_DIGEST,,}" ]]; then
   echo '[zoryq-mainnet] launch certificate is not bound to the supplied image digest' >&2
   exit 80
 fi
-if [[ "${manifest_audit_sha,,}" != "$(sha_file "$ZORYQ_MAINNET_AUDIT_REPORT_PATH")" ]]; then
-  echo '[zoryq-mainnet] launch certificate is not bound to the supplied audit report' >&2
-  exit 80
-fi
-if [[ "${manifest_runbook_sha,,}" != "$(sha_file "$ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH")" ]]; then
-  echo '[zoryq-mainnet] launch certificate is not bound to the supplied incident runbook' >&2
-  exit 80
-fi
-if [[ "${manifest_recovery_sha,,}" != "$(sha_file "$ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH")" ]]; then
-  echo '[zoryq-mainnet] launch certificate is not bound to the supplied recovery evidence' >&2
-  exit 80
-fi
+
+require_manifest_hash auditReportSha256 "$ZORYQ_MAINNET_AUDIT_REPORT_PATH" 'audit report'
+require_manifest_hash incidentRunbookSha256 "$ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH" 'incident runbook'
+require_manifest_hash recoveryDrillSha256 "$ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH" 'recovery evidence'
+require_manifest_hash validatorRegistrySha256 "$ZORYQ_MAINNET_VALIDATOR_REGISTRY_PATH" 'validator registry'
+require_manifest_hash consensusEvidenceSha256 "$ZORYQ_MAINNET_CONSENSUS_EVIDENCE_PATH" 'consensus evidence'
+require_manifest_hash keyCustodyEvidenceSha256 "$ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH" 'key-custody evidence'
+require_manifest_hash releaseGovernanceSha256 "$ZORYQ_MAINNET_RELEASE_GOVERNANCE_PATH" 'release-governance evidence'
+require_manifest_hash observabilityEvidenceSha256 "$ZORYQ_MAINNET_OBSERVABILITY_EVIDENCE_PATH" 'observability evidence'
 
 export ZORYQ_SERVER_SOURCE=/app/backend.mjs
 export ZORYQ_GENESIS_PREP_SOURCE=/app/genesis-ceremony.mjs
