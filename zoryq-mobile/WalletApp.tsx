@@ -2,20 +2,15 @@ import React,{useState} from 'react';
 import {Pressable,SafeAreaView,StyleSheet,Text,View} from 'react-native';
 import MainnetWallet from './MainnetWallet';
 import SwapEngine from './SwapEngine';
-import SocialApp from './SocialApp';
+import SocialProApp from './SocialProApp';
 
-type Mode='wallet'|'social'|'swap';
+type Mode='social'|'wallet'|'swap';
 export default function WalletApp(){
  const [mode,setMode]=useState<Mode>('social');
+ if(mode==='social')return <SocialProApp onWallet={()=>setMode('wallet')} onSwap={()=>setMode('swap')}/>;
  return <SafeAreaView style={s.root}>
-  <View style={s.brandBar}><Text style={s.brand}>ZORYQ</Text><Text style={s.super}>WEB3 SUPER APP · PRE-MAINNET</Text></View>
-  <View style={s.body}>{mode==='wallet'?<MainnetWallet/>:mode==='swap'?<SwapEngine/>:<SocialApp/>}</View>
-  <View style={s.nav}>
-   <Nav active={mode==='social'} label="Social" icon="◉" onPress={()=>setMode('social')}/>
-   <Nav active={mode==='wallet'} label="Wallet" icon="◇" onPress={()=>setMode('wallet')}/>
-   <Nav active={mode==='swap'} label="Swap" icon="⇄" onPress={()=>setMode('swap')}/>
-  </View>
- </SafeAreaView>;
+  <View style={s.top}><Pressable style={s.back} onPress={()=>setMode('social')}><Text style={s.backText}>← Social</Text></Pressable><Text style={s.title}>{mode==='wallet'?'ZORYQ Wallet':'ZORYQ Swap'}</Text><View style={s.switch}><Pressable style={[s.pill,mode==='wallet'&&s.on]} onPress={()=>setMode('wallet')}><Text style={s.pillText}>Wallet</Text></Pressable><Pressable style={[s.pill,mode==='swap'&&s.on]} onPress={()=>setMode('swap')}><Text style={s.pillText}>Swap</Text></Pressable></View></View>
+  <View style={s.body}>{mode==='wallet'?<MainnetWallet/>:<SwapEngine/>}</View>
+ </SafeAreaView>
 }
-function Nav({active,label,icon,onPress}:{active:boolean;label:string;icon:string;onPress:()=>void}){return <Pressable style={s.navItem} onPress={onPress}><Text style={[s.icon,active&&s.active]}>{icon}</Text><Text style={[s.navText,active&&s.active]}>{label}</Text></Pressable>}
-const s=StyleSheet.create({root:{flex:1,backgroundColor:'#050609'},brandBar:{height:36,paddingHorizontal:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between',backgroundColor:'#06080d',borderBottomWidth:1,borderColor:'#151b27'},brand:{color:'#fff',fontWeight:'900',letterSpacing:2,fontSize:14},super:{color:'#596277',fontWeight:'800',fontSize:8,letterSpacing:.8},body:{flex:1},nav:{height:62,flexDirection:'row',backgroundColor:'#080b11',borderTopWidth:1,borderColor:'#1a2030',paddingBottom:5},navItem:{flex:1,alignItems:'center',justifyContent:'center',gap:2},icon:{color:'#687188',fontSize:20,fontWeight:'900'},navText:{color:'#687188',fontSize:11,fontWeight:'800'},active:{color:'#9c84ff'}});
+const s=StyleSheet.create({root:{flex:1,backgroundColor:'#050609'},top:{height:52,paddingHorizontal:12,flexDirection:'row',alignItems:'center',justifyContent:'space-between',borderBottomWidth:1,borderColor:'#171d29',backgroundColor:'#06080d'},back:{paddingVertical:8,paddingRight:8},backText:{color:'#9f87ff',fontWeight:'900'},title:{color:'#fff',fontWeight:'900',fontSize:14},switch:{flexDirection:'row',gap:5},pill:{paddingHorizontal:9,paddingVertical:7,borderRadius:10,backgroundColor:'#111722'},on:{backgroundColor:'#3f327b'},pillText:{color:'#d9deea',fontWeight:'800',fontSize:10},body:{flex:1}});
