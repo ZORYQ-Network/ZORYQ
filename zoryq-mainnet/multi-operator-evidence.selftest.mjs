@@ -19,7 +19,7 @@ function canonicalize(value) {
   return ordered;
 }
 function canonicalJson(value) { return JSON.stringify(canonicalize(value)); }
-function publicKeyDer(keyPair) { return keyPair.publicKey.export({ format: 'der', type: 'spki' }); }
+function registryText(value) { return `${JSON.stringify(value, null, 2)}\n`; }
 function attestationStatement(evidence, node) {
   return canonicalJson({
     domain: 'zoryq-mainnet-multi-operator-node-attestation-v2-registry-bound',
@@ -44,36 +44,37 @@ function attestationStatement(evidence, node) {
 function signNode(evidence, node, keyPair) {
   node.operatorAttestation = {
     algorithm: 'ed25519',
-    publicKeySpkiBase64: publicKeyDer(keyPair).toString('base64'),
+    publicKeySpkiBase64: keyPair.publicKey.export({ format: 'der', type: 'spki' }).toString('base64'),
     signatureBase64: sign(null, Buffer.from(attestationStatement(evidence, node)), keyPair.privateKey).toString('base64')
   };
 }
-function buildRegistry(nodes, keyPairs) {
-  const validators = nodes.map((node, i) => ({
-    operatorId: node.operatorId,
-    consensusPublicKey: `0x${String(i + 1).padStart(2, '0').repeat(48)}`,
-    withdrawalAddress: `0x${String(i + 1).padStart(2, '0').repeat(20)}`,
-    region: node.region,
-    p2pHost: `validator-${i + 1}.example.net`,
-    p2pPort: 30304 + i,
-    attestationPublicKeySpkiBase64: publicKeyDer(keyPairs[i]).toString('base64'),
-    attestationKeyFingerprintSha256: hash(publicKeyDer(keyPairs[i]))
-  }));
-  return canonicalize({
+
+function fixture() {
+  const keyPairs = Array.from({ length: 4 }, () => generateKeyPairSync('ed25519'));
+  const registry = {
     formatVersion: 2,
     network: 'ZORYQ Mainnet',
     minimumValidators: 4,
     minimumRegions: 3,
-    validatorCount: validators.length,
-    regionCount: new Set(validators.map((item) => item.region)).size,
-    attestationKeyCount: validators.length,
-    validators,
-    containsPrivateKeyMaterial: false
-  });
-}
-function registryText(registry) { return `${JSON.stringify(registry, null, 2)}\n`; }
-
-function fixture() {
+    validatorCount: 4,
+    regionCount: 3,
+    attestationKeyCount: 4,
+    containsPrivateKeyMaterial: false,
+    validators: keyPairs.map((pair, i) => {
+      const der = pair.publicKey.export({ format: 'der', type: 'spki' });
+      return {
+        operatorId: `operator-${i + 1}`,
+        consensusPublicKey: `0x${String(i + 1).padStart(2, '0').repeat(48)}`,
+        withdrawalAddress: `0x${String(i + 1).padStart(2, '0').repeat(20)}`,
+        region: ['sa-east', 'us-east', 'eu-west', 'sa-east'][i],
+        p2pHost: `validator-${i + 1}.example.net`,
+        p2pPort: 30304 + i,
+        attestationPublicKeySpkiBase64: der.toString('base64'),
+        attestationKeyFingerprintSha256: createHash('sha256').update(der).digest('hex')
+      };
+    })
+  };
+  const validatorRegistrySha256 = createHash('sha256').update(registryText(registry)).digest('hex');
   const nodes = Array.from({ length: 4 }, (_, i) => ({
     operatorId: `operator-${i + 1}`,
     region: ['sa-east', 'us-east', 'eu-west', 'sa-east'][i],
@@ -89,8 +90,6 @@ function fixture() {
     observedAt: now,
     checkpointHashes: { '1000': checkpointHash }
   }));
-  const keyPairs = nodes.map(() => generateKeyPairSync('ed25519'));
-  const registry = buildRegistry(nodes, keyPairs);
   const evidence = {
     network: 'ZORYQ Mainnet',
     productionEvidence: true,
@@ -98,7 +97,7 @@ function fixture() {
     fixtureOnly: false,
     chainId: 881122,
     genesisSha256: genesis,
-    validatorRegistrySha256: hash(registryText(registry)),
+    validatorRegistrySha256,
     consensusEngine: 'zoryq-bft-rehearsal',
     observedAt: now,
     commonFinalizedCheckpoint: { height: 1000, hash: checkpointHash },
@@ -110,7 +109,7 @@ function fixture() {
     ]
   };
   nodes.forEach((node, i) => signNode(evidence, node, keyPairs[i]));
-  return { evidence, keyPairs, registry };
+  return { evidence, registry, keyPairs };
 }
 
 function run(name, evidence, registry, shouldPass, expectedBlocker = null) {
@@ -131,7 +130,7 @@ function run(name, evidence, registry, shouldPass, expectedBlocker = null) {
 try {
   const { evidence: baseline, registry: baselineRegistry } = fixture();
   const baselineReport = run('valid-registry-bound-signed-operators', baseline, baselineRegistry, true);
-  if (baselineReport.operatorAttestationKeyCount !== 4 || baselineReport.authorizedRegistryOperatorCount !== 4) {
+  if (baselineReport.operatorAttestationKeyCount !== 4 || baselineReport.registryAuthorizedOperatorCount !== 4) {
     throw new Error('expected four independent, registry-authorized operator attestation keys');
   }
 
@@ -167,30 +166,30 @@ try {
   tamperedSignedField.nodes[0].hostFingerprint = hash('tampered-host');
   run('tampered-signed-observation', tamperedSignedField, tamperedRegistry, false, 'operator_attestation_signature_invalid');
 
-  const { evidence: duplicateKey, keyPairs: duplicateKeyPairs, registry: duplicateRegistry } = fixture();
+  const { evidence: duplicateKey, registry: duplicateRegistry, keyPairs: duplicateKeyPairs } = fixture();
   signNode(duplicateKey, duplicateKey.nodes[3], duplicateKeyPairs[0]);
   run('operator-key-reuse', duplicateKey, duplicateRegistry, false, 'duplicate_operator_attestation_key');
 
-  const { evidence: unauthorizedKey, keyPairs: unauthorizedKeyPairs, registry: unauthorizedRegistry } = fixture();
+  const { evidence: unregisteredKey, registry: unregisteredRegistry } = fixture();
   const rogueKey = generateKeyPairSync('ed25519');
-  signNode(unauthorizedKey, unauthorizedKey.nodes[0], rogueKey);
-  run('operator-key-not-in-registry', unauthorizedKey, unauthorizedRegistry, false, 'operator_attestation_key_not_authorized_by_validator_registry');
+  signNode(unregisteredKey, unregisteredKey.nodes[2], rogueKey);
+  run('operator-key-not-in-registry', unregisteredKey, unregisteredRegistry, false, 'operator_attestation_key_not_authorized_by_validator_registry');
 
-  const { evidence: registryMismatch, registry: mismatchedRegistry } = fixture();
-  registryMismatch.validatorRegistrySha256 = hash('wrong-registry');
-  run('registry-hash-mismatch', registryMismatch, mismatchedRegistry, false, 'validator_registry_sha256_mismatch');
+  const { evidence: registryHashMismatch, registry: registryHashMismatchRegistry } = fixture();
+  registryHashMismatch.validatorRegistrySha256 = hash('wrong-registry');
+  run('registry-hash-mismatch', registryHashMismatch, registryHashMismatchRegistry, false, 'validator_registry_sha256_mismatch');
 
-  const { evidence: unknownOperator, keyPairs: unknownKeys, registry: unknownRegistry } = fixture();
-  unknownOperator.nodes[0].operatorId = 'operator-rogue';
-  signNode(unknownOperator, unknownOperator.nodes[0], unknownKeys[0]);
-  run('operator-not-registered', unknownOperator, unknownRegistry, false, 'operator_not_authorized_by_validator_registry');
+  const { evidence: unauthorizedOperator, registry: unauthorizedRegistry, keyPairs: unauthorizedKeys } = fixture();
+  unauthorizedOperator.nodes[3].operatorId = 'rogue-operator';
+  signNode(unauthorizedOperator, unauthorizedOperator.nodes[3], unauthorizedKeys[3]);
+  run('operator-not-registered', unauthorizedOperator, unauthorizedRegistry, false, 'operator_not_authorized_by_validator_registry');
 
-  const { evidence: regionMismatch, keyPairs: regionKeys, registry: regionRegistry } = fixture();
-  regionMismatch.nodes[0].region = 'ap-south';
-  signNode(regionMismatch, regionMismatch.nodes[0], regionKeys[0]);
-  run('region-registry-mismatch', regionMismatch, regionRegistry, false, 'region_mismatch_with_validator_registry');
+  const { evidence: regionMismatch, registry: regionMismatchRegistry, keyPairs: regionKeys } = fixture();
+  regionMismatch.nodes[1].region = 'ap-south';
+  signNode(regionMismatch, regionMismatch.nodes[1], regionKeys[1]);
+  run('region-registry-mismatch', regionMismatch, regionMismatchRegistry, false, 'region_mismatch_with_validator_registry');
 
-  const { evidence: reusedTestnet, keyPairs: reusedKeys, registry: reusedRegistry } = fixture();
+  const { evidence: reusedTestnet, registry: reusedRegistry, keyPairs: reusedKeys } = fixture();
   reusedTestnet.chainId = 5919065;
   reusedTestnet.nodes.forEach((node, i) => { node.chainId = 5919065; signNode(reusedTestnet, node, reusedKeys[i]); });
   run('testnet-chain-id', reusedTestnet, reusedRegistry, false, 'chain_id_reuses_testnet');
