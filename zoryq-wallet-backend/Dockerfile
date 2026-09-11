@@ -5,7 +5,8 @@ RUN npm install --omit=dev --no-audit --no-fund
 COPY server.mjs ./server.mjs
 COPY social.mjs ./social.mjs
 COPY media.mjs ./media.mjs
+COPY communities.mjs ./communities.mjs
 COPY gateway.mjs ./gateway.mjs
-ENV NODE_ENV=production PORT=8080 SOCIAL_DATA_DIR=/data SOCIAL_MEDIA_DIR=/data/social-media
+ENV NODE_ENV=production PORT=8080 SOCIAL_DATA_DIR=/data SOCIAL_MEDIA_DIR=/data/social-media COMMUNITY_DATA_DIR=/data
 EXPOSE 8080
 CMD ["node","/app/gateway.mjs"]
