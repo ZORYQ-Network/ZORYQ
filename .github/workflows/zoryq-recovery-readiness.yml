@@ -1,0 +1,70 @@
+name: ZORYQ Recovery Readiness
+
+on:
+  pull_request:
+    paths:
+      - 'docs/MAINNET_INCIDENT_RESPONSE_RUNBOOK.md'
+      - 'docs/TESTNET_GENESIS_FREEZE_AND_NODE_BOOTSTRAP_RUNBOOK.md'
+      - 'docs/MAINNET_NETWORK_REDUNDANCY_RUNBOOK.md'
+      - 'zoryq-evm-node/mainnet-guard.mjs'
+      - '.github/workflows/zoryq-recovery-readiness.yml'
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'docs/MAINNET_INCIDENT_RESPONSE_RUNBOOK.md'
+      - 'docs/TESTNET_GENESIS_FREEZE_AND_NODE_BOOTSTRAP_RUNBOOK.md'
+      - 'docs/MAINNET_NETWORK_REDUNDANCY_RUNBOOK.md'
+      - 'zoryq-evm-node/mainnet-guard.mjs'
+      - '.github/workflows/zoryq-recovery-readiness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recovery-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate recovery and incident runbooks
+        shell: bash
+        run: |
+          set -euo pipefail
+          incident=docs/MAINNET_INCIDENT_RESPONSE_RUNBOOK.md
+          genesis=docs/TESTNET_GENESIS_FREEZE_AND_NODE_BOOTSTRAP_RUNBOOK.md
+          redundancy=docs/MAINNET_NETWORK_REDUNDANCY_RUNBOOK.md
+          test -s "$incident"
+          test -s "$genesis"
+          test -s "$redundancy"
+          grep -q 'SEV-1' "$incident"
+          grep -q 'canonical block hash' "$incident"
+          grep -q 'Do not reset the chain' "$incident"
+          grep -q 'zoryq-reth-effective-genesis.json' "$genesis"
+          grep -q 'sha256sum -c' "$genesis"
+          grep -q 'Never copy.*mnemonic' "$genesis"
+          grep -q 'peerCount > 0' "$genesis"
+          grep -q '>=3 independently stateful nodes' "$redundancy"
+          echo 'Runbook invariants OK.'
+      - name: Prove testnet guard remains accepted
+        run: ZORYQ_NETWORK_MODE=testnet node zoryq-evm-node/mainnet-guard.mjs
+      - name: Prove mainnet stays fail-closed without evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          ZORYQ_NETWORK_MODE=mainnet node zoryq-evm-node/mainnet-guard.mjs > /tmp/mainnet-guard.json
+          code=$?
+          set -e
+          test "$code" -ne 0
+          node <<'NODE'
+          const fs=require('fs');
+          const r=JSON.parse(fs.readFileSync('/tmp/mainnet-guard.json','utf8'));
+          if(r.ok!==false || r.mainnetActivated!==false) throw new Error('mainnet guard did not fail closed');
+          const required=['external_signer_not_attested','production_consensus_not_attested','multi_node_redundancy_not_attested','disaster_recovery_not_attested','security_audit_not_attested','incident_runbook_not_attested'];
+          for(const b of required) if(!r.blockers.includes(b)) throw new Error('missing blocker '+b);
+          console.log('Mainnet fail-closed recovery gates OK.');
+          NODE
