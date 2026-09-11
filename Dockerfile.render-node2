@@ -5,11 +5,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 COPY --from=reth /usr/local/bin/reth /usr/local/bin/reth
 COPY --from=node /usr/local /usr/local
 WORKDIR /app
-COPY zoryq-evm-node/zoryq-reth-genesis.json /app/zoryq-reth-genesis.json
+COPY infra/node2/zoryq-testnet-genesis-frozen.json /app/zoryq-reth-genesis.json
 COPY render-node2.mjs /app/render-node2.mjs
 ENV PORT=10000
 ENV ZORYQ_CHAIN_ID=5919065
 ENV ZORYQ_RETH_HTTP_PORT=8545
 ENV ZORYQ_RETH_DATA_DIR=/tmp/zoryq-render-node2
+ENV ZORYQ_GENESIS_SHA256=72c95adbe5206021ada0aeb2123144de7aedd11c4e709e7434b292435e35737c
 EXPOSE 10000
 CMD ["node","/app/render-node2.mjs"]
