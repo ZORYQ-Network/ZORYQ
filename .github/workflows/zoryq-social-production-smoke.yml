@@ -28,7 +28,8 @@ jobs:
             if curl -fsS --max-time 10 "$BASE/gateway/health" >/tmp/gateway.json && \
                curl -fsS --max-time 10 "$BASE/health" >/tmp/swap.json && \
                curl -fsS --max-time 10 "$BASE/social/health" >/tmp/social.json && \
-               curl -fsS --max-time 10 "$BASE/community/health" >/tmp/community.json; then
+               curl -fsS --max-time 10 "$BASE/community/health" >/tmp/community.json && \
+               curl -fsS --max-time 10 "$BASE/message/health" >/tmp/message.json; then
               break
             fi
             sleep 2
@@ -39,12 +40,14 @@ jobs:
           const swap=JSON.parse(fs.readFileSync('/tmp/swap.json','utf8'));
           const social=JSON.parse(fs.readFileSync('/tmp/social.json','utf8'));
           const community=JSON.parse(fs.readFileSync('/tmp/community.json','utf8'));
-          if(!gateway.ok||gateway.service!=='zoryq-wallet-gateway'||gateway.swapWorker!==true||gateway.mediaUpload!==true||gateway.communityPrefix!=='/community')throw Error('gateway_not_ready');
+          const message=JSON.parse(fs.readFileSync('/tmp/message.json','utf8'));
+          if(!gateway.ok||gateway.service!=='zoryq-wallet-gateway'||gateway.swapWorker!==true||gateway.mediaUpload!==true||gateway.communityPrefix!=='/community'||gateway.messagePrefix!=='/message')throw Error('gateway_not_ready');
           if(!swap.ok||Number(swap.feeBps)!==25||String(swap.treasury).toLowerCase()!=='0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33')throw Error('swap_surface_regressed');
           if(!social.ok||social.service!=='zoryq-social'||social.version!=='0.3.0'||social.walletAuth!==true||!Array.isArray(social.features)||!social.features.includes('reposts')||!social.features.includes('notifications')||!social.features.includes('image-posts'))throw Error('social_pro_surface_not_ready');
           if(!String(social.persistentPath||'').endsWith('/data/social.json'))throw Error('social_persistence_path_regressed');
           if(!community.ok||community.service!=='zoryq-communities'||community.version!=='0.1.0'||community.walletAuth!==true||!Array.isArray(community.features)||!community.features.includes('channels'))throw Error('community_surface_not_ready');
-          console.log(JSON.stringify({gateway,swap:{ok:swap.ok,feeBps:swap.feeBps,treasury:swap.treasury},social:{version:social.version,features:social.features},community:{version:community.version,features:community.features}}));
+          if(!message.ok||message.service!=='zoryq-messages'||message.version!=='0.1.0'||message.walletAuth!==true||message.e2e!==false||message.encryption!=='transport-and-access-control')throw Error('message_surface_not_ready');
+          console.log(JSON.stringify({gateway,swap:{ok:swap.ok,feeBps:swap.feeBps,treasury:swap.treasury},social:{version:social.version,features:social.features},community:{version:community.version,features:community.features},message:{version:message.version,e2e:message.e2e,encryption:message.encryption}}));
           NODE
       - name: Verify public discovery surfaces and safe auth challenge
         env:
