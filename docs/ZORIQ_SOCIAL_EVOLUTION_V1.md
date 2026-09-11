@@ -74,6 +74,31 @@ Feed-mode choices also adjust the local ZORIQ DNA demonstration.
 - Changes locally as the user changes feed intent.
 - Production should keep recommendation signals visible, user-configurable and privacy-aware.
 
+## Wallet creation and Recovery
+
+The APK exposes **Wallet / Recovery** as a primary product surface rather than hiding wallet onboarding behind the social experience.
+
+### Create a new wallet
+- Uses `Wallet.createRandom()` from ethers.
+- Generates a standard BIP-39 recovery phrase and EVM private key locally on the device.
+- The private key and mnemonic are stored with Expo SecureStore.
+- The seed phrase is never sent to the ZORYQ backend.
+- The user must be clearly warned that possession of the recovery phrase grants control of the wallet.
+
+### Import / recover an existing EVM wallet
+- Uses `Wallet.fromPhrase()` after normalizing the recovery phrase.
+- Compatible with standard EVM wallets when the imported account uses the default Ethereum derivation path `m/44'/60'/0'/0/0`.
+- This is intended to support recovery/import from common EVM wallets such as MetaMask, Rabby and similar wallets using the same account derivation.
+- A valid imported phrase restores the same first EVM account/address for that derivation path.
+- Invalid phrases are rejected locally.
+
+### Security rules
+- Never ask for a seed phrase on a website, chat, support channel or backend form.
+- Never transmit the phrase to analytics, crash reporting or an AI service.
+- Keep signing local to the device.
+- Recovery/import must always show a phishing warning before the user enters the phrase.
+- Cloud backup of an unencrypted recovery phrase should not be treated as the preferred production backup method; encrypted backup or platform-secured recovery should replace plaintext export before production release.
+
 ## Web implementation
 
 - `zoryq-web/zoriq-social-v2.html`
@@ -88,8 +113,8 @@ The previous social prototype remains in the repository as `zoryq-web/zoriq-soci
 
 - `zoryq-mobile/Social.tsx` contains the native social experience.
 - `zoryq-mobile/index.js` is the new Expo entry point.
-- The APK opens with **ZORIQ Social** and includes a top switch to the existing **ZORYQ Wallet** surface.
-- Existing `zoryq-mobile/App.tsx` wallet logic is not replaced.
+- The APK opens with **ZORIQ Social** and includes a top switch to **Wallet / Recovery**.
+- Existing `zoryq-mobile/App.tsx` wallet logic is not replaced; it remains the signing, wallet creation, recovery, faucet, transfer, stake and swap surface.
 - Social demo persistence uses AsyncStorage key `zoriq.social.v2.mobile`.
 
 ## Production boundaries / next backend layer
@@ -108,6 +133,7 @@ The v1 branch intentionally separates functional client UX from capabilities tha
 10. Analytics, retention cohorts, feature flags and A/B experimentation.
 11. Accessibility, localization, privacy controls and account deletion/export flows.
 12. Automated web smoke tests, React Native typecheck/build checks and end-to-end tests.
+13. Production-grade encrypted recovery/backup flow for wallet secrets.
 
 ## Naming
 
