@@ -35,6 +35,7 @@ jobs:
           grep -q "feeAmount',String(FEE_BPS)" zoryq-wallet-backend/server.mjs
           grep -q "KYBER_FEE_NOT_VERIFIED" zoryq-wallet-backend/server.mjs
           grep -q "TREASURY_FEE_POLICY_MISMATCH" zoryq-wallet-backend/server.mjs
+          grep -q "enableGasEstimation:false" zoryq-wallet-backend/server.mjs
       - name: Verify fail-closed without treasury
         run: |
           PORT=18080 node zoryq-wallet-backend/server.mjs >/tmp/wallet-backend.log 2>&1 & PID=$!
@@ -61,7 +62,7 @@ jobs:
           for i in 1 2 3; do
             code=$(curl -sS -o /tmp/live-quote.json -w '%{http_code}' -X POST http://127.0.0.1:18082/quote \
               -H 'content-type: application/json' \
-              -d '{"chainId":1,"sellToken":"0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48","buyToken":"0x6B175474E89094C44Da98b954EedeAC495271d0F","sellAmount":"1000000","taker":"0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33"}')
+              -d '{"chainId":1,"sellToken":"0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48","buyToken":"0x6B175474E89094C44Da98b954EedeAC495271d0F","sellAmount":"1000000","taker":"0x2222222222222222222222222222222222222222"}')
             [ "$code" = "200" ] && break
             sleep $((i*2))
           done
