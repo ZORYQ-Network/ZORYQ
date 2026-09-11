@@ -13,7 +13,9 @@ export type NetworkConfig={
 const zoryqBase=process.env.EXPO_PUBLIC_ZORYQ_BASE||'https://zoryq-evm-node-live-production.up.railway.app';
 
 // Curated defaults use HTTPS RPCs. The wallet also supports user-added EVM networks,
-// so a new APK is not required every time an EVM chain is added.
+// so a new APK is not required every time an EVM chain is added. `supports0x`
+// reflects the current Swap API support matrix and must be kept current independently
+// from whether a chain itself remains usable for normal EVM wallet operations.
 export const BUILTIN_NETWORKS:NetworkConfig[]=[
   {id:'zoryq-testnet',name:'ZORYQ EVM Testnet',shortName:'ZORYQ',chainId:5919065,symbol:'ZQ',rpcUrl:process.env.EXPO_PUBLIC_ZORYQ_RPC||`${zoryqBase}/rpc`,explorerUrl:`${zoryqBase}/explorer`,mainnet:false,supports0x:false},
   {id:'ethereum',name:'Ethereum Mainnet',shortName:'ETH',chainId:1,symbol:'ETH',rpcUrl:'https://ethereum-rpc.publicnode.com',explorerUrl:'https://etherscan.io',mainnet:true,supports0x:true},
@@ -27,11 +29,11 @@ export const BUILTIN_NETWORKS:NetworkConfig[]=[
   {id:'linea',name:'Linea',shortName:'LINEA',chainId:59144,symbol:'ETH',rpcUrl:'https://rpc.linea.build',explorerUrl:'https://lineascan.build',mainnet:true,supports0x:true},
   {id:'scroll',name:'Scroll',shortName:'SCROLL',chainId:534352,symbol:'ETH',rpcUrl:'https://rpc.scroll.io',explorerUrl:'https://scrollscan.com',mainnet:true,supports0x:true},
   {id:'zksync',name:'zkSync Era',shortName:'ZKSYNC',chainId:324,symbol:'ETH',rpcUrl:'https://mainnet.era.zksync.io',explorerUrl:'https://explorer.zksync.io',mainnet:true,supports0x:false},
-  {id:'celo',name:'Celo',shortName:'CELO',chainId:42220,symbol:'CELO',rpcUrl:'https://forno.celo.org',explorerUrl:'https://celoscan.io',mainnet:true,supports0x:true},
-  {id:'mantle',name:'Mantle',shortName:'MNT',chainId:5000,symbol:'MNT',rpcUrl:'https://rpc.mantle.xyz',explorerUrl:'https://mantlescan.xyz',mainnet:true,supports0x:false},
-  {id:'blast',name:'Blast',shortName:'BLAST',chainId:81457,symbol:'ETH',rpcUrl:'https://rpc.blast.io',explorerUrl:'https://blastscan.io',mainnet:true,supports0x:true},
+  {id:'celo',name:'Celo',shortName:'CELO',chainId:42220,symbol:'CELO',rpcUrl:'https://forno.celo.org',explorerUrl:'https://celoscan.io',mainnet:true,supports0x:false},
+  {id:'mantle',name:'Mantle',shortName:'MNT',chainId:5000,symbol:'MNT',rpcUrl:'https://rpc.mantle.xyz',explorerUrl:'https://mantlescan.xyz',mainnet:true,supports0x:true},
+  {id:'blast',name:'Blast',shortName:'BLAST',chainId:81457,symbol:'ETH',rpcUrl:'https://rpc.blast.io',explorerUrl:'https://blastscan.io',mainnet:true,supports0x:false},
   {id:'opbnb',name:'opBNB',shortName:'opBNB',chainId:204,symbol:'BNB',rpcUrl:'https://opbnb-mainnet-rpc.bnbchain.org',explorerUrl:'https://opbnb.bscscan.com',mainnet:true,supports0x:false},
-  {id:'sonic',name:'Sonic',shortName:'SONIC',chainId:146,symbol:'S',rpcUrl:'https://rpc.soniclabs.com',explorerUrl:'https://sonicscan.org',mainnet:true,supports0x:false}
+  {id:'sonic',name:'Sonic',shortName:'SONIC',chainId:146,symbol:'S',rpcUrl:'https://rpc.soniclabs.com',explorerUrl:'https://sonicscan.org',mainnet:true,supports0x:true}
 ];
 
 export function networkKey(n:NetworkConfig){return `${n.chainId}:${n.rpcUrl}`}
