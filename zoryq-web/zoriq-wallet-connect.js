@@ -5,6 +5,7 @@ const providers=new Map();
 let selected=null;
 let chooser=null;
 let resolveChooser=null;
+let bridgeInstalled=false;
 
 function safeName(v){return String(v||'Wallet EVM').slice(0,80)}
 function initial(name){return safeName(name).trim().slice(0,2).toUpperCase()||'W'}
@@ -35,9 +36,9 @@ async function ensureZoriqChain(provider){
 function ensureChooser(){
  if(chooser)return chooser;
  const style=document.createElement('style');style.textContent=`
- .zqwc-backdrop{position:fixed;inset:0;background:rgba(2,4,10,.76);backdrop-filter:blur(14px);z-index:99999;display:none;align-items:center;justify-content:center;padding:18px}.zqwc-backdrop.open{display:flex}.zqwc-card{width:min(460px,100%);background:linear-gradient(155deg,#101726,#080b12);border:1px solid #27344a;border-radius:24px;box-shadow:0 30px 80px rgba(0,0,0,.5);padding:20px;color:#fff}.zqwc-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.zqwc-kicker{font:800 10px/1.2 system-ui;letter-spacing:1.4px;color:#5cffad}.zqwc-title{font:900 25px/1.1 system-ui;margin:5px 0}.zqwc-sub{color:#8c9ab1;font:500 13px/1.45 system-ui}.zqwc-close{width:34px;height:34px;border-radius:10px;border:1px solid #2c394f;background:#111824;color:#fff;font-size:20px;cursor:pointer}.zqwc-list{display:grid;gap:9px;margin-top:16px}.zqwc-wallet{display:flex;align-items:center;gap:12px;width:100%;padding:13px;border-radius:15px;border:1px solid #27344a;background:#0c121d;color:#fff;text-align:left;cursor:pointer}.zqwc-wallet:hover{border-color:#56e9ff;background:#101a27}.zqwc-avatar{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#4169ff,#27e6d2);display:grid;place-items:center;color:#061019;font-weight:1000}.zqwc-meta{flex:1}.zqwc-name{font:850 14px system-ui}.zqwc-rdns{font:600 10px system-ui;color:#77869d;margin-top:3px}.zqwc-chain{font:800 10px system-ui;color:#5cffad}.zqwc-empty{border:1px dashed #2a3444;border-radius:14px;padding:18px;text-align:center;color:#8794a8;font:600 12px/1.5 system-ui}.zqwc-note{margin-top:14px;padding:11px;border-radius:12px;background:#0a1a16;border:1px solid #20463b;color:#9bc7b8;font:600 11px/1.45 system-ui}`;
+ .zqwc-backdrop{position:fixed;inset:0;background:rgba(2,4,10,.76);backdrop-filter:blur(14px);z-index:99999;display:none;align-items:center;justify-content:center;padding:18px}.zqwc-backdrop.open{display:flex}.zqwc-card{width:min(460px,100%);background:linear-gradient(155deg,#101726,#080b12);border:1px solid #27344a;border-radius:24px;box-shadow:0 30px 80px rgba(0,0,0,.5);padding:20px;color:#fff}.zqwc-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.zqwc-kicker{font:800 10px/1.2 system-ui;letter-spacing:1.4px;color:#5cffad}.zqwc-title{font:900 25px/1.1 system-ui;margin:5px 0}.zqwc-sub{color:#8c9ab1;font:500 13px/1.45 system-ui}.zqwc-close{width:34px;height:34px;border-radius:10px;border:1px solid #2c394f;background:#111824;color:#fff;font-size:20px;cursor:pointer}.zqwc-list{display:grid;gap:9px;margin-top:16px}.zqwc-wallet{display:flex;align-items:center;gap:12px;width:100%;padding:13px;border-radius:15px;border:1px solid #27344a;background:#0c121d;color:#fff;text-align:left;cursor:pointer}.zqwc-wallet:hover{border-color:#56e9ff;background:#101a27}.zqwc-avatar{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,#4169ff,#27e6d2);display:grid;place-items:center;color:#061019;font-weight:1000}.zqwc-meta{flex:1;display:flex;flex-direction:column}.zqwc-name{font:850 14px system-ui}.zqwc-rdns{font:600 10px system-ui;color:#77869d;margin-top:3px}.zqwc-chain{font:800 10px system-ui;color:#5cffad}.zqwc-empty{border:1px dashed #2a3444;border-radius:14px;padding:18px;text-align:center;color:#8794a8;font:600 12px/1.5 system-ui}.zqwc-note{margin-top:14px;padding:11px;border-radius:12px;background:#0a1a16;border:1px solid #20463b;color:#9bc7b8;font:600 11px/1.45 system-ui}`;
  document.head.appendChild(style);
- chooser=document.createElement('div');chooser.className='zqwc-backdrop';chooser.innerHTML=`<div class="zqwc-card"><div class="zqwc-head"><div><div class="zqwc-kicker">ZORIQ WALLET CONNECT</div><div class="zqwc-title">Escolha sua wallet</div><div class="zqwc-sub">Mostramos as wallets EVM instaladas no navegador. Depois da escolha, a ZORIQ adiciona/troca a rede para a ZORIQ EVM Testnet.</div></div><button class="zqwc-close" aria-label="Fechar">×</button></div><div class="zqwc-list"></div><div class="zqwc-note">Rede alvo: <b>ZORIQ EVM Testnet</b> · Chain ID <b>5919065</b> · moeda <b>ZQ</b>. A conexão nunca pede sua seed phrase.</div></div>`;
+ chooser=document.createElement('div');chooser.className='zqwc-backdrop';chooser.innerHTML=`<div class="zqwc-card"><div class="zqwc-head"><div><div class="zqwc-kicker">ZORIQ WALLET CONNECT</div><div class="zqwc-title">Escolha sua wallet</div><div class="zqwc-sub">Mostramos as wallets EVM instaladas neste navegador. Depois da escolha, a ZORIQ adiciona ou troca automaticamente para a ZORIQ EVM Testnet.</div></div><button class="zqwc-close" aria-label="Fechar">×</button></div><div class="zqwc-list"></div><div class="zqwc-note">Rede alvo: <b>ZORIQ EVM Testnet</b> · Chain ID <b>5919065</b> · moeda <b>ZQ</b>. A conexão nunca solicita sua seed phrase.</div></div>`;
  document.body.appendChild(chooser);
  chooser.querySelector('.zqwc-close').onclick=()=>finishChooser(null);
  chooser.addEventListener('click',e=>{if(e.target===chooser)finishChooser(null)});
@@ -50,6 +51,25 @@ async function connect(){const entry=await choose();if(!entry)throw new Error('C
 function getProvider(){return selected?.provider||null}
 function getSelected(){return selected}
 function clear(){selected=null}
-requestProviders();
-window.ZORYQ_WALLET_CONNECT={discover:async()=>{requestProviders();await new Promise(r=>setTimeout(r,120));return[...providers.values()].map(({id,info})=>({id,info}))},choose,connect,ensureZoriqChain,getProvider,getSelected,clear,chainParams};
+function routeSelectedProvider(){
+ if(!selected?.provider)throw new Error('Nenhuma wallet foi escolhida.');
+ if(window.ethereum===selected.provider)return true;
+ try{Object.defineProperty(window,'ethereum',{configurable:true,writable:true,value:selected.provider})}catch{try{window.ethereum=selected.provider}catch{}}
+ if(window.ethereum!==selected.provider)throw new Error('Esta wallet foi detectada, mas o navegador não permitiu selecioná-la como provider ativo.');
+ return true;
+}
+function installBackendBridge(){
+ if(bridgeInstalled||!window.ZORYQ_SOCIAL_BACKEND)return false;
+ const B=window.ZORYQ_SOCIAL_BACKEND;
+ const originalSign=B.signInWithWallet?.bind(B);
+ const originalLink=B.ensureInjectedWalletLinked?.bind(B);
+ const originalPurchase=B.purchaseVerified?.bind(B);
+ if(originalSign)B.signInWithWallet=async()=>{await connect();routeSelectedProvider();return await originalSign()};
+ if(originalLink)B.ensureInjectedWalletLinked=async()=>{if(!selected)await connect();else await ensureZoriqChain(selected.provider);routeSelectedProvider();return await originalLink()};
+ if(originalPurchase)B.purchaseVerified=async(chainId)=>{if(!selected)await connect();routeSelectedProvider();try{return await originalPurchase(chainId)}finally{try{await ensureZoriqChain(selected.provider)}catch{}}};
+ bridgeInstalled=true;return true;
+}
+function bridgeWhenReady(){if(installBackendBridge())return;let attempts=0;const t=setInterval(()=>{attempts++;if(installBackendBridge()||attempts>80)clearInterval(t)},50)}
+requestProviders();bridgeWhenReady();
+window.ZORYQ_WALLET_CONNECT={discover:async()=>{requestProviders();await new Promise(r=>setTimeout(r,120));return[...providers.values()].map(({id,info})=>({id,info}))},choose,connect,ensureZoriqChain,getProvider,getSelected,clear,chainParams,installBackendBridge};
 })();
