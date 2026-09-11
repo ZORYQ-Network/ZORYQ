@@ -10,6 +10,7 @@ const USD6 = 1_000_000n;
 const ALL_ROLES = ['AI_CEO','AI_MARKETING','AI_DESIGNER','AI_RESEARCH','AI_SALES','AI_FINANCE','AI_DEVELOPER'];
 const EXECUTOR_ROLES = ['AI_DESIGNER','AI_RESEARCH','AI_DEVELOPER'];
 const VERIFIER_ROLES = ['AI_RESEARCH','AI_FINANCE'];
+const POLICY_PROVIDER = 'zoryq-deterministic-policy-v1';
 
 const COMPANY_ABI = [
   'function companySnapshot(uint256 companyId) view returns(string name,string objective,address owner,address treasury,address token,uint256 treasuryBalance,uint256 initialBudget,uint256 revenue,uint256 expenses,uint256 profitAfterOperatingCosts,uint32 cycleCount,uint32 aiApprovedCycles,uint256 teamSize,bytes32 constitutionHash,bool active,bool emergencyStopEnabled,uint32 humanInterventions)',
@@ -27,17 +28,24 @@ function assert(condition, message) { if (!condition) { const e = new Error(mess
 
 export function aiCeoStatus() {
   const state = readJson(STATE_FILE);
+  const companyReady = state?.schema === 3 && !!state.contractAddress && !!state.canonicalCompanyId;
+  const llmConfigured = OPENAI_API_KEY.length > 20;
   return {
     ok: true,
-    provider: 'openai-responses',
-    configured: OPENAI_API_KEY.length > 20,
-    model: AI_MODEL,
+    provider: llmConfigured ? 'openai-responses' : POLICY_PROVIDER,
+    configured: companyReady,
+    planningAvailable: companyReady,
+    llmConfigured,
+    planningMode: llmConfigured ? 'llm-with-onchain-policy' : 'deterministic-policy-fallback',
+    model: llmConfigured ? AI_MODEL : null,
     chainId: CHAIN_ID,
     contractAddress: state?.schema === 3 ? state.contractAddress || null : null,
     canonicalCompanyId: state?.schema === 3 ? state.canonicalCompanyId || null : null,
-    safety: 'AI proposes; owner wallet approves; contract revalidates role, spend, verifier separation and replay rules onchain',
+    safety: 'Planner proposes; owner wallet approves; contract revalidates role, spend, verifier separation and replay rules onchain',
     syntheticEconomy: true,
-    note: OPENAI_API_KEY.length > 20 ? 'AI CEO planning is enabled.' : 'Set OPENAI_API_KEY as a Railway secret to enable live AI planning.'
+    note: llmConfigured
+      ? 'LLM planning is enabled and remains bounded by onchain policy.'
+      : 'No external LLM secret is configured. Testnet uses a deterministic policy planner so bounded planning remains testable without weakening custody or contract rules.'
   };
 }
 
@@ -199,8 +207,50 @@ export function normalizeAndValidatePlan(raw, context) {
   };
 }
 
+function requestDeterministicPolicyPlan(context, directive) {
+  const active = context.agents.filter(a => a.active);
+  const lead = ['AI_DEVELOPER','AI_DESIGNER','AI_RESEARCH']
+    .map(role => active.find(a => a.role === role && (a.permissions & 16) !== 0))
+    .find(Boolean);
+  const verifier = ['AI_FINANCE','AI_RESEARCH']
+    .map(role => active.find(a => a.role === role && a.role !== lead?.role && (a.permissions & 32) !== 0))
+    .find(Boolean);
+  assert(lead, 'no active executor satisfies policy');
+  assert(verifier, 'no independent active verifier satisfies policy');
+  const paymentCap = Math.floor(Math.min(
+    3,
+    Number(lead.perCycleLimitUsd),
+    Number(context.maxOperatingCostPerCycleUsd),
+    Number(context.treasuryBalanceUsd),
+    Number(context.maxSyntheticRevenuePerCycleUsd),
+    100
+  ));
+  assert(Number.isInteger(paymentCap) && paymentCap >= 1, 'policy planner cannot fund a minimum bounded cycle');
+  const mission = safeText(directive, 700) || safeText(context.objective, 700) || 'Advance the company objective with one measurable low-risk testnet step.';
+  return {
+    strategy: `Execute one bounded testnet cycle for this directive: ${mission}`,
+    leadRole: lead.role,
+    verifierRole: verifier.role,
+    expectedRevenueUsd: paymentCap,
+    payments: [{ role: lead.role, amountUsd: paymentCap }],
+    tasks: [
+      {
+        role: lead.role,
+        action: `Produce one concrete testnet deliverable for: ${mission}`,
+        evidence: 'Return an artifact hash, transaction hash, or deterministic result identifier that can be independently checked.'
+      },
+      {
+        role: verifier.role,
+        action: 'Independently verify the executor result against the directive, budget and onchain policy before acceptance.',
+        evidence: 'Return a verifier verdict linked to the plan hash and execution evidence identifier.'
+      }
+    ],
+    riskNotes: 'Deterministic policy fallback: no external LLM was used. This is synthetic testnet planning only; owner signature and smart-contract validation remain mandatory.'
+  };
+}
+
 async function requestOpenAiPlan(context, directive) {
-  if (OPENAI_API_KEY.length <= 20) { const e = new Error('ai_provider_not_configured'); e.code = 'AI_NOT_CONFIGURED'; throw e; }
+  if (OPENAI_API_KEY.length <= 20) return requestDeterministicPolicyPlan(context, directive);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 35_000);
   const system = [
@@ -248,6 +298,7 @@ export async function createAiCeoPlan(provider, input = {}) {
   const context = await loadAiCompanyContext(provider, input.companyId);
   if (!context.active) { const e = new Error('company_is_emergency_stopped'); e.code = 'AI_BAD_INPUT'; throw e; }
   const directive = safeText(input.directive, 1000);
+  const llmConfigured = OPENAI_API_KEY.length > 20;
   const raw = await requestOpenAiPlan(context, directive);
   const plan = normalizeAndValidatePlan(raw, context);
 
@@ -285,8 +336,9 @@ export async function createAiCeoPlan(provider, input = {}) {
   const paymentAmounts = plan.payments.map(p => String(BigInt(p.amountUsd) * USD6));
   return {
     ok: true,
-    provider: 'openai-responses',
-    model: AI_MODEL,
+    provider: llmConfigured ? 'openai-responses' : POLICY_PROVIDER,
+    planningMode: llmConfigured ? 'llm-with-onchain-policy' : 'deterministic-policy-fallback',
+    model: llmConfigured ? AI_MODEL : null,
     generatedAt: new Date().toISOString(),
     company: context,
     plan,
@@ -305,6 +357,8 @@ export async function createAiCeoPlan(provider, input = {}) {
         paymentAmounts
       }
     },
-    disclaimer: 'AI generated this strategy offchain. The owner must approve it with a wallet transaction. All dUSD revenue/cost values are synthetic public-testnet accounting and have no monetary value.'
+    disclaimer: llmConfigured
+      ? 'AI generated this strategy offchain. The owner must approve it with a wallet transaction. All dUSD revenue/cost values are synthetic public-testnet accounting and have no monetary value.'
+      : 'A deterministic bounded policy planner generated this testnet proposal without an external LLM. The owner must approve it with a wallet transaction. All dUSD values are synthetic and have no monetary value.'
   };
 }
