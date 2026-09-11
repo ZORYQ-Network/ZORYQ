@@ -19,6 +19,11 @@ function runNode(script, argv) {
   }
   return result.stdout;
 }
+function generateAttestationPublicKeySpkiBase64() {
+  const { publicKey } = generateKeyPairSync('ed25519');
+  return publicKey.export({ type: 'spki', format: 'der' }).toString('base64');
+}
+
 const outIndex = process.argv.indexOf('--out');
 const out = outIndex >= 0 ? process.argv[outIndex + 1] : null;
 if (!out) fail('usage: node preflight-fixture.mjs --out <directory>');
@@ -43,10 +48,10 @@ const validatorConfig = {
   minimumValidators: 4,
   minimumRegions: 3,
   validators: [
-    { operatorId: 'preflight-a', consensusPublicKey: `0x${'11'.repeat(48)}`, withdrawalAddress: `0x${'11'.repeat(20)}`, region: 'sa-east', p2pHost: 'validator-a.example.net', p2pPort: 30304 },
-    { operatorId: 'preflight-b', consensusPublicKey: `0x${'22'.repeat(48)}`, withdrawalAddress: `0x${'22'.repeat(20)}`, region: 'us-east', p2pHost: 'validator-b.example.net', p2pPort: 30305 },
-    { operatorId: 'preflight-c', consensusPublicKey: `0x${'33'.repeat(48)}`, withdrawalAddress: `0x${'33'.repeat(20)}`, region: 'eu-west', p2pHost: 'validator-c.example.net', p2pPort: 30306 },
-    { operatorId: 'preflight-d', consensusPublicKey: `0x${'44'.repeat(48)}`, withdrawalAddress: `0x${'44'.repeat(20)}`, region: 'sa-east', p2pHost: 'validator-d.example.net', p2pPort: 30307 }
+    { operatorId: 'preflight-a', consensusPublicKey: `0x${'11'.repeat(48)}`, withdrawalAddress: `0x${'11'.repeat(20)}`, region: 'sa-east', p2pHost: 'validator-a.example.net', p2pPort: 30304, attestationPublicKeySpkiBase64: generateAttestationPublicKeySpkiBase64() },
+    { operatorId: 'preflight-b', consensusPublicKey: `0x${'22'.repeat(48)}`, withdrawalAddress: `0x${'22'.repeat(20)}`, region: 'us-east', p2pHost: 'validator-b.example.net', p2pPort: 30305, attestationPublicKeySpkiBase64: generateAttestationPublicKeySpkiBase64() },
+    { operatorId: 'preflight-c', consensusPublicKey: `0x${'33'.repeat(48)}`, withdrawalAddress: `0x${'33'.repeat(20)}`, region: 'eu-west', p2pHost: 'validator-c.example.net', p2pPort: 30306, attestationPublicKeySpkiBase64: generateAttestationPublicKeySpkiBase64() },
+    { operatorId: 'preflight-d', consensusPublicKey: `0x${'44'.repeat(48)}`, withdrawalAddress: `0x${'44'.repeat(20)}`, region: 'sa-east', p2pHost: 'validator-d.example.net', p2pPort: 30307, attestationPublicKeySpkiBase64: generateAttestationPublicKeySpkiBase64() }
   ]
 };
 const validatorConfigPath = path.join(out, 'validator-config.json');
