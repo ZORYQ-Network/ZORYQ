@@ -52,8 +52,8 @@ jobs:
         run: |
           set -euo pipefail
           test -s /tmp/zoryq-mainnet-rootfs/sbom.spdx.json
-          jq -e '.spdxVersion | startswith("SPDX-")' /tmp/zoryq-mainnet-rootfs/sbom.spdx.json
-          jq -e '.["buildx.build.provenance"] | type == "object" and length > 0' /tmp/zoryq-build-metadata.json
+          jq -e '[.. | objects | .spdxVersion? // empty | select(type == "string" and startswith("SPDX-"))] | length > 0' /tmp/zoryq-mainnet-rootfs/sbom.spdx.json
+          jq -e '.["buildx.build.provenance"] as $p | (($p | type) == "object" and ($p | length) > 0) or (($p | type) == "string" and (($p | fromjson | type) == "object"))' /tmp/zoryq-build-metadata.json
           if grep -Eri '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|mnemonic[[:space:]]*[:=]|private_key[[:space:]]*[:=])' /tmp/zoryq-mainnet-rootfs/sbom.spdx.json /tmp/zoryq-build-metadata.json; then
             echo 'secret-like material found in supply-chain attestations' >&2
             exit 1
