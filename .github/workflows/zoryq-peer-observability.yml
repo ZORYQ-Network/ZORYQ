@@ -2,6 +2,11 @@ name: ZORYQ Peer Observability
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - zoryq-evm-testnet-node
+    paths:
+      - '.github/workflows/zoryq-peer-observability.yml'
   schedule:
     - cron: '17 * * * *'
 
