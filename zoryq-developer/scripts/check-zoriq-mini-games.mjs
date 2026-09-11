@@ -39,7 +39,11 @@ if(pkg.dependencies?.['expo-image-picker']!=='~17.0.11')fail('expo-image-picker 
 if(!app.includes('"userInterfaceStyle": "automatic"')||!app.includes('expo-image-picker'))fail('automatic theme / image picker app config missing');else pass('automatic theme and image picker app config present');
 if(!social.includes("['fun','😂 Divertir']")||!social.includes("['gaming','🎮 Games']"))fail('Social feed modes Divertir/Games are missing');else pass('Social feed keeps Divertir/Games modes');
 
-for(const forbidden of ['mnemonic','seed phrase','privateKey','MNEMONIC_KEY']){if(native.toLowerCase().includes(forbidden.toLowerCase()))fail(`profile/social shell exposes wallet secret marker: ${forbidden}`);else pass(`profile/social shell avoids secret marker: ${forbidden}`)}
+// The social shell may read the private key from SecureStore only to construct the local signer for the explicit $ transfer.
+// What must never happen is rendering, logging, persisting elsewhere, or uploading mnemonic/private-key material from the profile UI.
+for(const forbidden of ['mnemonic','seed phrase','MNEMONIC_KEY','console.log(pk)','console.log(privateKey)','<Text>{pk}</Text>','<Text>{privateKey}</Text>','avatar_url:pk','privateKey:pk']){if(native.toLowerCase().includes(forbidden.toLowerCase()))fail(`profile/social shell exposes wallet secret marker: ${forbidden}`);else pass(`profile/social shell avoids secret exposure marker: ${forbidden}`)}
+if(!native.includes("SecureStore.getItemAsync(WALLET_KEY)"))fail('profile payment signer must load the local wallet from SecureStore');else pass('profile payment signer uses SecureStore');
+if(!native.includes('wallet.sendTransaction({to:addr,value})'))fail('profile $ action must send only to the locked backend-provided address');else pass('profile $ action signs locked-recipient transfer');
 for(const forbidden of ['betAmount','wager','casino','stakeGame','privateKey','MNEMONIC_KEY']){if(games.includes(forbidden))fail(`forbidden games capability found: ${forbidden}`);else pass(`no games wallet/wager marker: ${forbidden}`)}
 
 if(process.exitCode)process.exit(process.exitCode);
