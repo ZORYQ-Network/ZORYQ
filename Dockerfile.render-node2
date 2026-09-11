@@ -1,0 +1,12 @@
+FROM ghcr.io/paradigmxyz/reth:v2.5.2 AS reth
+FROM node:22-bookworm-slim
+WORKDIR /app
+COPY --from=reth /usr/local/bin/reth /usr/local/bin/reth
+COPY zoryq-evm-node/zoryq-reth-genesis.json /app/zoryq-reth-genesis.json
+COPY zoryq-evm-node/render-node2.mjs /app/render-node2.mjs
+ENV PORT=10000
+ENV ZORYQ_CHAIN_ID=5919065
+ENV ZORYQ_RETH_HTTP_PORT=8545
+ENV ZORYQ_RETH_DATA_DIR=/tmp/zoryq-render-node2
+EXPOSE 10000
+CMD ["node","/app/render-node2.mjs"]
