@@ -26,6 +26,7 @@ export type SocialProfile={
  human_score:number|null;
  profile_visibility:string|null;
  discoverable:boolean|null;
+ show_reputation:boolean|null;
 };
 
 export type SocialPost={
@@ -33,7 +34,7 @@ export type SocialPost={
  author_id:string;
  body:string|null;
  visibility:string;
- media_urls:string[]|null;
+ media_url:string|null;
  likes_count:number;
  comments_count:number;
  reposts_count:number;
@@ -49,7 +50,7 @@ export async function getBackendState():Promise<BackendState>{
 }
 
 export async function listDiscoverableProfiles(search=''):Promise<SocialProfile[]>{
- let query=socialSupabase.from('profiles').select('id,username,display_name,bio,avatar_url,reputation_score,interests,power_key,human_score,profile_visibility,discoverable').eq('discoverable',true).order('reputation_score',{ascending:false}).limit(30);
+ let query=socialSupabase.from('profiles').select('id,username,display_name,bio,avatar_url,reputation_score,interests,power_key,human_score,profile_visibility,discoverable,show_reputation').eq('discoverable',true).order('reputation_score',{ascending:false}).limit(30);
  const clean=search.trim().replace(/[%_,()]/g,' ');
  if(clean)query=query.or(`username.ilike.%${clean}%,display_name.ilike.%${clean}%,bio.ilike.%${clean}%`);
  const {data,error}=await query;
@@ -59,7 +60,7 @@ export async function listDiscoverableProfiles(search=''):Promise<SocialProfile[
 
 export async function listVisibleFeed(limit=30):Promise<SocialPost[]>{
  const safeLimit=Math.max(1,Math.min(limit,50));
- const {data,error}=await socialSupabase.from('posts').select('id,author_id,body,visibility,media_urls,likes_count,comments_count,reposts_count,bookmarks_count,created_at').order('created_at',{ascending:false}).limit(safeLimit);
+ const {data,error}=await socialSupabase.from('posts').select('id,author_id,body,visibility,media_url,likes_count,comments_count,reposts_count,bookmarks_count,created_at').order('created_at',{ascending:false}).limit(safeLimit);
  if(error)throw error;
  return (data||[]) as SocialPost[];
 }
