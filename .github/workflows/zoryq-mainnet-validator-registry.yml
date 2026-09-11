@@ -1,0 +1,30 @@
+name: ZORYQ Mainnet Validator Registry
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-mainnet/validator-registry.mjs'
+      - 'zoryq-mainnet/validator-registry-selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-validator-registry.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mainnet/validator-registry.mjs'
+      - 'zoryq-mainnet/validator-registry-selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-validator-registry.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  registry:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deterministic public-only validator registry
+        run: |
+          set -euo pipefail
+          node zoryq-mainnet/validator-registry-selftest.mjs | tee /tmp/validator-registry-selftest.json
+          jq -e '.ok == true and .deterministic == true and .validatorCount >= 4 and .regionCount >= 3 and .secretMaterialRejected == true and .duplicateKeyRejected == true' /tmp/validator-registry-selftest.json
