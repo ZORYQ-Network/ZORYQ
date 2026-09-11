@@ -58,18 +58,21 @@ function containsSecretKey(value, currentPath = '') {
   }
   return null;
 }
-function validateConsensusEvidence(file, expectedChainId, blockers) {
+function validateConsensusEvidence(file, expectedChainId, expectedValidatorRegistrySha256, blockers) {
   let evidence;
   try { evidence = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
     blockers.push('consensus_evidence_invalid_json');
     return;
   }
-  if (evidence.rule !== 'zoryq-mainnet-multi-operator-evidence-v2') blockers.push('consensus_evidence_rule_invalid');
+  if (evidence.rule !== 'zoryq-mainnet-multi-operator-evidence-v4-registry-bound') blockers.push('consensus_evidence_rule_invalid');
   if (evidence.pass !== true || evidence.status !== 'MULTI_OPERATOR_CONVERGENCE_EVIDENCE_ACCEPTED') blockers.push('consensus_evidence_not_accepted');
   if (evidence.network !== 'ZORYQ Mainnet') blockers.push('consensus_evidence_network_invalid');
   if (Number(evidence.chainId) !== expectedChainId) blockers.push('consensus_evidence_chain_id_mismatch');
+  if (!isHex64(evidence.validatorRegistrySha256) || String(evidence.validatorRegistrySha256).toLowerCase() !== String(expectedValidatorRegistrySha256 || '').toLowerCase()) blockers.push('consensus_evidence_validator_registry_mismatch');
   if (!Number.isSafeInteger(evidence.nodeCount) || evidence.nodeCount < 4) blockers.push('consensus_evidence_node_count_below_policy');
   if (!Number.isSafeInteger(evidence.operatorCount) || evidence.operatorCount < 4) blockers.push('consensus_evidence_operator_count_below_policy');
+  if (!Number.isSafeInteger(evidence.authorizedRegistryOperatorCount) || evidence.authorizedRegistryOperatorCount < 4) blockers.push('consensus_evidence_registry_authorization_below_policy');
+  if (!Number.isSafeInteger(evidence.operatorAttestationKeyCount) || evidence.operatorAttestationKeyCount < 4) blockers.push('consensus_evidence_attestation_key_count_below_policy');
   if (!Number.isSafeInteger(evidence.regionCount) || evidence.regionCount < 3) blockers.push('consensus_evidence_region_count_below_policy');
   if (!isHex64(evidence.evidenceSha256)) blockers.push('consensus_evidence_digest_invalid');
   const requiredFaults = new Set(['producer-loss','network-partition-recovery','node-restart-recovery']);
@@ -167,7 +170,7 @@ for (const name of REQUIRED_CONTROLS) {
         blockers.push(`control_evidence_hash_mismatch:${name}`);
       } else {
         verifiedEvidence[name] = { path: evidencePath, sha256: actual };
-        if (name === 'consensus-multivalidator') validateConsensusEvidence(resolved, chainId, blockers);
+        if (name === 'consensus-multivalidator') validateConsensusEvidence(resolved, chainId, dossier.validatorRegistrySha256, blockers);
         if (name === 'launch-rehearsal') validateLaunchRehearsalEvidence(resolved, chainId, blockers);
         if (name === 'release-governance') validateGovernanceEvidence(resolved, dossier.releaseCommit, blockers);
       }
@@ -192,13 +195,14 @@ const report = {
   status: blockers.length === 0 ? 'READY_FOR_CONTROLLED_MAINNET_LAUNCH' : 'NOT_READY_FOR_MAINNET',
   network: dossier.network || null,
   chainId: Number.isSafeInteger(chainId) ? chainId : null,
+  validatorRegistrySha256: dossier.validatorRegistrySha256 || null,
   releaseCommit: dossier.releaseCommit || null,
   imageDigest: dossier.imageDigest || null,
   requiredControls: REQUIRED_CONTROLS,
   verifiedControls: Object.keys(verifiedEvidence).sort(),
   verifiedEvidence,
   blockers,
-  rule: 'zoryq-mainnet-readiness-v6-multi-operator-v2-bound'
+  rule: 'zoryq-mainnet-readiness-v7-multi-operator-v4-registry-bound'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
