@@ -1,0 +1,134 @@
+name: ZORYQ Security Guard
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-evm-node/**'
+      - '.github/workflows/zoryq-security-guard.yml'
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-evm-node/**'
+      - '.github/workflows/zoryq-security-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate public RPC hardening invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const rust=fs.readFileSync('zoryq-evm-node/rust-gateway/src/main.rs','utf8');
+          const server=fs.readFileSync('zoryq-evm-node/server.mjs','utf8');
+          const requiredRust=[
+            'const MAX_BODY:usize=1_000_000',
+            'const MAX_BATCH:usize=50',
+            'Duration::from_secs(60),600',
+            'RPC rate limit exceeded',
+            'RPC temporarily saturated',
+            'memory_band()',
+            'rpc_inflight',
+            'request_too_large',
+            'JSON-RPC batch limit is 50'
+          ];
+          for(const marker of requiredRust){
+            if(!rust.includes(marker)) throw new Error('RPC gateway hardening invariant missing: '+marker);
+          }
+          const requiredServer=[
+            "'anvil_'",
+            "'hardhat_'",
+            "'evm_'",
+            "'debug_'",
+            "'trace_'",
+            "'admin_'",
+            "'engine_'",
+            "'miner_'",
+            "'personal_'",
+            "'reth_'",
+            "'txpool_'",
+            "'eth_accounts'",
+            "'eth_sendTransaction'",
+            "'eth_sign'",
+            "'eth_signTransaction'"
+          ];
+          for(const marker of requiredServer){
+            if(!server.includes(marker)) throw new Error('blocked RPC invariant missing: '+marker);
+          }
+          if(!server.includes("'--http.addr','127.0.0.1'")) throw new Error('Reth HTTP must remain loopback-only');
+          console.log('RPC hardening invariants verified.');
+          NODE
+
+      - name: Validate persistence and recovery safety invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const server=fs.readFileSync('zoryq-evm-node/server.mjs','utf8');
+          const entry=fs.readFileSync('zoryq-evm-node/entrypoint.sh','utf8');
+          const required=[
+            '/data/reth',
+            '/data/zoryq-reth-mnemonic.txt',
+            'reth-native-db',
+            'ZORYQ_ALLOW_RETH_GENESIS_RESET',
+            'Refusing an implicit chain reset'
+          ];
+          const all=server+'\n'+entry;
+          for(const marker of required){
+            if(!all.includes(marker)) throw new Error('persistence safety invariant missing: '+marker);
+          }
+          console.log('Persistence safety invariants verified.');
+          NODE
+
+      - name: Verify testnet guard stays armed
+        run: ZORYQ_NETWORK_MODE=testnet node zoryq-evm-node/mainnet-guard.mjs
+
+      - name: Verify mainnet stays fail-closed without production evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          ZORYQ_NETWORK_MODE=mainnet node zoryq-evm-node/mainnet-guard.mjs > /tmp/mainnet-guard.json 2>&1
+          code=$?
+          set -e
+          cat /tmp/mainnet-guard.json
+          if [ "$code" -eq 0 ]; then
+            echo 'Mainnet guard unexpectedly passed without evidence' >&2
+            exit 1
+          fi
+          node <<'NODE'
+          const fs=require('fs');
+          const raw=fs.readFileSync('/tmp/mainnet-guard.json','utf8');
+          const start=raw.indexOf('{');
+          const report=JSON.parse(raw.slice(start));
+          const required=[
+            'execution_client_dev_mode',
+            'execution_client_dev_mnemonic',
+            'embedded_dev_faucet_wallets',
+            'mainnet_genesis_path_missing',
+            'external_signer_not_attested',
+            'production_consensus_not_attested',
+            'multi_node_redundancy_not_attested',
+            'disaster_recovery_not_attested',
+            'security_audit_not_attested',
+            'incident_runbook_not_attested'
+          ];
+          for(const blocker of required){
+            if(!report.blockers.includes(blocker)) throw new Error('mainnet fail-closed blocker missing: '+blocker);
+          }
+          if(report.mainnetActivated!==false) throw new Error('mainnetActivated must be false');
+          console.log('Mainnet fail-closed policy verified.');
+          NODE
