@@ -50,7 +50,7 @@ async function quoteKyber({chainId,sellToken,buyToken,sellAmount,taker}){
  if(!ADDRESS.test(routerAddress))throw Error('KYBER_ROUTER_INVALID');
  const extra=routeSummary.extraFee||{};
  if(!sameAddress(extra.feeReceiver,TREASURY)||String(extra.feeAmount)!==String(FEE_BPS)||String(extra.chargeFeeBy)!=='currency_in'||String(extra.isInBps)!=='true')throw Error('KYBER_FEE_NOT_VERIFIED');
- const buildRes=await fetch(`https://aggregator-api.kyberswap.com/${chain}/api/v1/route/build`,{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({routeSummary,sender:taker,recipient:taker,slippageTolerance:50,source:'ZORYQ-Wallet',enableGasEstimation:true}),signal:AbortSignal.timeout(15000)});const buildJson=await jsonResponse(buildRes);
+ const buildRes=await fetch(`https://aggregator-api.kyberswap.com/${chain}/api/v1/route/build`,{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({routeSummary,sender:taker,recipient:taker,slippageTolerance:50,source:'ZORYQ-Wallet',enableGasEstimation:false}),signal:AbortSignal.timeout(15000)});const buildJson=await jsonResponse(buildRes);
  if(!buildRes.ok||!buildJson?.data?.data)throw Object.assign(Error('KYBER_BUILD_FAILED'),{status:buildRes.status,detail:buildJson});
  const built=buildJson.data;const txTo=String(built.routerAddress||routerAddress);
  if(!sameAddress(txTo,routerAddress)||!ADDRESS.test(txTo))throw Error('KYBER_ROUTER_MISMATCH');
