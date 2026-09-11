@@ -3,7 +3,7 @@ name: Build ZORYQ Wallet APK
 'on':
   workflow_dispatch:
   push:
-    branches: [zoryq-release-candidate-full-product]
+    branches: [zoryq-evm-testnet-node, zoryq-release-candidate-full-product]
     paths:
       - 'zoryq-mobile/**'
       - '.github/workflows/zoryq-mobile-apk.yml'
@@ -24,7 +24,7 @@ jobs:
       EXPO_PUBLIC_ZORYQ_BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
       EXPO_PUBLIC_ZORYQ_RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-node@v4
         with:
@@ -64,6 +64,25 @@ jobs:
           im=Image.alpha_composite(im,z.filter(ImageFilter.GaussianBlur(0.6))).convert('RGB'); im.save('zoryq-mobile/assets/zoryq-icon.png','PNG',optimize=True)
           PY
 
+      - name: Wallet security and revenue policy gate
+        run: |
+          set -euo pipefail
+          grep -q "export {default} from './MainnetWallet'" zoryq-mobile/App.tsx
+          grep -q "requireAuthentication" zoryq-mobile/MainnetWallet.tsx
+          grep -q "provider.call" zoryq-mobile/MainnetWallet.tsx
+          grep -q "estimateGas" zoryq-mobile/MainnetWallet.tsx
+          grep -q "transferFeeBps:0" zoryq-mobile/revenue.ts
+          grep -q "hiddenFees:false" zoryq-mobile/revenue.ts
+          grep -q "swapFeeBps:25" zoryq-mobile/revenue.ts
+          grep -q "production_treasury_not_configured" zoryq-mobile/revenue.ts
+          grep -q "Ethereum Mainnet" zoryq-mobile/networks.ts
+          grep -q "Arbitrum One" zoryq-mobile/networks.ts
+          grep -q "BNB Smart Chain" zoryq-mobile/networks.ts
+          grep -q "Avalanche C-Chain" zoryq-mobile/networks.ts
+          grep -q "Adicionar ERC-20 por contrato" zoryq-mobile/MainnetWallet.tsx
+          ! grep -R -E "(sk-[A-Za-z0-9_-]{20,}|private[_-]?key[[:space:]]*[:=][[:space:]]*['\"][0-9a-fA-F]{64})" zoryq-mobile --exclude='MainnetWallet.tsx'
+          if grep -R "rpcUrl:'http://" zoryq-mobile/networks.ts; then echo 'insecure builtin RPC' >&2; exit 1; fi
+
       - name: TypeScript check
         working-directory: zoryq-mobile
         run: npm run typecheck
@@ -91,24 +110,22 @@ jobs:
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
           test -n "$APK"
           unzip -l "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' >/dev/null
-          grep -q '"version": "1.0.0"' zoryq-mobile/app.json
-          grep -q '"versionCode": 2' zoryq-mobile/app.json
-          grep -q "type Tab='wallet'|'send'|'social'|'activity'|'settings'" zoryq-mobile/App.tsx
-          grep -q "socialCommit('post'" zoryq-mobile/App.tsx
-          grep -q "socialCommit(action" zoryq-mobile/App.tsx
+          grep -q '"version": "1.1.0"' zoryq-mobile/app.json
+          grep -q '"versionCode": 3' zoryq-mobile/app.json
+          grep -q '"package": "com.zoryq.wallet"' zoryq-mobile/app.json
 
       - name: Package artifact
         run: |
           mkdir -p dist
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
-          cp "$APK" dist/ZORYQ-Wallet-1.0.0.apk
+          cp "$APK" dist/ZORYQ-Wallet-1.1.0.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ZORYQ-Wallet-1.0.0-APK
+          name: ZORYQ-Wallet-1.1.0-APK
           path: |
-            dist/ZORYQ-Wallet-1.0.0.apk
+            dist/ZORYQ-Wallet-1.1.0.apk
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
