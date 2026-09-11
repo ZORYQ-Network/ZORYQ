@@ -6,6 +6,7 @@ on:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-web/proof.html'
+      - 'zoryq-web/start.html'
       - 'zoryq-contracts/src/ZoryqAutonomousCompanyV3.sol'
       - 'zoryq-evm-node/ai-ceo.mjs'
       - 'zoryq-evm-node/server.mjs'
@@ -14,6 +15,7 @@ on:
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-web/proof.html'
+      - 'zoryq-web/start.html'
       - 'zoryq-contracts/src/ZoryqAutonomousCompanyV3.sol'
       - 'zoryq-evm-node/ai-ceo.mjs'
       - 'zoryq-evm-node/server.mjs'
@@ -33,13 +35,15 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import re
-          html = Path('zoryq-web/proof.html').read_text(encoding='utf-8')
-          blocks = re.findall(r'<script>(.*?)</script>', html, flags=re.S|re.I)
-          if not blocks:
-              raise SystemExit('proof.html contains no inline script')
-          Path('/tmp/zoryq-proof.js').write_text('\n'.join(blocks), encoding='utf-8')
+          for source,target in [('zoryq-web/proof.html','/tmp/zoryq-proof.js'),('zoryq-web/start.html','/tmp/zoryq-start.js')]:
+              html = Path(source).read_text(encoding='utf-8')
+              blocks = re.findall(r'<script>(.*?)</script>', html, flags=re.S|re.I)
+              if not blocks:
+                  raise SystemExit(f'{source} contains no inline script')
+              Path(target).write_text('\n'.join(blocks), encoding='utf-8')
           PY
           node --check /tmp/zoryq-proof.js
+          node --check /tmp/zoryq-start.js
       - name: Assert AI CEO UX and testnet boundaries
         run: |
           grep -qi 'Autonomous Company V3' zoryq-web/proof.html
@@ -51,14 +55,16 @@ jobs:
           grep -q 'AI Developer' zoryq-web/proof.html
           grep -q 'dUSD' zoryq-web/proof.html
           grep -qi 'sem valor monetário\|sem valor monetario' zoryq-web/proof.html
-          ! grep -Eqi 'sk-[A-Za-z0-9_-]{20,}' zoryq-web/proof.html
-      - name: Verify deployed v3 public boundary after merge
+          grep -q 'Gerar plano autônomo' zoryq-web/start.html
+          grep -q 'A proposta não é executada automaticamente' zoryq-web/start.html
+          ! grep -Eqi 'sk-[A-Za-z0-9_-]{20,}' zoryq-web/proof.html zoryq-web/start.html
+      - name: Verify deployed v3 bounded planning end-to-end
         if: github.event_name == 'push'
         env:
           BASE: https://zoryq-evm-node-live-production.up.railway.app
         run: |
           python3 - <<'PY'
-          import json, os, time, urllib.request, urllib.error
+          import json, os, time, urllib.request
           base=os.environ['BASE'].rstrip('/')
           def get_json(url):
               last=None
@@ -85,8 +91,16 @@ jobs:
                   out=json.loads(r.read())
               if out.get('error'): raise RuntimeError(out['error'])
               return out.get('result')
-          status=get_json(base+'/ai-ceo/status')
-          assert status.get('chainId')==5919065, status
+          status=None
+          for _ in range(45):
+              try:
+                  candidate=get_json(base+'/ai-ceo/status')
+                  if candidate.get('chainId')==5919065 and candidate.get('planningAvailable') is True and candidate.get('planningMode') in ('deterministic-policy-fallback','llm-with-onchain-policy'):
+                      status=candidate; break
+              except Exception:
+                  pass
+              time.sleep(4)
+          assert status is not None, 'deployed bounded planner did not become ready'
           address=status.get('contractAddress')
           assert isinstance(address,str) and len(address)==42, status
           assert int(status.get('canonicalCompanyId') or 0)>=1, status
@@ -95,14 +109,31 @@ jobs:
           assert rpc('eth_chainId')=='0x5a5159', 'wrong chain id'
           html=get_text(base+'/proof')
           assert 'GERAR PLANO COM AI CEO' in html, 'AI CEO public UI not served'
-          payload=json.dumps({'companyId':status['canonicalCompanyId'],'directive':'Crie um plano teste dentro dos limites.'}).encode()
-          req=urllib.request.Request(base+'/ai-ceo/plan',data=payload,headers={'content-type':'application/json'},method='POST')
-          try:
-              with urllib.request.urlopen(req,timeout=45) as r:
-                  plan=json.loads(r.read())
-                  assert plan.get('ok') is True and plan.get('onchainApproval',{}).get('contractAddress')==address, plan
-          except urllib.error.HTTPError as e:
-              body=json.loads(e.read() or b'{}')
-              assert e.code==503 and body.get('error')=='AI_NOT_CONFIGURED', (e.code,body)
-          print('Autonomous Company v3 verified: public UI + live contract + AI planning boundary')
+          start=get_text(base+'/start')
+          assert 'Gerar plano autônomo' in start, 'Chain Console autonomous planner not served'
+          payload=json.dumps({'companyId':status['canonicalCompanyId'],'directive':'Crie um plano teste concreto, verificável e de baixo risco dentro dos limites.'}).encode()
+          plan=None
+          last=None
+          for _ in range(20):
+              try:
+                  req=urllib.request.Request(base+'/ai-ceo/plan',data=payload,headers={'content-type':'application/json'},method='POST')
+                  with urllib.request.urlopen(req,timeout=45) as r:
+                      candidate=json.loads(r.read())
+                  if candidate.get('ok') is True:
+                      plan=candidate; break
+              except Exception as e:
+                  last=e
+              time.sleep(3)
+          assert plan is not None, f'bounded planner unavailable: {last}'
+          assert plan.get('provider') in ('zoryq-deterministic-policy-v1','openai-responses'), plan
+          assert plan.get('planningMode') in ('deterministic-policy-fallback','llm-with-onchain-policy'), plan
+          approval=plan.get('onchainApproval',{})
+          assert approval.get('contractAddress')==address, plan
+          assert approval.get('method')=='runAiApprovedCycle', plan
+          p=plan.get('plan',{})
+          assert p.get('leadRole') and p.get('verifierRole') and p['leadRole']!=p['verifierRole'], p
+          assert 0 < int(p.get('totalCostUsd') or 0) <= int(plan.get('company',{}).get('maxOperatingCostPerCycleUsd') or 0), p
+          assert len(p.get('tasks') or []) >= 2, p
+          assert approval.get('input',{}).get('planHash','').startswith('0x'), approval
+          print(json.dumps({'ok':True,'provider':plan['provider'],'planningMode':plan['planningMode'],'contractAddress':address,'companyId':status['canonicalCompanyId'],'leadRole':p['leadRole'],'verifierRole':p['verifierRole'],'taskCount':len(p['tasks'])},indent=2))
           PY
