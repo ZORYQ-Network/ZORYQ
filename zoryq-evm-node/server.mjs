@@ -189,7 +189,7 @@ const server=http.createServer(async(req,res)=>{
     }
     if(url.pathname==='/ai-ceo/status')return send(res,200,aiCeoStatus());
     if(url.pathname==='/ai-ceo/plan'&&req.method==='POST'){
-      await nodeReady;const b=await body(req);try{return send(res,200,{ok:true,...await createAiCeoPlan(provider,b.companyId,b.directive)})}catch(e){const code=e?.code||'';const status=code==='AI_BAD_INPUT'?400:code==='AI_NOT_CONFIGURED'||code==='AI_NOT_READY'?503:502;return send(res,status,{ok:false,error:sanitizeError(e),code})}
+      await nodeReady;const b=await body(req);try{return send(res,200,{ok:true,...await createAiCeoPlan(provider,{companyId:b.companyId,directive:b.directive})})}catch(e){const code=e?.code||'';const status=code==='AI_BAD_INPUT'?400:code==='AI_NOT_CONFIGURED'||code==='AI_NOT_READY'?503:502;return send(res,status,{ok:false,error:sanitizeError(e),code})}
     }
     return send(res,404,{ok:false,error:'not_found'});
   }catch(e){return send(res,500,{ok:false,error:sanitizeError(e)})}
