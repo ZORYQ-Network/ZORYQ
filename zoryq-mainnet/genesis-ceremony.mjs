@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 
 const TESTNET_CHAIN_ID = 5919065;
+const PRODUCTION_NETWORK = 'ZORYQ Mainnet';
 
 function fail(message, code = 2) {
   console.error(`[zoryq-mainnet] ${message}`);
@@ -23,9 +24,10 @@ function normalizeHex(value, field) {
   if (!/^0x[0-9a-f]+$/.test(text)) fail(`${field} must be 0x-prefixed hexadecimal`);
   return text;
 }
-function normalizeAddress(value) {
+function normalizeAddress(value, field = 'allocation address') {
   const text = String(value || '').toLowerCase();
-  if (!/^0x[0-9a-f]{40}$/.test(text)) fail(`invalid allocation address: ${value}`);
+  if (!/^0x[0-9a-f]{40}$/.test(text)) fail(`invalid ${field}: ${value}`);
+  if (text === '0x0000000000000000000000000000000000000000') fail(`${field} must not be the zero address`);
   return text;
 }
 function parseArgs(argv) {
@@ -50,6 +52,8 @@ for (const forbidden of ['mnemonic', 'privatekey', 'private_key', 'secretkey', '
 
 let cfg;
 try { cfg = JSON.parse(raw); } catch { fail('config is not valid JSON'); }
+const network = String(cfg.network || '').trim();
+if (!network) fail('network must be declared');
 const chainId = Number(cfg.chainId);
 if (!Number.isSafeInteger(chainId) || chainId <= 0) fail('chainId must be a positive safe integer');
 if (chainId === TESTNET_CHAIN_ID) fail('mainnet chainId must differ from ZORYQ testnet chainId');
@@ -64,12 +68,28 @@ if (!/^0x(?:[0-9a-f]{2})*$/.test(extraData)) fail('extraData must be even-length
 
 const allocations = Array.isArray(cfg.allocations) ? cfg.allocations : [];
 const alloc = {};
+let allocationTotalWei = 0n;
 for (const item of allocations) {
   const address = normalizeAddress(item?.address);
   if (alloc[address]) fail(`duplicate allocation address: ${address}`);
   const balance = normalizeHex(item?.balanceWei, `balanceWei for ${address}`);
-  if (BigInt(balance) <= 0n) fail(`allocation must be positive for ${address}`);
+  const balanceWei = BigInt(balance);
+  if (balanceWei <= 0n) fail(`allocation must be positive for ${address}`);
+  allocationTotalWei += balanceWei;
   alloc[address] = { balance };
+}
+
+let treasuryAddress = null;
+let expectedAllocTotalWei = null;
+if (network === PRODUCTION_NETWORK) {
+  if (allocations.length === 0) fail('production genesis must contain at least one explicit allocation');
+  treasuryAddress = normalizeAddress(cfg.treasuryAddress, 'treasuryAddress');
+  if (!alloc[treasuryAddress]) fail('production treasuryAddress must have an explicit genesis allocation');
+  expectedAllocTotalWei = BigInt(normalizeHex(cfg.expectedAllocTotalWei, 'expectedAllocTotalWei'));
+  if (expectedAllocTotalWei <= 0n) fail('expectedAllocTotalWei must be positive');
+  if (allocationTotalWei !== expectedAllocTotalWei) {
+    fail(`allocation total mismatch: expected ${expectedAllocTotalWei.toString()} wei, got ${allocationTotalWei.toString()} wei`);
+  }
 }
 
 const sortedAlloc = Object.fromEntries(Object.entries(alloc).sort(([a], [b]) => a.localeCompare(b)));
@@ -113,14 +133,18 @@ fs.mkdirSync(outDir, { recursive: true });
 fs.writeFileSync(path.join(outDir, 'genesis.json'), serialized, { mode: 0o644 });
 fs.writeFileSync(path.join(outDir, 'genesis.sha256'), `${genesisSha256}  genesis.json\n`, { mode: 0o644 });
 fs.writeFileSync(path.join(outDir, 'ceremony.json'), `${JSON.stringify({
-  formatVersion: 1,
-  network: String(cfg.network || 'ZORYQ Mainnet'),
+  formatVersion: 2,
+  network,
   chainId,
   consensus: String(cfg.consensus),
   genesisSha256,
   sourceConfigSha256: sourceSha256,
   allocations: Object.keys(sortedAlloc).length,
+  allocationTotalWei: allocationTotalWei.toString(),
+  treasuryAddress,
+  expectedAllocTotalWei: expectedAllocTotalWei?.toString() || null,
+  supplyInvariantVerified: network === PRODUCTION_NETWORK,
   secretMaterialAccepted: false
 }, null, 2)}\n`, { mode: 0o644 });
 
-console.log(JSON.stringify({ ok: true, outDir, chainId, genesisSha256, allocations: Object.keys(sortedAlloc).length }, null, 2));
+console.log(JSON.stringify({ ok: true, outDir, network, chainId, genesisSha256, allocations: Object.keys(sortedAlloc).length, allocationTotalWei: allocationTotalWei.toString(), supplyInvariantVerified: network === PRODUCTION_NETWORK }, null, 2));
