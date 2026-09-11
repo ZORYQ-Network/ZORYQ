@@ -5,6 +5,11 @@ set -euo pipefail
 : "${ZORYQ_MAINNET_GENESIS_PATH:?ZORYQ_MAINNET_GENESIS_PATH is required}"
 : "${ZORYQ_MAINNET_GENESIS_SHA256:?ZORYQ_MAINNET_GENESIS_SHA256 is required}"
 : "${ZORYQ_MAINNET_JWT_SECRET_PATH:?ZORYQ_MAINNET_JWT_SECRET_PATH is required}"
+: "${ZORYQ_MAINNET_RELEASE_COMMIT:?ZORYQ_MAINNET_RELEASE_COMMIT is required}"
+: "${ZORYQ_MAINNET_IMAGE_DIGEST:?ZORYQ_MAINNET_IMAGE_DIGEST is required}"
+: "${ZORYQ_MAINNET_AUDIT_REPORT_PATH:?ZORYQ_MAINNET_AUDIT_REPORT_PATH is required}"
+: "${ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH:?ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH is required}"
+: "${ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH:?ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH is required}"
 : "${ZORYQ_MAINNET_LAUNCH_MANIFEST:?ZORYQ_MAINNET_LAUNCH_MANIFEST is required}"
 : "${ZORYQ_MAINNET_LAUNCH_POLICY:?ZORYQ_MAINNET_LAUNCH_POLICY is required}"
 : "${ZORYQ_MAINNET_LAUNCH_APPROVALS:?ZORYQ_MAINNET_LAUNCH_APPROVALS is required}"
@@ -17,16 +22,84 @@ if [[ "${ZORYQ_MAINNET_CHAIN_ID}" == "5919065" ]]; then
   echo '[zoryq-mainnet] testnet chain id is forbidden in mainnet runtime' >&2
   exit 80
 fi
-for file in "$ZORYQ_MAINNET_GENESIS_PATH" "$ZORYQ_MAINNET_JWT_SECRET_PATH" "$ZORYQ_MAINNET_LAUNCH_MANIFEST" "$ZORYQ_MAINNET_LAUNCH_POLICY" "$ZORYQ_MAINNET_LAUNCH_APPROVALS"; do
+if [[ ! "${ZORYQ_MAINNET_RELEASE_COMMIT}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+  echo '[zoryq-mainnet] release commit must be a full 40-character git SHA' >&2
+  exit 80
+fi
+if [[ ! "${ZORYQ_MAINNET_IMAGE_DIGEST}" =~ ^sha256:[0-9a-fA-F]{64}$ ]]; then
+  echo '[zoryq-mainnet] image digest must be a sha256 OCI digest' >&2
+  exit 80
+fi
+
+required_files=(
+  "$ZORYQ_MAINNET_GENESIS_PATH"
+  "$ZORYQ_MAINNET_JWT_SECRET_PATH"
+  "$ZORYQ_MAINNET_AUDIT_REPORT_PATH"
+  "$ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH"
+  "$ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH"
+  "$ZORYQ_MAINNET_LAUNCH_MANIFEST"
+  "$ZORYQ_MAINNET_LAUNCH_POLICY"
+  "$ZORYQ_MAINNET_LAUNCH_APPROVALS"
+)
+for file in "${required_files[@]}"; do
   if [[ ! -f "$file" ]]; then
     echo "[zoryq-mainnet] required file missing: $file" >&2
     exit 80
   fi
 done
 
-actual_genesis_sha="$(sha256sum "$ZORYQ_MAINNET_GENESIS_PATH" | awk '{print $1}')"
+jwt_secret="$(tr -d '[:space:]' < "$ZORYQ_MAINNET_JWT_SECRET_PATH")"
+if [[ ! "$jwt_secret" =~ ^[0-9a-fA-F]{64}$ ]]; then
+  echo '[zoryq-mainnet] Engine API JWT must contain exactly 32 bytes encoded as hex' >&2
+  exit 80
+fi
+unset jwt_secret
+
+sha_file() { sha256sum "$1" | awk '{print $1}'; }
+manifest_value() {
+  node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); const v=m[process.argv[2]]; if(v===undefined||v===null) process.exit(3); process.stdout.write(String(v));' "$ZORYQ_MAINNET_LAUNCH_MANIFEST" "$1"
+}
+
+actual_genesis_sha="$(sha_file "$ZORYQ_MAINNET_GENESIS_PATH")"
 if [[ "$actual_genesis_sha" != "${ZORYQ_MAINNET_GENESIS_SHA256,,}" ]]; then
   echo '[zoryq-mainnet] genesis SHA-256 mismatch' >&2
+  exit 80
+fi
+
+manifest_chain_id="$(manifest_value chainId)"
+manifest_genesis_sha="$(manifest_value genesisSha256)"
+manifest_release_commit="$(manifest_value releaseCommit)"
+manifest_image_digest="$(manifest_value imageDigest)"
+manifest_audit_sha="$(manifest_value auditReportSha256)"
+manifest_runbook_sha="$(manifest_value incidentRunbookSha256)"
+manifest_recovery_sha="$(manifest_value recoveryDrillSha256)"
+
+if [[ "$manifest_chain_id" != "$ZORYQ_MAINNET_CHAIN_ID" ]]; then
+  echo '[zoryq-mainnet] launch certificate chainId does not match runtime' >&2
+  exit 80
+fi
+if [[ "${manifest_genesis_sha,,}" != "$actual_genesis_sha" ]]; then
+  echo '[zoryq-mainnet] launch certificate is not bound to the supplied genesis' >&2
+  exit 80
+fi
+if [[ "${manifest_release_commit,,}" != "${ZORYQ_MAINNET_RELEASE_COMMIT,,}" ]]; then
+  echo '[zoryq-mainnet] launch certificate is not bound to the supplied release commit' >&2
+  exit 80
+fi
+if [[ "${manifest_image_digest,,}" != "${ZORYQ_MAINNET_IMAGE_DIGEST,,}" ]]; then
+  echo '[zoryq-mainnet] launch certificate is not bound to the supplied image digest' >&2
+  exit 80
+fi
+if [[ "${manifest_audit_sha,,}" != "$(sha_file "$ZORYQ_MAINNET_AUDIT_REPORT_PATH")" ]]; then
+  echo '[zoryq-mainnet] launch certificate is not bound to the supplied audit report' >&2
+  exit 80
+fi
+if [[ "${manifest_runbook_sha,,}" != "$(sha_file "$ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH")" ]]; then
+  echo '[zoryq-mainnet] launch certificate is not bound to the supplied incident runbook' >&2
+  exit 80
+fi
+if [[ "${manifest_recovery_sha,,}" != "$(sha_file "$ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH")" ]]; then
+  echo '[zoryq-mainnet] launch certificate is not bound to the supplied recovery evidence' >&2
   exit 80
 fi
 
