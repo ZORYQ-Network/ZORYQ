@@ -4,7 +4,8 @@ COPY package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 COPY server.mjs ./server.mjs
 COPY social.mjs ./social.mjs
+COPY media.mjs ./media.mjs
 COPY gateway.mjs ./gateway.mjs
-ENV NODE_ENV=production PORT=8080 SOCIAL_DATA_DIR=/data
+ENV NODE_ENV=production PORT=8080 SOCIAL_DATA_DIR=/data SOCIAL_MEDIA_DIR=/data/social-media
 EXPOSE 8080
 CMD ["node","/app/gateway.mjs"]
