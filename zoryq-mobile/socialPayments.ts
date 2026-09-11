@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import {Contract,JsonRpcProvider,Wallet,formatUnits,isAddress,keccak256,parseUnits,toUtf8Bytes} from 'ethers';
+import {assertSocialPaymentDestination} from './socialPaymentDestination';
 
 const WALLET_KEY='zoryq.wallet.privateKey';
 export const DEFAULT_SOCIAL_FEE_BPS=50; // 0.50%
@@ -136,6 +137,10 @@ export async function sendSocialProfilePayment(input:{recipient:string;network:P
  const {recipient,network,asset,amount,profileId}=input;
  if(!isAddress(recipient))throw new Error('invalid_recipient');
  if(!network.routerAddress||!isAddress(network.routerAddress))throw new Error('payment_router_not_deployed');
+ // Re-resolve immediately before signing. If the owner disabled/changed the public verified
+ // wallet after the sheet opened, abort instead of paying a stale or user-edited address.
+ const destination=await assertSocialPaymentDestination(profileId,recipient);
+ const lockedRecipient=destination.address;
  const privateKey=await SecureStore.getItemAsync(WALLET_KEY);if(!privateKey)throw new Error('wallet_missing');
  const provider=await providerFor(network);const signer=new Wallet(privateKey,provider);const router=new Contract(network.routerAddress,ROUTER_ABI,signer);
  const liveFeeBps=Number(await router.feeBps());if(liveFeeBps<0||liveFeeBps>MAX_SOCIAL_FEE_BPS)throw new Error('invalid_router_fee');
@@ -146,15 +151,19 @@ export async function sendSocialProfilePayment(input:{recipient:string;network:P
  let tx:any;
  if(asset.kind==='native'){
   const balance=await provider.getBalance(signer.address);if(balance<=gross)throw new Error('insufficient_funds');
-  tx=await router.payNative(recipient,paymentRef,{value:gross});
+  tx=await router.payNative(lockedRecipient,paymentRef,{value:gross});
  }else{
   if(!asset.tokenAddress||!isAddress(asset.tokenAddress))throw new Error('invalid_token');
   const token=new Contract(asset.tokenAddress,ERC20_ABI,signer);const balance:bigint=await token.balanceOf(signer.address);if(balance<gross)throw new Error('insufficient_token_balance');
   const allowance:bigint=await token.allowance(signer.address,network.routerAddress);
-  if(allowance<gross){const approve=await token.approve(network.routerAddress,gross);approvalHash=approve.hash;const approvalReceipt=await approve.wait(1);if(!approvalReceipt||approvalReceipt.status!==1)throw new Error('approval_failed')}
-  tx=await router.payToken(asset.tokenAddress,recipient,gross,paymentRef);
+  if(allowance<gross){
+   // USDT-style tokens may require allowance to be cleared before setting a new non-zero amount.
+   if(asset.symbol==='USDT'&&allowance>0n){const reset=await token.approve(network.routerAddress,0n);const resetReceipt=await reset.wait(1);if(!resetReceipt||resetReceipt.status!==1)throw new Error('approval_reset_failed')}
+   const approve=await token.approve(network.routerAddress,gross);approvalHash=approve.hash;const approvalReceipt=await approve.wait(1);if(!approvalReceipt||approvalReceipt.status!==1)throw new Error('approval_failed')
+  }
+  tx=await router.payToken(asset.tokenAddress,lockedRecipient,gross,paymentRef);
  }
  const receipt=await tx.wait(1);if(!receipt||receipt.status!==1)throw new Error('tx_failed');
  const preview=previewSocialPayment(amount,asset,liveFeeBps);
- return {txHash:tx.hash,approvalHash,chainId:network.chainId,network:network.name,asset:asset.symbol,treasury,feeBps:liveFeeBps,protocolFee:preview.feeText,recipientAmount:preview.netText,grossAmount:preview.grossText};
+ return {txHash:tx.hash,approvalHash,chainId:network.chainId,network:network.name,asset:asset.symbol,recipient:lockedRecipient,treasury,feeBps:liveFeeBps,protocolFee:preview.feeText,recipientAmount:preview.netText,grossAmount:preview.grossText};
 }
