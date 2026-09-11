@@ -1,35 +1,58 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 const TESTNET_CHAIN_ID = 5919065;
-const EXIT_NOT_READY = 78;
+const EXIT_NOT_READY = 82;
+const MAX_DOSSIER_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+const REQUIRED_CONTROLS = Object.freeze([
+  'execution-runtime',
+  'genesis-ceremony',
+  'validator-distribution',
+  'consensus-multivalidator',
+  'key-custody',
+  'independent-security-audit',
+  'contract-security',
+  'recovery-drill',
+  'incident-response',
+  'observability-alerting',
+  'rpc-abuse-protection',
+  'supply-chain-provenance',
+  'release-governance',
+  'testnet-burn-in',
+  'launch-approvals'
+]);
 
 function fail(message, code = 64) {
-  process.stdout.write(`${JSON.stringify({ ok: false, error: message }, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify({ ready: false, error: message }, null, 2)}\n`);
   process.exit(code);
 }
-
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i += 2) {
-    const key = argv[i];
-    const value = argv[i + 1];
-    if (!key?.startsWith('--') || value === undefined) fail('usage: node readiness-gate.mjs --input <readiness.json>');
-    args[key.slice(2)] = value;
+    if (!argv[i]?.startsWith('--') || argv[i + 1] === undefined) fail('usage: node readiness-gate.mjs --input <readiness.json>');
+    args[argv[i].slice(2)] = argv[i + 1];
   }
   return args;
 }
-
-function bool(value) {
-  return value === true;
+function sha256File(file) {
+  return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 }
-
-function containsSecretKey(value, path = '') {
+function isHex64(value) { return /^[0-9a-f]{64}$/i.test(String(value || '')); }
+function isCommit(value) { return /^[0-9a-f]{40}$/i.test(String(value || '')); }
+function isImageDigest(value) { return /^sha256:[0-9a-f]{64}$/i.test(String(value || '')); }
+function parseTimestamp(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+function containsSecretKey(value, currentPath = '') {
   if (!value || typeof value !== 'object') return null;
   for (const [key, child] of Object.entries(value)) {
-    const current = path ? `${path}.${key}` : key;
+    const nextPath = currentPath ? `${currentPath}.${key}` : key;
     const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (['mnemonic', 'privatekey', 'secretkey', 'seedphrase', 'keystorepassword'].includes(normalized)) return current;
-    const nested = containsSecretKey(child, current);
+    if (['mnemonic', 'privatekey', 'secretkey', 'seedphrase', 'keystorepassword'].includes(normalized)) return nextPath;
+    const nested = containsSecretKey(child, nextPath);
     if (nested) return nested;
   }
   return null;
@@ -37,70 +60,91 @@ function containsSecretKey(value, path = '') {
 
 const args = parseArgs(process.argv);
 if (!args.input) fail('usage: node readiness-gate.mjs --input <readiness.json>');
-
-let readiness;
-try {
-  readiness = JSON.parse(fs.readFileSync(args.input, 'utf8'));
-} catch {
-  fail('readiness_input_invalid_json');
-}
-
+const dossierPath = path.resolve(args.input);
+let dossier;
+try { dossier = JSON.parse(fs.readFileSync(dossierPath, 'utf8')); } catch { fail('readiness_input_invalid_json'); }
+const dossierDir = path.dirname(dossierPath);
 const blockers = [];
-const secretPath = containsSecretKey(readiness);
+const secretPath = containsSecretKey(dossier);
 if (secretPath) blockers.push(`secret_material_field_present:${secretPath}`);
 
-if (String(readiness?.network?.mode || '').toLowerCase() !== 'mainnet') blockers.push('network_mode_not_mainnet');
-const chainId = Number(readiness?.network?.chainId);
+if (dossier.network !== 'ZORYQ Mainnet') blockers.push('network_name_invalid');
+if (dossier.productionEvidence !== true) blockers.push('production_evidence_required');
+if (dossier.fixtureOnly === true || dossier.synthetic === true) blockers.push('fixture_or_synthetic_evidence_forbidden');
+const chainId = Number(dossier.chainId);
 if (!Number.isSafeInteger(chainId) || chainId <= 0) blockers.push('chain_id_invalid');
 if (chainId === TESTNET_CHAIN_ID) blockers.push('chain_id_reuses_testnet');
-if (!/^[0-9a-f]{64}$/i.test(String(readiness?.network?.genesisSha256 || ''))) blockers.push('genesis_sha256_not_pinned');
-if (String(readiness?.execution?.client || '').toLowerCase() !== 'reth') blockers.push('execution_client_not_reth');
-if (!bool(readiness?.execution?.nativePersistence)) blockers.push('native_persistence_not_attested');
-if (!bool(readiness?.execution?.restoreTested)) blockers.push('restore_test_not_attested');
+if (!isHex64(dossier.genesisSha256)) blockers.push('genesis_sha256_not_pinned');
+if (!isHex64(dossier.validatorRegistrySha256)) blockers.push('validator_registry_sha256_not_pinned');
+if (!isCommit(dossier.releaseCommit)) blockers.push('release_commit_invalid');
+if (!isImageDigest(dossier.imageDigest)) blockers.push('image_digest_invalid');
 
-if (bool(readiness?.publicRpc?.debugEnabled)) blockers.push('public_debug_enabled');
-if (bool(readiness?.publicRpc?.adminEnabled)) blockers.push('public_admin_enabled');
-if (bool(readiness?.publicRpc?.nodeManagedSigning)) blockers.push('public_node_managed_signing_enabled');
-if (!bool(readiness?.publicRpc?.rateLimitsEnabled)) blockers.push('public_rate_limits_not_attested');
+const generatedAt = parseTimestamp(dossier.generatedAt);
+const expiresAt = parseTimestamp(dossier.expiresAt);
+const now = Date.now();
+if (generatedAt === null) blockers.push('generated_at_invalid');
+if (expiresAt === null) blockers.push('expires_at_invalid');
+if (generatedAt !== null && expiresAt !== null) {
+  if (expiresAt <= generatedAt) blockers.push('dossier_time_window_invalid');
+  if (expiresAt - generatedAt > MAX_DOSSIER_LIFETIME_MS) blockers.push('dossier_lifetime_too_long');
+  if (now < generatedAt - 60_000) blockers.push('dossier_not_yet_valid');
+  if (now >= expiresAt) blockers.push('dossier_expired');
+}
 
-if (bool(readiness?.testFeatures?.faucetEnabled)) blockers.push('mainnet_faucet_enabled');
-if (bool(readiness?.testFeatures?.devSignerEnabled)) blockers.push('mainnet_dev_signer_enabled');
-if (bool(readiness?.testFeatures?.demoAutomationEnabled)) blockers.push('mainnet_demo_automation_enabled');
-
-if (!bool(readiness?.keyManagement?.externalSigner)) blockers.push('external_signer_not_attested');
-if (readiness?.keyManagement?.rawPrivateKeysInRuntime !== false) blockers.push('raw_private_key_policy_not_safe');
-if (!bool(readiness?.keyManagement?.rotationRunbookTested)) blockers.push('key_rotation_runbook_not_tested');
-
-const threshold = Number(readiness?.governance?.emergencyMultisig?.threshold);
-const signers = Number(readiness?.governance?.emergencyMultisig?.signers);
-if (!Number.isInteger(signers) || signers < 2) blockers.push('emergency_multisig_signers_insufficient');
-if (!Number.isInteger(threshold) || threshold < 2 || threshold > signers) blockers.push('emergency_multisig_threshold_invalid');
-
-if (!bool(readiness?.operations?.metricsEnabled)) blockers.push('metrics_not_attested');
-if (!bool(readiness?.operations?.alertingEnabled)) blockers.push('alerting_not_attested');
-if (!bool(readiness?.operations?.incidentRunbookTested)) blockers.push('incident_runbook_not_tested');
-if (!bool(readiness?.operations?.rollbackRunbookTested)) blockers.push('rollback_runbook_not_tested');
-if (!bool(readiness?.operations?.backupRestoreDrillPassed)) blockers.push('backup_restore_drill_not_passed');
-
-if (!bool(readiness?.security?.externalAuditCompleted)) blockers.push('external_security_audit_not_completed');
-if (!bool(readiness?.security?.criticalFindingsClosed)) blockers.push('critical_security_findings_not_closed');
-if (!bool(readiness?.security?.dependencyReviewPassed)) blockers.push('dependency_review_not_attested');
+const controls = dossier.controls && typeof dossier.controls === 'object' && !Array.isArray(dossier.controls) ? dossier.controls : {};
+const verifiedEvidence = {};
+for (const name of REQUIRED_CONTROLS) {
+  const control = controls[name];
+  if (!control) {
+    blockers.push(`control_missing:${name}`);
+    continue;
+  }
+  if (control.status !== 'pass') blockers.push(`control_not_passed:${name}`);
+  if (!isHex64(control.evidenceSha256)) blockers.push(`control_evidence_hash_invalid:${name}`);
+  const observedAt = parseTimestamp(control.observedAt);
+  if (observedAt === null) blockers.push(`control_timestamp_invalid:${name}`);
+  const evidencePath = String(control.evidencePath || '');
+  if (!evidencePath || path.isAbsolute(evidencePath) || evidencePath.split(/[\\/]+/).includes('..')) {
+    blockers.push(`control_evidence_path_invalid:${name}`);
+  } else {
+    const resolved = path.resolve(dossierDir, evidencePath);
+    if (!resolved.startsWith(`${dossierDir}${path.sep}`) || !fs.existsSync(resolved) || !fs.statSync(resolved).isFile()) {
+      blockers.push(`control_evidence_missing:${name}`);
+    } else if (isHex64(control.evidenceSha256)) {
+      const actual = sha256File(resolved);
+      if (actual.toLowerCase() !== String(control.evidenceSha256).toLowerCase()) {
+        blockers.push(`control_evidence_hash_mismatch:${name}`);
+      } else {
+        verifiedEvidence[name] = { path: evidencePath, sha256: actual };
+      }
+    }
+  }
+  if (name === 'independent-security-audit' && control.independent !== true) blockers.push('independent_audit_attestation_required');
+  if (name === 'validator-distribution') {
+    if (!Number.isSafeInteger(control.validatorCount) || control.validatorCount < 4) blockers.push('validator_count_below_policy');
+    if (!Number.isSafeInteger(control.regionCount) || control.regionCount < 3) blockers.push('validator_region_count_below_policy');
+    if (!Number.isSafeInteger(control.operatorCount) || control.operatorCount < 4) blockers.push('validator_operator_count_below_policy');
+  }
+  if (name === 'consensus-multivalidator') {
+    if (!Number.isSafeInteger(control.faultTestsPassed) || control.faultTestsPassed < 3) blockers.push('consensus_fault_evidence_insufficient');
+  }
+  if (name === 'testnet-burn-in') {
+    if (!Number.isFinite(control.continuousHours) || control.continuousHours < 168) blockers.push('testnet_burn_in_below_168_hours');
+  }
+}
 
 const report = {
-  ok: blockers.length === 0,
+  ready: blockers.length === 0,
   status: blockers.length === 0 ? 'READY_FOR_CONTROLLED_MAINNET_LAUNCH' : 'NOT_READY_FOR_MAINNET',
+  network: dossier.network || null,
   chainId: Number.isSafeInteger(chainId) ? chainId : null,
+  releaseCommit: dossier.releaseCommit || null,
+  imageDigest: dossier.imageDigest || null,
+  requiredControls: REQUIRED_CONTROLS,
+  verifiedControls: Object.keys(verifiedEvidence).sort(),
+  verifiedEvidence,
   blockers,
-  checks: {
-    distinctChainId: chainId !== TESTNET_CHAIN_ID,
-    pinnedGenesis: /^[0-9a-f]{64}$/i.test(String(readiness?.network?.genesisSha256 || '')),
-    externalSigner: bool(readiness?.keyManagement?.externalSigner),
-    publicDebugDisabled: readiness?.publicRpc?.debugEnabled === false,
-    restoreTested: bool(readiness?.execution?.restoreTested),
-    incidentAndRollbackTested: bool(readiness?.operations?.incidentRunbookTested) && bool(readiness?.operations?.rollbackRunbookTested),
-    externalAuditCompleted: bool(readiness?.security?.externalAuditCompleted)
-  }
+  rule: 'zoryq-mainnet-readiness-v2-evidence-backed'
 };
-
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
