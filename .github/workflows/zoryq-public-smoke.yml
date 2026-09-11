@@ -31,6 +31,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Prove fail-closed predeploy guard
+        run: node zoryq-evm-node/predeploy-guard.selftest.mjs
+
       - name: Wait for release-specific live surfaces
         shell: bash
         run: |
@@ -123,6 +126,7 @@ jobs:
       - name: Summary
         run: |
           echo 'ZORYQ public smoke test PASS'
+          echo 'Predeploy guard: PASS'
           echo 'Chain ID: 5919065'
           echo 'RPC: PASS'
           echo 'EIP-3091 routes: PASS'
