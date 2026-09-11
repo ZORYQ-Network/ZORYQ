@@ -56,10 +56,39 @@ function run(name, evidence, shouldPass, expectedBlocker = null) {
   if (!shouldPass && (result.status === 0 || report.pass !== false)) throw new Error(`${name}: expected rejection, got ${result.status}: ${result.stdout}`);
   if (expectedBlocker && !report.blockers.some((item) => item.includes(expectedBlocker))) throw new Error(`${name}: missing blocker ${expectedBlocker}: ${result.stdout}`);
   process.stdout.write(`${name}: ${shouldPass ? 'accepted' : 'rejected'} as expected\n`);
+  return report;
 }
 
 try {
-  run('valid', fixture(), true);
+  const baseline = fixture();
+  const baselineReport = run('valid', baseline, true);
+
+  const nestedMutation = fixture();
+  nestedMutation.nodes[0].hostFingerprint = hash('host-0-mutated');
+  const nestedMutationReport = run('nested-digest-mutation', nestedMutation, true);
+  if (nestedMutationReport.evidenceSha256 === baselineReport.evidenceSha256) {
+    throw new Error('nested evidence mutation did not change evidenceSha256');
+  }
+  process.stdout.write('nested evidence fields are bound into evidenceSha256\n');
+
+  const reordered = {
+    faultTests: baseline.faultTests,
+    nodes: baseline.nodes,
+    commonFinalizedCheckpoint: baseline.commonFinalizedCheckpoint,
+    observedAt: baseline.observedAt,
+    consensusEngine: baseline.consensusEngine,
+    genesisSha256: baseline.genesisSha256,
+    chainId: baseline.chainId,
+    fixtureOnly: baseline.fixtureOnly,
+    synthetic: baseline.synthetic,
+    productionEvidence: baseline.productionEvidence,
+    network: baseline.network
+  };
+  const reorderedReport = run('canonical-key-order', reordered, true);
+  if (reorderedReport.evidenceSha256 !== baselineReport.evidenceSha256) {
+    throw new Error('canonical digest changed after top-level key reordering');
+  }
+  process.stdout.write('evidenceSha256 is stable across object key ordering\n');
 
   const reusedTestnet = fixture();
   reusedTestnet.chainId = 5919065;
