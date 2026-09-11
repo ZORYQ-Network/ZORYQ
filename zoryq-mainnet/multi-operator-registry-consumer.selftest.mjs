@@ -79,7 +79,9 @@ try {
   expectError('duplicate-canonical-key', duplicateKey, 'validator_registry_duplicate_attestation_key');
 
   const malformed = structuredClone(good);
-  malformed.validators[1].attestationPublicKeySpkiBase64 = 'not-a-valid-spki';
+  const malformedDer = Buffer.alloc(48, 0x41);
+  malformed.validators[1].attestationPublicKeySpkiBase64 = malformedDer.toString('base64');
+  malformed.validators[1].attestationKeyFingerprintSha256 = sha(malformedDer);
   expectError('malformed-spki', malformed, 'validator_registry_attestation_key_invalid');
 
   process.stdout.write('registry consumer adversarial self-test: PASS\n');
