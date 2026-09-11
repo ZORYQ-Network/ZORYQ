@@ -1,0 +1,87 @@
+name: ZORYQ Mainnet Supply Chain Evidence
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-mainnet/**'
+      - 'zoryq-evm-node/mainnet-guard.mjs'
+      - '.github/workflows/zoryq-mainnet-supply-chain.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mainnet/**'
+      - 'zoryq-evm-node/mainnet-guard.mjs'
+      - '.github/workflows/zoryq-mainnet-supply-chain.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sbom-provenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Buildx attestation support
+        run: |
+          set -euo pipefail
+          docker buildx version
+          docker buildx create --name zoryq-supply-chain --driver docker-container --use
+          docker buildx inspect --bootstrap
+
+      - name: Build mainnet rootfs with SBOM and max provenance
+        env:
+          BUILDX_METADATA_PROVENANCE: max
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/zoryq-mainnet-rootfs /tmp/zoryq-build-metadata.json
+          mkdir -p /tmp/zoryq-mainnet-rootfs
+          docker buildx build \
+            --builder zoryq-supply-chain \
+            --file zoryq-mainnet/Dockerfile \
+            --platform linux/amd64 \
+            --sbom=true \
+            --provenance=mode=max \
+            --metadata-file /tmp/zoryq-build-metadata.json \
+            --output type=local,dest=/tmp/zoryq-mainnet-rootfs \
+            .
+
+      - name: Verify SPDX SBOM and provenance metadata
+        run: |
+          set -euo pipefail
+          test -s /tmp/zoryq-mainnet-rootfs/sbom.spdx.json
+          jq -e '.spdxVersion | startswith("SPDX-")' /tmp/zoryq-mainnet-rootfs/sbom.spdx.json
+          jq -e '.["buildx.build.provenance"] | type == "object" and length > 0' /tmp/zoryq-build-metadata.json
+          if grep -Eri '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|mnemonic[[:space:]]*[:=]|private_key[[:space:]]*[:=])' /tmp/zoryq-mainnet-rootfs/sbom.spdx.json /tmp/zoryq-build-metadata.json; then
+            echo 'secret-like material found in supply-chain attestations' >&2
+            exit 1
+          fi
+
+      - name: Create immutable evidence descriptor
+        run: |
+          set -euo pipefail
+          SBOM_SHA="$(sha256sum /tmp/zoryq-mainnet-rootfs/sbom.spdx.json | awk '{print $1}')"
+          PROVENANCE_SHA="$(sha256sum /tmp/zoryq-build-metadata.json | awk '{print $1}')"
+          DOCKERFILE_SHA="$(sha256sum zoryq-mainnet/Dockerfile | awk '{print $1}')"
+          jq -n \
+            --arg commit "$GITHUB_SHA" \
+            --arg sbomSha256 "$SBOM_SHA" \
+            --arg provenanceSha256 "$PROVENANCE_SHA" \
+            --arg dockerfileSha256 "$DOCKERFILE_SHA" \
+            '{formatVersion:1,network:"ZORYQ Mainnet Candidate",productionRelease:false,releaseCommit:$commit,sbomSha256:$sbomSha256,provenanceSha256:$provenanceSha256,dockerfileSha256:$dockerfileSha256,provenanceMode:"max",sbomFormat:"SPDX"}' \
+            > /tmp/zoryq-supply-chain-evidence.json
+          jq -e '.productionRelease == false and (.releaseCommit | length == 40) and (.sbomSha256 | length == 64) and (.provenanceSha256 | length == 64)' /tmp/zoryq-supply-chain-evidence.json
+          cat /tmp/zoryq-supply-chain-evidence.json
+
+      - name: Upload supply-chain evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-mainnet-supply-chain-${{ github.sha }}
+          path: |
+            /tmp/zoryq-mainnet-rootfs/sbom.spdx.json
+            /tmp/zoryq-build-metadata.json
+            /tmp/zoryq-supply-chain-evidence.json
+          if-no-files-found: error
+          retention-days: 30
