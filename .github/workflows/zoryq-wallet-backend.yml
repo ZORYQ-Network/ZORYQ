@@ -1,0 +1,43 @@
+name: ZORYQ Wallet Revenue Backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-wallet-backend/**'
+      - '.github/workflows/zoryq-wallet-backend.yml'
+  pull_request:
+    paths:
+      - 'zoryq-wallet-backend/**'
+      - '.github/workflows/zoryq-wallet-backend.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - name: Syntax check
+        run: node --check zoryq-wallet-backend/server.mjs
+      - name: Verify fail-closed without production config
+        run: |
+          PORT=18080 node zoryq-wallet-backend/server.mjs >/tmp/wallet-backend.log 2>&1 & PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 20); do curl -s http://127.0.0.1:18080/health >/tmp/h.json && break || sleep 1; done
+          jq -e '.ok == false and .treasuryConfigured == false and .apiConfigured == false' /tmp/h.json
+          kill $PID; wait $PID || true; trap - EXIT
+      - name: Verify configured policy surface
+        run: |
+          PORT=18081 ZEROX_API_KEY='test-api-key-not-a-secret' ZORYQ_WALLET_TREASURY='0x1111111111111111111111111111111111111111' ZORYQ_WALLET_SWAP_FEE_BPS=25 node zoryq-wallet-backend/server.mjs >/tmp/wallet-backend2.log 2>&1 & PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 20); do curl -s http://127.0.0.1:18081/health >/tmp/h2.json && break || sleep 1; done
+          jq -e '.ok == true and .feeBps == 25 and .treasuryConfigured == true and .apiConfigured == true' /tmp/h2.json
+          curl -sS -X POST http://127.0.0.1:18081/quote -H 'content-type: application/json' -d '{"chainId":999999,"sellToken":"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE","buyToken":"0x1111111111111111111111111111111111111111","sellAmount":"1000","taker":"0x2222222222222222222222222222222222222222"}' >/tmp/bad.json
+          jq -e '.ok == false and .error == "UNSUPPORTED_CHAIN"' /tmp/bad.json
