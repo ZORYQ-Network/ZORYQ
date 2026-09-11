@@ -10,6 +10,8 @@ on:
       - 'zoryq-web/zoriq-social-suite.js'
       - 'zoryq-web/zoriq-social-backend.js'
       - 'zoryq-web/zoriq-social-sync.js'
+      - 'zoryq-web/zoriq-app-parity.css'
+      - 'zoryq-web/zoriq-app-parity.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
       - 'zoryq-mobile/Social.tsx'
@@ -19,6 +21,8 @@ on:
       - 'zoryq-mobile/profilePreferences.ts'
       - 'zoryq-mobile/MiniGames.tsx'
       - 'zoryq-mobile/SyncedFeed.tsx'
+      - 'zoryq-mobile/SocialPaymentSheet.tsx'
+      - 'zoryq-mobile/socialPayments.ts'
       - 'zoryq-mobile/socialBackend.ts'
       - 'zoryq-mobile/index.js'
       - 'zoryq-mobile/package.json'
@@ -29,6 +33,7 @@ on:
       - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
       - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-web-apk-parity.mjs'
       - 'zoryq-developer/scripts/check-zoriq-verified.mjs'
       - 'zoryq-developer/scripts/check-zoriq-mini-games.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
@@ -43,6 +48,8 @@ on:
       - 'zoryq-web/zoriq-social-suite.js'
       - 'zoryq-web/zoriq-social-backend.js'
       - 'zoryq-web/zoriq-social-sync.js'
+      - 'zoryq-web/zoriq-app-parity.css'
+      - 'zoryq-web/zoriq-app-parity.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
       - 'zoryq-mobile/Social.tsx'
@@ -52,6 +59,8 @@ on:
       - 'zoryq-mobile/profilePreferences.ts'
       - 'zoryq-mobile/MiniGames.tsx'
       - 'zoryq-mobile/SyncedFeed.tsx'
+      - 'zoryq-mobile/SocialPaymentSheet.tsx'
+      - 'zoryq-mobile/socialPayments.ts'
       - 'zoryq-mobile/socialBackend.ts'
       - 'zoryq-mobile/index.js'
       - 'zoryq-mobile/package.json'
@@ -62,6 +71,7 @@ on:
       - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
       - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-web-apk-parity.mjs'
       - 'zoryq-developer/scripts/check-zoriq-verified.mjs'
       - 'zoryq-developer/scripts/check-zoriq-mini-games.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
@@ -86,8 +96,11 @@ jobs:
         run: |
           node --check zoryq-web/zoriq-social-backend.js
           node --check zoryq-web/zoriq-social-sync.js
+          node --check zoryq-web/zoriq-app-parity.js
       - name: Validate ZORIQ Social deployment package
         run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs
+      - name: Validate Web DApp and APK parity
+        run: node zoryq-developer/scripts/check-zoriq-web-apk-parity.mjs
       - name: Validate ZORIQ Verified annual ETH package
         run: node zoryq-developer/scripts/check-zoriq-verified.mjs
       - name: Validate simplified ZORIQ Social + Mini Games package
