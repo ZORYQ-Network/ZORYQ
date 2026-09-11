@@ -39,11 +39,16 @@ jobs:
           const tokens=JSON.parse(fs.readFileSync('zoryq-shared/design-tokens.json','utf8'));
           const ui=JSON.parse(fs.readFileSync('zoryq-shared/super-app-ui-contract.json','utf8'));
           if(tokens.brand!=='ZORYQ') throw new Error('brand must be ZORYQ');
-          const required=['#DAFF02','#FE572A','#685BC7','#F30EBB','#00B0FF','#25D366'];
-          const raw=JSON.stringify(tokens);
-          for(const c of required) if(!raw.includes(c)) throw new Error('missing palette '+c);
           if(ui.brand.productName!=='ZORYQ') throw new Error('UI contract productName mismatch');
-          if(ui.brand.primary!=='#685BC7'||ui.brand.accent!=='#00B0FF'||ui.brand.success!=='#25D366') throw new Error('UI contract palette drift');
+          const required=['#DAFF02','#FE572A','#685BC7','#F30EBB','#00B0FF','#25D366'];
+          for(const c of required){
+            if(!JSON.stringify(tokens).includes(c)) throw new Error('design token missing '+c);
+            if(!JSON.stringify(ui.brand).includes(c)) throw new Error('UI contract palette missing '+c);
+          }
+          if(ui.brand.primary!=='#685BC7') throw new Error('primary semantic color drift');
+          if(ui.brand.accent!=='#DAFF02') throw new Error('accent semantic color drift');
+          if(ui.brand.cyan!=='#00B0FF') throw new Error('cyan signal color drift');
+          if(ui.brand.success!=='#25D366') throw new Error('success semantic color drift');
           console.log('ZORYQ design tokens and UI contract are aligned.');
           NODE
       - name: Validate mobile theme parity
@@ -53,6 +58,7 @@ jobs:
           grep -q "primary: '#685BC7'" zoryq-mobile/theme.ts
           grep -q "magenta: '#F30EBB'" zoryq-mobile/theme.ts
           grep -q "lime: '#DAFF02'" zoryq-mobile/theme.ts
+          grep -q "cyan: '#00B0FF'" zoryq-mobile/theme.ts
           grep -q "success: '#25D366'" zoryq-mobile/theme.ts
       - name: Validate canonical public routes
         shell: bash
@@ -71,7 +77,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=(zoryq-web/home-v2.html zoryq-web/zoryq-social.html zoryq-mobile/App.tsx zoryq-mobile/WalletApp.tsx BRAND.md zoryq-shared/design-tokens.json zoryq-shared/super-app-ui-contract.json)
+          # Scan only user-facing/runtime surfaces. BRAND.md and token-policy files
+          # intentionally document forbidden legacy aliases and are not public UI.
+          files=(zoryq-web/home-v2.html zoryq-web/zoryq-social.html zoryq-mobile/App.tsx zoryq-mobile/WalletApp.tsx)
           for file in "${files[@]}"; do
             if grep -Eiq '\b(ZORIQ|KYVO|KYVRA|KYVORA)\b' "$file"; then
               echo "Legacy public branding found in $file" >&2
