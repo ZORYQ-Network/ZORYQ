@@ -1,0 +1,100 @@
+name: ZORYQ Direct Messages
+
+'on':
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-wallet-backend/messages.mjs'
+      - 'zoryq-wallet-backend/gateway.mjs'
+      - 'zoryq-wallet-backend/Dockerfile'
+      - '.github/workflows/zoryq-messages.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  messages-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - name: Install dependencies
+        working-directory: zoryq-wallet-backend
+        run: npm install --no-audit --no-fund
+      - name: Start gateway
+        working-directory: zoryq-wallet-backend
+        env:
+          PORT: '8080'
+          ZORYQ_WALLET_TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+          ZORYQ_WALLET_SWAP_FEE_BPS: '25'
+          SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
+          SOCIAL_DATA_DIR: '/tmp/zoryq-dm-social'
+          SOCIAL_MEDIA_DIR: '/tmp/zoryq-dm-media'
+          COMMUNITY_DATA_DIR: '/tmp/zoryq-dm-community'
+          MESSAGE_DATA_DIR: '/tmp/zoryq-dm-data'
+        run: |
+          rm -rf /tmp/zoryq-dm-social /tmp/zoryq-dm-media /tmp/zoryq-dm-community /tmp/zoryq-dm-data
+          node gateway.mjs >/tmp/dm-gateway.log 2>&1 &
+          echo $! >/tmp/dm-gateway.pid
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/message/health >/dev/null && break; sleep 1; done
+      - name: Two-wallet direct-message E2E
+        working-directory: zoryq-wallet-backend
+        run: |
+          node --input-type=module <<'NODE'
+          import {Wallet} from 'ethers';
+          const root='http://127.0.0.1:8080';
+          async function auth(wallet){
+            const c=await fetch(`${root}/social/v1/auth/challenge?address=${wallet.address}`).then(r=>r.json());
+            const signature=await wallet.signMessage(c.message);
+            const login=await fetch(`${root}/social/v1/auth/verify`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({address:wallet.address,signature})}).then(r=>r.json());
+            if(!login.token)throw Error('auth_failed');
+            return {token:login.token,headers:{authorization:`Bearer ${login.token}`,'content-type':'application/json'}};
+          }
+          const alice=Wallet.createRandom(),bob=Wallet.createRandom(),eve=Wallet.createRandom();
+          const a=await auth(alice),b=await auth(bob),e=await auth(eve);
+          const created=await fetch(`${root}/message/v1/conversations`,{method:'POST',headers:a.headers,body:JSON.stringify({participant:bob.address})}).then(r=>r.json());
+          const id=created.conversation?.id;if(!id)throw Error('conversation_create_failed');
+          const one=await fetch(`${root}/message/v1/conversations/${id}/messages`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'gm bob'})}).then(r=>r.json());
+          const two=await fetch(`${root}/message/v1/conversations/${id}/messages`,{method:'POST',headers:b.headers,body:JSON.stringify({content:'gm alice'})}).then(r=>r.json());
+          if(!one.message?.id||!two.message?.id)throw Error('message_send_failed');
+          const inbox=await fetch(`${root}/message/v1/conversations`,{headers:{authorization:`Bearer ${a.token}`}}).then(r=>r.json());
+          if(!inbox.items?.some(x=>x.id===id&&x.unread===1))throw Error('unread_count_failed');
+          const read=await fetch(`${root}/message/v1/conversations/${id}/read`,{method:'POST',headers:a.headers}).then(r=>r.json());
+          if(read.conversation?.unread!==0)throw Error('read_state_failed');
+          const thread=await fetch(`${root}/message/v1/conversations/${id}/messages`,{headers:{authorization:`Bearer ${b.token}`}}).then(r=>r.json());
+          if(thread.items?.length!==2||thread.items[0].content!=='gm bob'||thread.items[1].content!=='gm alice')throw Error('thread_read_failed');
+          const forbidden=await fetch(`${root}/message/v1/conversations/${id}/messages`,{headers:{authorization:`Bearer ${e.token}`}});
+          if(forbidden.status===200)throw Error('third_party_read_allowed');
+          const health=await fetch(`${root}/message/health`).then(r=>r.json());
+          if(health.e2e!==false||health.encryption!=='transport-and-access-control')throw Error('encryption_claim_invalid');
+          console.log(JSON.stringify({ok:true,conversation:id,messages:2,thirdPartyBlocked:true,e2e:false}));
+          NODE
+      - name: Persistence after restart
+        working-directory: zoryq-wallet-backend
+        env:
+          PORT: '8080'
+          ZORYQ_WALLET_TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+          ZORYQ_WALLET_SWAP_FEE_BPS: '25'
+          SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
+          SOCIAL_DATA_DIR: '/tmp/zoryq-dm-social'
+          SOCIAL_MEDIA_DIR: '/tmp/zoryq-dm-media'
+          COMMUNITY_DATA_DIR: '/tmp/zoryq-dm-community'
+          MESSAGE_DATA_DIR: '/tmp/zoryq-dm-data'
+        run: |
+          kill $(cat /tmp/dm-gateway.pid) || true
+          sleep 1
+          node gateway.mjs >/tmp/dm-gateway-restart.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/message/health >/dev/null && break; sleep 1; done
+          grep -q 'gm bob' /tmp/zoryq-dm-data/messages.json
+          grep -q 'gm alice' /tmp/zoryq-dm-data/messages.json
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          cat /tmp/dm-gateway.log || true
+          cat /tmp/dm-gateway-restart.log || true
