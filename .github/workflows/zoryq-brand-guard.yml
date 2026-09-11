@@ -1,0 +1,81 @@
+name: ZORYQ Brand & UI Guard
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-web/**'
+      - 'zoryq-mobile/**'
+      - 'zoryq-shared/**'
+      - 'BRAND.md'
+      - '.github/workflows/zoryq-brand-guard.yml'
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/**'
+      - 'zoryq-mobile/**'
+      - 'zoryq-shared/**'
+      - 'BRAND.md'
+      - '.github/workflows/zoryq-brand-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  brand-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate canonical ZORYQ design tokens
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const tokens=JSON.parse(fs.readFileSync('zoryq-shared/design-tokens.json','utf8'));
+          const ui=JSON.parse(fs.readFileSync('zoryq-shared/super-app-ui-contract.json','utf8'));
+          if(tokens.brand!=='ZORYQ') throw new Error('brand must be ZORYQ');
+          const required=['#DAFF02','#FE572A','#685BC7','#F30EBB','#00B0FF','#25D366'];
+          const raw=JSON.stringify(tokens);
+          for(const c of required) if(!raw.includes(c)) throw new Error('missing palette '+c);
+          if(ui.brand.productName!=='ZORYQ') throw new Error('UI contract productName mismatch');
+          if(ui.brand.primary!=='#685BC7'||ui.brand.accent!=='#00B0FF'||ui.brand.success!=='#25D366') throw new Error('UI contract palette drift');
+          console.log('ZORYQ design tokens and UI contract are aligned.');
+          NODE
+      - name: Validate mobile theme parity
+        run: |
+          set -euo pipefail
+          grep -q "productName: 'ZORYQ'" zoryq-mobile/theme.ts
+          grep -q "primary: '#685BC7'" zoryq-mobile/theme.ts
+          grep -q "magenta: '#F30EBB'" zoryq-mobile/theme.ts
+          grep -q "lime: '#DAFF02'" zoryq-mobile/theme.ts
+          grep -q "success: '#25D366'" zoryq-mobile/theme.ts
+      - name: Validate canonical public routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const fs=require('fs');
+          const v=JSON.parse(fs.readFileSync('zoryq-web/vercel.json','utf8'));
+          const rewrites=new Map((v.rewrites||[]).map(x=>[x.source,x.destination]));
+          if(rewrites.get('/')!=='/home-v2.html') throw new Error('root must use unified home');
+          if(rewrites.get('/social')!=='/zoryq-social.html') throw new Error('/social must use canonical ZORYQ file');
+          if(!fs.existsSync('zoryq-web/zoryq-social.html')) throw new Error('canonical ZORYQ social file missing');
+          console.log('Canonical public routes OK.');
+          NODE
+      - name: Reject legacy public branding in primary surfaces
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(zoryq-web/home-v2.html zoryq-web/zoryq-social.html zoryq-mobile/App.tsx zoryq-mobile/WalletApp.tsx BRAND.md zoryq-shared/design-tokens.json zoryq-shared/super-app-ui-contract.json)
+          for file in "${files[@]}"; do
+            if grep -Eiq '\b(ZORIQ|KYVO|KYVRA|KYVORA)\b' "$file"; then
+              echo "Legacy public branding found in $file" >&2
+              exit 1
+            fi
+          done
+          echo 'Primary public surfaces use ZORYQ only.'
