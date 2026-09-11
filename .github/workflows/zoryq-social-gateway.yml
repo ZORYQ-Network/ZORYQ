@@ -39,6 +39,7 @@ jobs:
           SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
           SOCIAL_DATA_DIR: '/tmp/zoryq-social-ci'
           SOCIAL_MEDIA_DIR: '/tmp/zoryq-social-media-ci'
+          SOCIAL_PUBLIC_BASE_URL: 'https://social.example'
         run: |
           rm -rf /tmp/zoryq-social-ci /tmp/zoryq-social-media-ci
           node gateway.mjs > /tmp/zoryq-gateway.log 2>&1 &
@@ -99,10 +100,10 @@ jobs:
           for(const type of ['like','repost','comment','follow','mention'])if(!types.has(type))throw Error(`notification_${type}_missing`);
           const onePx='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
           const media=await fetch(`${base}/v1/media/image`,{method:'POST',headers:a.headers,body:JSON.stringify({mime:'image/png',dataBase64:onePx})}).then(async r=>({status:r.status,j:await r.json()}));
-          if(media.status!==201||!media.j.url?.includes('/social/media/'))throw Error(`media_upload_failed_${media.status}`);
+          if(media.status!==201||!media.j.url?.startsWith('https://social.example/social/media/')||!media.j.path?.startsWith('/social/media/'))throw Error(`media_upload_failed_${media.status}`);
           const imagePost=await fetch(`${base}/v1/posts`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'Persistent ZORYQ photo #zoryq',kind:'image',attachment:{url:media.j.url,alt:'CI image'}})}).then(r=>r.json());
           if(imagePost.post?.attachment?.type!=='image')throw Error('image_post_failed');
-          const imageResponse=await fetch(media.j.url);
+          const imageResponse=await fetch(`http://127.0.0.1:8080${media.j.path}`);
           if(!imageResponse.ok||imageResponse.headers.get('content-type')!=='image/png')throw Error('media_read_failed');
           const txPost=await fetch(`${base}/v1/posts`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'Verified transaction card',kind:'tx',attachment:{chainId:8453,hash:'0x'+'ab'.repeat(32)}})}).then(r=>r.json());
           if(txPost.post?.attachment?.chainId!==8453)throw Error('verified_tx_card_failed');
@@ -119,6 +120,7 @@ jobs:
           SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
           SOCIAL_DATA_DIR: '/tmp/zoryq-social-ci'
           SOCIAL_MEDIA_DIR: '/tmp/zoryq-social-media-ci'
+          SOCIAL_PUBLIC_BASE_URL: 'https://social.example'
         run: |
           kill $(cat /tmp/zoryq-gateway.pid) || true
           sleep 1
