@@ -1,0 +1,94 @@
+name: ZORYQ Social Gateway
+
+'on':
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-wallet-backend/**'
+      - '.github/workflows/zoryq-social-gateway.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  social-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - name: Install gateway dependencies
+        working-directory: zoryq-wallet-backend
+        run: npm install --no-audit --no-fund
+      - name: Syntax checks
+        working-directory: zoryq-wallet-backend
+        run: |
+          node --check server.mjs
+          node --check social.mjs
+          node --check gateway.mjs
+      - name: Start gateway
+        working-directory: zoryq-wallet-backend
+        env:
+          PORT: '8080'
+          ZORYQ_WALLET_TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+          ZORYQ_WALLET_SWAP_FEE_BPS: '25'
+          SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
+          SOCIAL_DATA_DIR: '/tmp/zoryq-social-ci'
+        run: |
+          rm -rf /tmp/zoryq-social-ci
+          node gateway.mjs > /tmp/zoryq-gateway.log 2>&1 &
+          echo $! > /tmp/zoryq-gateway.pid
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/social/health >/dev/null && break
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:8080/health | tee /tmp/swap-health.json
+          curl -fsS http://127.0.0.1:8080/social/health | tee /tmp/social-health.json
+      - name: Wallet-authenticated social E2E
+        working-directory: zoryq-wallet-backend
+        run: |
+          node --input-type=module <<'NODE'
+          import {Wallet} from 'ethers';
+          const base='http://127.0.0.1:8080/social';
+          const wallet=Wallet.createRandom();
+          const challenge=await fetch(`${base}/v1/auth/challenge?address=${wallet.address}`).then(r=>r.json());
+          if(!challenge.ok||!challenge.message.includes('does not authorize a transaction'))throw Error('challenge_invalid');
+          const signature=await wallet.signMessage(challenge.message);
+          const login=await fetch(`${base}/v1/auth/verify`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({address:wallet.address,signature})}).then(r=>r.json());
+          if(!login.ok||!login.token)throw Error('wallet_auth_failed');
+          const auth={authorization:`Bearer ${login.token}`,'content-type':'application/json'};
+          const profile=await fetch(`${base}/v1/profile`,{method:'PUT',headers:auth,body:JSON.stringify({handle:'zoryq_ci_user',displayName:'ZORYQ CI',bio:'wallet-authenticated social test'})}).then(r=>r.json());
+          if(profile.profile?.handle!=='zoryq_ci_user')throw Error('profile_update_failed');
+          const created=await fetch(`${base}/v1/posts`,{method:'POST',headers:auth,body:JSON.stringify({content:'First cryptographically authenticated ZORYQ Social post.',kind:'text'})}).then(r=>r.json());
+          if(!created.post?.id)throw Error('post_create_failed');
+          const liked=await fetch(`${base}/v1/posts/${created.post.id}/like`,{method:'POST',headers:auth}).then(r=>r.json());
+          if(liked.post?.likeCount!==1||liked.post?.liked!==true)throw Error('like_failed');
+          const feed=await fetch(`${base}/v1/feed?scope=for-you`,{headers:{authorization:`Bearer ${login.token}`}}).then(r=>r.json());
+          if(!feed.items?.some(x=>x.id===created.post.id&&x.author.toLowerCase()===wallet.address.toLowerCase()))throw Error('feed_missing_post');
+          console.log(JSON.stringify({ok:true,address:wallet.address,postId:created.post.id,likeCount:liked.post.likeCount,feedItems:feed.items.length}));
+          NODE
+      - name: Persistence survives gateway restart
+        working-directory: zoryq-wallet-backend
+        env:
+          PORT: '8080'
+          ZORYQ_WALLET_TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+          ZORYQ_WALLET_SWAP_FEE_BPS: '25'
+          SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
+          SOCIAL_DATA_DIR: '/tmp/zoryq-social-ci'
+        run: |
+          kill $(cat /tmp/zoryq-gateway.pid) || true
+          sleep 1
+          node gateway.mjs > /tmp/zoryq-gateway-restart.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/social/health >/dev/null && break; sleep 1; done
+          BODY=$(curl -fsS 'http://127.0.0.1:8080/social/v1/feed?scope=for-you')
+          echo "$BODY" | grep -q 'First cryptographically authenticated ZORYQ Social post.'
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          cat /tmp/zoryq-gateway.log || true
+          cat /tmp/zoryq-gateway-restart.log || true
