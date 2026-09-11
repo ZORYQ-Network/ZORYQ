@@ -1,15 +1,27 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 
 const PORT = Number(process.env.PORT || 10000);
 const CHAIN_ID = Number(process.env.ZORYQ_CHAIN_ID || 5919065);
 const DATA_DIR = process.env.ZORYQ_RETH_DATA_DIR || '/tmp/zoryq-render-node2';
 const HTTP_PORT = Number(process.env.ZORYQ_RETH_HTTP_PORT || 8545);
 const GENESIS = '/app/zoryq-reth-genesis.json';
-const TRUSTED_PEER = (process.env.ZORYQ_TRUSTED_PEER || '').trim();
+const EXPECTED_GENESIS_SHA256 = (process.env.ZORYQ_GENESIS_SHA256 || '').trim().toLowerCase();
+const TRUSTED_PEER = (process.env.ZORYQ_TRUSTED_PEER || process.env.ZORYQ_NODE2_TRUSTED_PEERS || process.env.ZORYQ_NODE2_BOOTNODES || '').trim();
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
+
+function sha256File(path) {
+  return crypto.createHash('sha256').update(fs.readFileSync(path)).digest('hex');
+}
+const genesisSha256 = sha256File(GENESIS);
+if (EXPECTED_GENESIS_SHA256 && genesisSha256 !== EXPECTED_GENESIS_SHA256) {
+  console.error(`[zoryq-node2] FATAL genesis sha256 mismatch expected=${EXPECTED_GENESIS_SHA256} actual=${genesisSha256}`);
+  process.exit(72);
+}
+console.log(`[zoryq-node2] canonical genesis verified sha256=${genesisSha256}`);
 
 const args = [
   'node', '--chain', GENESIS, '--datadir', DATA_DIR,
@@ -25,6 +37,7 @@ let child = null;
 let lastExit = null;
 const startedAt = Date.now();
 function startReth() {
+  console.log(`[zoryq-node2] p2p configured=${Boolean(TRUSTED_PEER)}${TRUSTED_PEER ? ' via trusted peer' : ''}`);
   child = spawn('/usr/local/bin/reth', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', d => process.stdout.write(`[reth] ${d}`));
   child.stderr.on('data', d => process.stderr.write(`[reth] ${d}`));
@@ -73,6 +86,8 @@ const server = http.createServer(async (req, res) => {
     role: 'zoryq-render-node2-observer-probe',
     chainId, expectedChainId: CHAIN_ID, networkId, clientVersion,
     peerCount, blockNumber, genesisHash, headHash, syncing,
+    genesisSha256, expectedGenesisSha256: EXPECTED_GENESIS_SHA256 || null,
+    genesisVerified: !EXPECTED_GENESIS_SHA256 || genesisSha256 === EXPECTED_GENESIS_SHA256,
     p2pConfigured: Boolean(TRUSTED_PEER),
     persistentDisk: false, freeTierProbeOnly: true,
     processAlive: Boolean(child), uptimeSec: Math.floor((Date.now()-startedAt)/1000), lastExit
