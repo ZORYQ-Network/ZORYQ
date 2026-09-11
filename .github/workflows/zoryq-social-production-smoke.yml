@@ -6,6 +6,7 @@ name: ZORYQ Social Production Smoke
     branches: [zoryq-evm-testnet-node]
     paths:
       - 'zoryq-wallet-backend/**'
+      - 'zoryq-web/zoriq-social.html'
       - '.github/workflows/zoryq-social-production-smoke.yml'
 
 permissions:
@@ -19,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22.13.1'
-      - name: Wait for public gateway and verify read-only surfaces
+      - name: Wait for public gateway and verify unified services
         env:
           BASE: 'https://zoryq-wallet-swap-production.up.railway.app'
         run: |
@@ -29,9 +30,7 @@ jobs:
                curl -fsS --max-time 10 "$BASE/health" >/tmp/swap.json && \
                curl -fsS --max-time 10 "$BASE/social/health" >/tmp/social.json && \
                curl -fsS --max-time 10 "$BASE/community/health" >/tmp/community.json && \
-               curl -fsS --max-time 10 "$BASE/message/health" >/tmp/message.json; then
-              break
-            fi
+               curl -fsS --max-time 10 "$BASE/message/health" >/tmp/message.json; then break; fi
             sleep 2
           done
           node --input-type=module <<'NODE'
@@ -43,32 +42,46 @@ jobs:
           const message=JSON.parse(fs.readFileSync('/tmp/message.json','utf8'));
           if(!gateway.ok||gateway.service!=='zoryq-wallet-gateway'||gateway.swapWorker!==true||gateway.mediaUpload!==true||gateway.communityPrefix!=='/community'||gateway.messagePrefix!=='/message')throw Error('gateway_not_ready');
           if(!swap.ok||Number(swap.feeBps)!==25||String(swap.treasury).toLowerCase()!=='0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33')throw Error('swap_surface_regressed');
-          if(!social.ok||social.service!=='zoryq-social'||social.version!=='0.3.0'||social.walletAuth!==true||!Array.isArray(social.features)||!social.features.includes('reposts')||!social.features.includes('notifications')||!social.features.includes('image-posts'))throw Error('social_pro_surface_not_ready');
+          if(!social.ok||social.service!=='zoryq-social'||social.version!=='0.4.0'||social.walletAuth!==true)throw Error('social_surface_not_ready');
+          if(social.profileRegistration?.required!==true||social.profileRegistration?.scheme!=='eip712'||Number(social.profileRegistration?.chainId)!==5919065)throw Error('profile_registration_not_zoryq_bound');
+          if(!Array.isArray(social.features)||!social.features.includes('zoryq-testnet-profile-signature')||!social.features.includes('image-posts'))throw Error('social_features_regressed');
           if(!String(social.persistentPath||'').endsWith('/data/social.json'))throw Error('social_persistence_path_regressed');
-          if(!community.ok||community.service!=='zoryq-communities'||community.version!=='0.1.0'||community.walletAuth!==true||!Array.isArray(community.features)||!community.features.includes('channels'))throw Error('community_surface_not_ready');
-          if(!message.ok||message.service!=='zoryq-messages'||message.version!=='0.1.0'||message.walletAuth!==true||message.e2e!==false||message.encryption!=='transport-and-access-control')throw Error('message_surface_not_ready');
-          console.log(JSON.stringify({gateway,swap:{ok:swap.ok,feeBps:swap.feeBps,treasury:swap.treasury},social:{version:social.version,features:social.features},community:{version:community.version,features:community.features},message:{version:message.version,e2e:message.e2e,encryption:message.encryption}}));
+          if(!community.ok||community.service!=='zoryq-communities'||community.walletAuth!==true)throw Error('community_surface_not_ready');
+          if(!message.ok||message.service!=='zoryq-messages'||message.walletAuth!==true||message.e2e!==false)throw Error('message_surface_not_ready');
+          console.log(JSON.stringify({ok:true,chainId:social.profileRegistration.chainId,swapFeeBps:swap.feeBps,treasury:swap.treasury,community:community.version,message:message.version}));
           NODE
-      - name: Verify public discovery surfaces and safe auth challenge
+      - name: Verify public discovery and login challenge
         env:
           BASE: 'https://zoryq-wallet-swap-production.up.railway.app'
-          DISPOSABLE_ADDRESS: '0x000000000000000000000000000000000000dEaD'
+          ADDRESS: '0x000000000000000000000000000000000000dEaD'
         run: |
           set -euo pipefail
           curl -fsS --max-time 15 "$BASE/social/v1/feed?scope=for-you" >/tmp/feed.json
           curl -fsS --max-time 15 "$BASE/social/v1/explore" >/tmp/explore.json
           curl -fsS --max-time 15 "$BASE/community/v1/communities" >/tmp/communities.json
-          curl -fsS --max-time 15 "$BASE/social/v1/auth/challenge?address=$DISPOSABLE_ADDRESS" >/tmp/challenge.json
+          curl -fsS --max-time 15 "$BASE/social/v1/auth/challenge?address=$ADDRESS" >/tmp/challenge.json
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const feed=JSON.parse(fs.readFileSync('/tmp/feed.json','utf8'));
           const explore=JSON.parse(fs.readFileSync('/tmp/explore.json','utf8'));
           const communities=JSON.parse(fs.readFileSync('/tmp/communities.json','utf8'));
           const challenge=JSON.parse(fs.readFileSync('/tmp/challenge.json','utf8'));
-          if(!feed.ok||!Array.isArray(feed.items))throw Error('public_feed_invalid');
-          if(!explore.ok||!Array.isArray(explore.items)||!Array.isArray(explore.trending)||!Array.isArray(explore.suggestedProfiles))throw Error('public_explore_invalid');
-          if(!communities.ok||!Array.isArray(communities.items))throw Error('public_communities_invalid');
-          if(!challenge.ok||!String(challenge.message||'').includes('does not authorize a transaction or transfer funds'))throw Error('challenge_safety_copy_missing');
-          if(!String(challenge.message).includes('ZORYQ Social Sign-In'))throw Error('challenge_domain_missing');
-          console.log(JSON.stringify({ok:true,feedItems:feed.items.length,exploreItems:explore.items.length,communities:communities.items.length,challengeSafe:true}));
+          if(!feed.ok||!Array.isArray(feed.items))throw Error('feed_invalid');
+          if(!explore.ok||!Array.isArray(explore.items)||!Array.isArray(explore.trending))throw Error('explore_invalid');
+          if(!communities.ok||!Array.isArray(communities.items))throw Error('communities_invalid');
+          if(!challenge.ok||challenge.createsProfile!==false||!String(challenge.message||'').includes('does not create a profile'))throw Error('login_challenge_regressed');
+          console.log(JSON.stringify({ok:true,feed:feed.items.length,explore:explore.items.length,communities:communities.items.length}));
           NODE
+      - name: Verify web client uses same production gateway
+        env:
+          WEB: 'https://zoryq-evm-node-live-production.up.railway.app/zoriq-social'
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 60); do
+            if curl -fsS --max-time 15 "$WEB" >/tmp/social-web.html; then break; fi
+            sleep 2
+          done
+          grep -q 'zoryq-wallet-swap-production.up.railway.app' /tmp/social-web.html
+          grep -q 'eth_signTypedData_v4' /tmp/social-web.html
+          grep -q "CHAIN_ID=5919065" /tmp/social-web.html
+          ! grep -q '/api/social/' /tmp/social-web.html
