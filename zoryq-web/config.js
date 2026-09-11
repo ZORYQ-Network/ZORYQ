@@ -16,5 +16,18 @@ window.ZORYQ_CONFIG={
   lendingContract:'0xA08d491c06a2B01bbe6866CA87302c794aD9fB77',
   projectRegistry:'0x180042c92A42f183A67005E8C0968a1F190aab33',
   adminTreasury:'0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33',
-  scoreEpoch:1
+  scoreEpoch:1,
+  // A rede só fica habilitada no Social Pay quando o router realmente estiver
+  // implantado e o endereço for preenchido aqui. null = bloqueada por segurança.
+  socialPayRouters:{
+    '5919065':null,
+    '1':null,
+    '8453':null,
+    '42161':null,
+    '10':null,
+    '137':null,
+    '43114':null,
+    '59144':null,
+    '324':null
+  }
 };
