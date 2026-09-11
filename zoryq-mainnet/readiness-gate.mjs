@@ -72,6 +72,19 @@ function validateConsensusEvidence(file, expectedChainId, blockers) {
   if (!Number.isSafeInteger(evidence.regionCount) || evidence.regionCount < 3) blockers.push('consensus_evidence_region_count_below_policy');
   if (Array.isArray(evidence.blockers) && evidence.blockers.length) blockers.push('consensus_evidence_contains_blockers');
 }
+function validateGovernanceEvidence(file, expectedCommit, blockers) {
+  let evidence;
+  try { evidence = JSON.parse(fs.readFileSync(file, 'utf8')); } catch {
+    blockers.push('release_governance_evidence_invalid_json');
+    return;
+  }
+  if (evidence.rule !== 'zoryq-mainnet-release-governance-evidence-v1') blockers.push('release_governance_rule_invalid');
+  if (evidence.pass !== true || evidence.status !== 'RELEASE_GOVERNANCE_EVIDENCE_ACCEPTED') blockers.push('release_governance_not_accepted');
+  if (evidence.repository !== 'ZORYQ-Network/ZORYQ') blockers.push('release_governance_repository_invalid');
+  if (String(evidence.releaseCommit || '').toLowerCase() !== String(expectedCommit || '').toLowerCase()) blockers.push('release_governance_commit_mismatch');
+  if (!Array.isArray(evidence.requiredChecks) || evidence.requiredChecks.length < 7) blockers.push('release_governance_required_checks_incomplete');
+  if (Array.isArray(evidence.blockers) && evidence.blockers.length) blockers.push('release_governance_contains_blockers');
+}
 
 const args = parseArgs(process.argv);
 if (!args.input) fail('usage: node readiness-gate.mjs --input <readiness.json>');
@@ -132,6 +145,7 @@ for (const name of REQUIRED_CONTROLS) {
       } else {
         verifiedEvidence[name] = { path: evidencePath, sha256: actual };
         if (name === 'consensus-multivalidator') validateConsensusEvidence(resolved, chainId, blockers);
+        if (name === 'release-governance') validateGovernanceEvidence(resolved, dossier.releaseCommit, blockers);
       }
     }
   }
@@ -160,7 +174,7 @@ const report = {
   verifiedControls: Object.keys(verifiedEvidence).sort(),
   verifiedEvidence,
   blockers,
-  rule: 'zoryq-mainnet-readiness-v3-semantic-evidence'
+  rule: 'zoryq-mainnet-readiness-v4-semantic-governance'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
