@@ -36,5 +36,6 @@ jobs:
           ZORYQ_NETWORK_MODE=mainnet node zoryq-evm-node/mainnet-guard.mjs > /tmp/guard.json
           code=$?
           set -e
+          cat /tmp/guard.json
           test "$code" -eq 78
-          jq -e '.mainnetActivated == false and .launchGuard == "blocked"' /tmp/guard.json
+          jq -e '.ok == false and .mainnetActivated == false and .launchGuard == "armed" and (.blockers | length) > 0' /tmp/guard.json
