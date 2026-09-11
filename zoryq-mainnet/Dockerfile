@@ -14,6 +14,7 @@ COPY zoryq-mainnet/backend.mjs ./backend.mjs
 COPY zoryq-mainnet/entrypoint.sh ./entrypoint.sh
 COPY zoryq-mainnet/genesis-ceremony.mjs ./genesis-ceremony.mjs
 COPY zoryq-mainnet/launch-certificate.mjs ./launch-certificate.mjs
+COPY zoryq-mainnet/key-custody-evidence.mjs ./key-custody-evidence.mjs
 COPY zoryq-evm-node/mainnet-guard.mjs ./mainnet-guard.mjs
 
 RUN chmod 0755 /app/entrypoint.sh && mkdir -p /data/reth-mainnet
