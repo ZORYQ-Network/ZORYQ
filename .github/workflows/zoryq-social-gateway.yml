@@ -66,9 +66,19 @@ jobs:
           if(!created.post?.id)throw Error('post_create_failed');
           const liked=await fetch(`${base}/v1/posts/${created.post.id}/like`,{method:'POST',headers:auth}).then(r=>r.json());
           if(liked.post?.likeCount!==1||liked.post?.liked!==true)throw Error('like_failed');
+          const comment=await fetch(`${base}/v1/posts/${created.post.id}/comments`,{method:'POST',headers:auth,body:JSON.stringify({content:'Wallet-signed comment'})}).then(r=>r.json());
+          if(!comment.comment?.id||comment.post?.commentCount!==1)throw Error('comment_failed');
+          const comments=await fetch(`${base}/v1/posts/${created.post.id}/comments`).then(r=>r.json());
+          if(comments.items?.length!==1||comments.items[0].content!=='Wallet-signed comment')throw Error('comment_read_failed');
+          const reported=await fetch(`${base}/v1/posts/${created.post.id}/report`,{method:'POST',headers:auth,body:JSON.stringify({reason:'CI moderation test'})}).then(r=>r.json());
+          if(!reported.reported)throw Error('report_failed');
+          const txPost=await fetch(`${base}/v1/posts`,{method:'POST',headers:auth,body:JSON.stringify({content:'Verified transaction card',kind:'tx',attachment:{chainId:8453,hash:'0x'+'ab'.repeat(32)}})}).then(r=>r.json());
+          if(txPost.post?.attachment?.chainId!==8453||txPost.post?.attachment?.type!=='tx')throw Error('verified_tx_card_failed');
+          const unsafe=await fetch(`${base}/v1/posts`,{method:'POST',headers:auth,body:JSON.stringify({content:'Unsafe dapp',kind:'dapp',attachment:{url:'http://unsafe.example',name:'Unsafe'}})});
+          if(unsafe.status!==400)throw Error(`unsafe_dapp_not_rejected_${unsafe.status}`);
           const feed=await fetch(`${base}/v1/feed?scope=for-you`,{headers:{authorization:`Bearer ${login.token}`}}).then(r=>r.json());
           if(!feed.items?.some(x=>x.id===created.post.id&&x.author.toLowerCase()===wallet.address.toLowerCase()))throw Error('feed_missing_post');
-          console.log(JSON.stringify({ok:true,address:wallet.address,postId:created.post.id,likeCount:liked.post.likeCount,feedItems:feed.items.length}));
+          console.log(JSON.stringify({ok:true,address:wallet.address,postId:created.post.id,likeCount:liked.post.likeCount,commentCount:comment.post.commentCount,verifiedTxCard:true,unsafeDappRejected:true,feedItems:feed.items.length}));
           NODE
       - name: Persistence survives gateway restart
         working-directory: zoryq-wallet-backend
@@ -87,6 +97,7 @@ jobs:
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/social/health >/dev/null && break; sleep 1; done
           BODY=$(curl -fsS 'http://127.0.0.1:8080/social/v1/feed?scope=for-you')
           echo "$BODY" | grep -q 'First cryptographically authenticated ZORYQ Social post.'
+          echo "$BODY" | grep -q 'Verified transaction card'
       - name: Dump logs on failure
         if: failure()
         run: |
