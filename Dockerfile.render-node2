@@ -6,7 +6,7 @@ COPY --from=reth /usr/local/bin/reth /usr/local/bin/reth
 COPY --from=node /usr/local /usr/local
 WORKDIR /app
 COPY zoryq-evm-node/zoryq-reth-genesis.json /app/zoryq-reth-genesis.json
-COPY zoryq-evm-node/render-node2.mjs /app/render-node2.mjs
+COPY render-node2.mjs /app/render-node2.mjs
 ENV PORT=10000
 ENV ZORYQ_CHAIN_ID=5919065
 ENV ZORYQ_RETH_HTTP_PORT=8545
