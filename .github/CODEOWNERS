@@ -1,0 +1,7 @@
+# CODEOWNERS is advisory until GitHub branch/ruleset protection requires it.
+* @michaeljohnnysilva9-lgtm
+/zoryq-mainnet/ @michaeljohnnysilva9-lgtm
+/zoryq-evm-node/ @michaeljohnnysilva9-lgtm
+/zoryq-contracts/ @michaeljohnnysilva9-lgtm
+/.github/workflows/zoryq-mainnet-* @michaeljohnnysilva9-lgtm
+/SECURITY.md @michaeljohnnysilva9-lgtm
