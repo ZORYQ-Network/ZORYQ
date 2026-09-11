@@ -12,12 +12,14 @@ contract ZoryqSocialPayRouter {
     uint16 public feeBps;
     uint256 private locked = 1;
 
+    /// @dev recipientAmount is intentionally not duplicated in the event because it is
+    ///      deterministically grossAmount - protocolFee. Keeping the event compact also
+    ///      reduces stack pressure and event gas on every social payment.
     event SocialPayment(
         address indexed payer,
         address indexed recipient,
         address indexed asset,
         uint256 grossAmount,
-        uint256 recipientAmount,
         uint256 protocolFee,
         bytes32 paymentRef
     );
@@ -72,7 +74,7 @@ contract ZoryqSocialPayRouter {
         (bool recipientOk,) = recipient.call{value: net}("");
         if (!recipientOk) revert TransferFailed();
 
-        emit SocialPayment(msg.sender, recipient, address(0), msg.value, net, fee, paymentRef);
+        _emitPayment(recipient, address(0), msg.value, fee, paymentRef);
     }
 
     /// @notice Pay with an ERC-20 token after approving this router for `amount`.
@@ -84,7 +86,7 @@ contract ZoryqSocialPayRouter {
         _safeTransferFrom(token, msg.sender, recipient, net);
         if (fee != 0) _safeTransferFrom(token, msg.sender, treasury, fee);
 
-        emit SocialPayment(msg.sender, recipient, token, amount, net, fee, paymentRef);
+        _emitPayment(recipient, token, amount, fee, paymentRef);
     }
 
     function setTreasury(address payable nextTreasury) external onlyOwner {
@@ -104,6 +106,10 @@ contract ZoryqSocialPayRouter {
         address previous = owner;
         owner = nextOwner;
         emit OwnershipTransferred(previous, nextOwner);
+    }
+
+    function _emitPayment(address recipient, address asset, uint256 grossAmount, uint256 protocolFee, bytes32 paymentRef) private {
+        emit SocialPayment(msg.sender, recipient, asset, grossAmount, protocolFee, paymentRef);
     }
 
     function _safeTransferFrom(address token, address from, address to, uint256 amount) private {
