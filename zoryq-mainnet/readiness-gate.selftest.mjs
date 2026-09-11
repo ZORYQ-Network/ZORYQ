@@ -8,13 +8,18 @@ const ROOT = path.dirname(new URL(import.meta.url).pathname);
 const GATE = path.join(ROOT, 'readiness-gate.mjs');
 const CONTROLS = [
   'execution-runtime','genesis-ceremony','validator-distribution','consensus-multivalidator','key-custody',
-  'independent-security-audit','contract-security','recovery-drill','incident-response','observability-alerting',
+  'independent-security-audit','contract-security','recovery-drill','launch-rehearsal','incident-response','observability-alerting',
   'rpc-abuse-protection','supply-chain-provenance','release-governance','testnet-burn-in','launch-approvals'
 ];
 const REQUIRED_GOVERNANCE_CHECKS = [
   'ZORYQ Mainnet Readiness Gate','ZORYQ Mainnet Launch Guard','ZORYQ Mainnet Runtime Preflight',
   'ZORYQ Mainnet Supply Chain Evidence','ZORYQ Mainnet Release Integrity','ZORYQ Mainnet Multi-Operator Evidence',
   'ZORYQ Contract Tests'
+];
+const REQUIRED_REHEARSAL_PHASES = [
+  'genesis-loaded','all-nodes-healthy','common-finalized-checkpoint','producer-loss-injected','consensus-recovered',
+  'network-partition-injected','partition-healed','node-restart-injected','node-rejoined','state-root-converged',
+  'rpc-protection-verified','debug-publicly-inaccessible'
 ];
 
 function sha256(file) {
@@ -45,6 +50,21 @@ function writeEvidence(name, full, observedAt) {
       blockers: [],
       evidenceSha256: 'c'.repeat(64),
       rule: 'zoryq-mainnet-multi-operator-evidence-v1'
+    };
+  } else if (name === 'launch-rehearsal') {
+    body = {
+      pass: true,
+      status: 'LAUNCH_REHEARSAL_EVIDENCE_ACCEPTED',
+      network: 'ZORYQ Mainnet',
+      chainId: 5919066,
+      nodeCount: 4,
+      operatorCount: 4,
+      regionCount: 3,
+      phaseCount: REQUIRED_REHEARSAL_PHASES.length,
+      requiredPhases: REQUIRED_REHEARSAL_PHASES,
+      evidenceSha256: 'd'.repeat(64),
+      blockers: [],
+      rule: 'zoryq-mainnet-launch-rehearsal-evidence-v1'
     };
   } else if (name === 'release-governance') {
     body = {
@@ -107,6 +127,18 @@ try {
   assert(good.status === 0 && good.body.ready === true, `valid dossier rejected: ${JSON.stringify(good.body)}`);
   assert(good.body.verifiedControls?.length === CONTROLS.length, 'not all evidence controls were verified');
 
+  const rehearsalPath = path.join(dir, dossier.controls['launch-rehearsal'].evidencePath);
+  const weakRehearsal = JSON.parse(fs.readFileSync(rehearsalPath, 'utf8'));
+  weakRehearsal.status = 'LAUNCH_REHEARSAL_EVIDENCE_REJECTED';
+  fs.writeFileSync(rehearsalPath, JSON.stringify(weakRehearsal) + '\n');
+  dossier.controls['launch-rehearsal'].evidenceSha256 = sha256(rehearsalPath);
+  fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
+  const semanticRehearsal = run(input);
+  assert(semanticRehearsal.status === 82, `weak rehearsal evidence exit=${semanticRehearsal.status}`);
+  assert(semanticRehearsal.body.blockers?.includes('launch_rehearsal_not_accepted'), 'weak semantic rehearsal evidence was not rejected');
+  writeEvidence('launch-rehearsal', rehearsalPath, dossier.controls['launch-rehearsal'].observedAt);
+  dossier.controls['launch-rehearsal'].evidenceSha256 = sha256(rehearsalPath);
+
   const governancePath = path.join(dir, dossier.controls['release-governance'].evidencePath);
   const weakGovernance = JSON.parse(fs.readFileSync(governancePath, 'utf8'));
   weakGovernance.status = 'RELEASE_GOVERNANCE_EVIDENCE_REJECTED';
@@ -153,7 +185,7 @@ try {
   assert(concentration.status === 82, `operator concentration exit=${concentration.status}`);
   assert(concentration.body.blockers?.includes('validator_operator_count_below_policy'), 'validator operator concentration was not rejected');
 
-  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','semantic-governance-rejection','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
+  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','semantic-rehearsal-rejection','semantic-governance-rejection','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
