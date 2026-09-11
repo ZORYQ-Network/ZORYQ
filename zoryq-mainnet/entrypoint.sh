@@ -131,17 +131,53 @@ if [[ "${ZORYQ_MAINNET_PREFLIGHT_ONLY:-false}" == "true" ]]; then
   exit 0
 fi
 
+: "${ZORYQ_MAINNET_P2P_SECRET_KEY_PATH:?ZORYQ_MAINNET_P2P_SECRET_KEY_PATH is required for mainnet runtime}"
+: "${ZORYQ_MAINNET_BOOTNODES:?ZORYQ_MAINNET_BOOTNODES is required for mainnet runtime}"
+if [[ ! -f "$ZORYQ_MAINNET_P2P_SECRET_KEY_PATH" || ! -s "$ZORYQ_MAINNET_P2P_SECRET_KEY_PATH" ]]; then
+  echo '[zoryq-mainnet] persistent P2P secret key file is missing or empty' >&2
+  exit 80
+fi
+IFS=',' read -r -a zoryq_bootnodes <<< "$ZORYQ_MAINNET_BOOTNODES"
+if (( ${#zoryq_bootnodes[@]} < 2 )); then
+  echo '[zoryq-mainnet] at least two bootnodes are required to avoid a single bootstrap dependency' >&2
+  exit 80
+fi
+declare -A zoryq_seen_bootnodes=()
+for bootnode in "${zoryq_bootnodes[@]}"; do
+  bootnode="${bootnode//[[:space:]]/}"
+  if [[ ! "$bootnode" =~ ^(enode://|enr:) ]]; then
+    echo "[zoryq-mainnet] invalid bootnode record: $bootnode" >&2
+    exit 80
+  fi
+  if [[ -n "${zoryq_seen_bootnodes[$bootnode]:-}" ]]; then
+    echo "[zoryq-mainnet] duplicate bootnode record: $bootnode" >&2
+    exit 80
+  fi
+  zoryq_seen_bootnodes[$bootnode]=1
+done
+unset zoryq_seen_bootnodes zoryq_bootnodes
+
 RETH_DATA_DIR="${ZORYQ_RETH_DATA_DIR:-/data/reth-mainnet}"
 AUTHRPC_ADDR="${ZORYQ_AUTHRPC_ADDR:-127.0.0.1}"
 AUTHRPC_PORT="${ZORYQ_AUTHRPC_PORT:-8551}"
+P2P_ADDR="${ZORYQ_MAINNET_P2P_ADDR:-0.0.0.0}"
+P2P_PORT="${ZORYQ_MAINNET_P2P_PORT:-30303}"
+PEERS_FILE="${ZORYQ_MAINNET_PEERS_FILE:-$RETH_DATA_DIR/known-peers.json}"
 mkdir -p "$RETH_DATA_DIR"
 
 # Production execution mode: deliberately no --dev, no --dev.mnemonic and no
 # debug/tracing module on the regular HTTP RPC. Block production must be driven
 # by an authenticated consensus client over Engine API using the shared JWT.
+# P2P identity is persistent and bootstrap discovery is mandatory; a mainnet
+# execution node must not silently come up as an isolated single-node network.
 reth node \
   --chain "$ZORYQ_MAINNET_GENESIS_PATH" \
   --datadir "$RETH_DATA_DIR" \
+  --addr "$P2P_ADDR" \
+  --port "$P2P_PORT" \
+  --p2p-secret-key "$ZORYQ_MAINNET_P2P_SECRET_KEY_PATH" \
+  --bootnodes "$ZORYQ_MAINNET_BOOTNODES" \
+  --peers-file "$PEERS_FILE" \
   --http \
   --http.addr 127.0.0.1 \
   --http.port 8545 \
