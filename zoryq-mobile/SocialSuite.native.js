@@ -1,0 +1,13 @@
+import React,{useState} from 'react';
+import {SafeAreaView,ScrollView,Pressable,StyleSheet,Text,View} from 'react-native';
+import {StatusBar} from 'expo-status-bar';
+import SocialSuiteCore from './SocialSuite.tsx';
+import MiniGames from './MiniGames';
+
+export default function SocialSuiteNative(){
+ const [area,setArea]=useState('social');
+ if(area==='social')return <View style={s.root}><View style={s.switcher}><Pressable style={[s.pill,s.active]}><Text style={[s.pillText,s.activeText]}>Social</Text></Pressable><Pressable onPress={()=>setArea('fun')} style={s.pill}><Text style={s.pillText}>😂 Divertir</Text></Pressable><Pressable onPress={()=>setArea('gaming')} style={s.pill}><Text style={s.pillText}>🎮 Games</Text></Pressable></View><View style={s.core}><SocialSuiteCore/></View></View>;
+ return <SafeAreaView style={s.root}><StatusBar style="light"/><View style={s.top}><View><Text style={s.brand}>ZORIQ</Text><Text style={s.kicker}>PLAY · SOCIAL ENTERTAINMENT</Text></View><View style={s.noBet}><Text style={s.noBetText}>SEM APOSTAS</Text></View></View><View style={s.switcher}><Pressable onPress={()=>setArea('social')} style={s.pill}><Text style={s.pillText}>Social</Text></Pressable><Pressable onPress={()=>setArea('fun')} style={[s.pill,area==='fun'&&s.active]}><Text style={[s.pillText,area==='fun'&&s.activeText]}>😂 Divertir</Text></Pressable><Pressable onPress={()=>setArea('gaming')} style={[s.pill,area==='gaming'&&s.active]}><Text style={[s.pillText,area==='gaming'&&s.activeText]}>🎮 Games</Text></Pressable></View><ScrollView contentContainerStyle={s.page}><MiniGames mode={area==='fun'?'fun':'gaming'}/></ScrollView></SafeAreaView>
+}
+
+const s=StyleSheet.create({root:{flex:1,backgroundColor:'#07080d'},core:{flex:1},top:{paddingHorizontal:15,paddingTop:8,paddingBottom:9,borderBottomWidth:1,borderBottomColor:'#1e2734',flexDirection:'row',justifyContent:'space-between',alignItems:'center'},brand:{color:'#fff',fontSize:19,fontWeight:'900',letterSpacing:4},kicker:{color:'#34e8ff',fontSize:9,fontWeight:'900',letterSpacing:1.1,marginTop:2},noBet:{borderWidth:1,borderColor:'#31513d',backgroundColor:'#0d1913',paddingHorizontal:8,paddingVertical:5,borderRadius:999},noBetText:{color:'#5cffad',fontSize:8,fontWeight:'900'},switcher:{backgroundColor:'#090d13',borderBottomWidth:1,borderBottomColor:'#1f2733',padding:6,flexDirection:'row',gap:5},pill:{flex:1,borderWidth:1,borderColor:'#283243',borderRadius:11,paddingVertical:8,alignItems:'center',backgroundColor:'#0d121a'},active:{backgroundColor:'#efffe9',borderColor:'#efffe9'},pillText:{color:'#8d98aa',fontSize:10,fontWeight:'900'},activeText:{color:'#071000'},page:{padding:15,paddingBottom:70}});
