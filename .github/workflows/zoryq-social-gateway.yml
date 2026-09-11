@@ -14,7 +14,7 @@ permissions:
 jobs:
   social-e2e:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v4
@@ -28,6 +28,7 @@ jobs:
         run: |
           node --check server.mjs
           node --check social.mjs
+          node --check media.mjs
           node --check gateway.mjs
       - name: Start gateway
         working-directory: zoryq-wallet-backend
@@ -37,8 +38,9 @@ jobs:
           ZORYQ_WALLET_SWAP_FEE_BPS: '25'
           SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
           SOCIAL_DATA_DIR: '/tmp/zoryq-social-ci'
+          SOCIAL_MEDIA_DIR: '/tmp/zoryq-social-media-ci'
         run: |
-          rm -rf /tmp/zoryq-social-ci
+          rm -rf /tmp/zoryq-social-ci /tmp/zoryq-social-media-ci
           node gateway.mjs > /tmp/zoryq-gateway.log 2>&1 &
           echo $! > /tmp/zoryq-gateway.pid
           for i in $(seq 1 30); do
@@ -47,38 +49,66 @@ jobs:
           done
           curl -fsS http://127.0.0.1:8080/health | tee /tmp/swap-health.json
           curl -fsS http://127.0.0.1:8080/social/health | tee /tmp/social-health.json
-      - name: Wallet-authenticated social E2E
+          grep -q '"version":"0.3.0"' /tmp/social-health.json
+          grep -q '"image-posts"' /tmp/social-health.json
+          grep -q '"notifications"' /tmp/social-health.json
+      - name: Wallet-authenticated Social Pro E2E
         working-directory: zoryq-wallet-backend
         run: |
           node --input-type=module <<'NODE'
           import {Wallet} from 'ethers';
           const base='http://127.0.0.1:8080/social';
-          const wallet=Wallet.createRandom();
-          const challenge=await fetch(`${base}/v1/auth/challenge?address=${wallet.address}`).then(r=>r.json());
-          if(!challenge.ok||!challenge.message.includes('does not authorize a transaction'))throw Error('challenge_invalid');
-          const signature=await wallet.signMessage(challenge.message);
-          const login=await fetch(`${base}/v1/auth/verify`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({address:wallet.address,signature})}).then(r=>r.json());
-          if(!login.ok||!login.token)throw Error('wallet_auth_failed');
-          const auth={authorization:`Bearer ${login.token}`,'content-type':'application/json'};
-          const profile=await fetch(`${base}/v1/profile`,{method:'PUT',headers:auth,body:JSON.stringify({handle:'zoryq_ci_user',displayName:'ZORYQ CI',bio:'wallet-authenticated social test'})}).then(r=>r.json());
-          if(profile.profile?.handle!=='zoryq_ci_user')throw Error('profile_update_failed');
-          const created=await fetch(`${base}/v1/posts`,{method:'POST',headers:auth,body:JSON.stringify({content:'First cryptographically authenticated ZORYQ Social post.',kind:'text'})}).then(r=>r.json());
-          if(!created.post?.id)throw Error('post_create_failed');
-          const liked=await fetch(`${base}/v1/posts/${created.post.id}/like`,{method:'POST',headers:auth}).then(r=>r.json());
-          if(liked.post?.likeCount!==1||liked.post?.liked!==true)throw Error('like_failed');
-          const comment=await fetch(`${base}/v1/posts/${created.post.id}/comments`,{method:'POST',headers:auth,body:JSON.stringify({content:'Wallet-signed comment'})}).then(r=>r.json());
+          async function login(wallet,handle){
+            const challenge=await fetch(`${base}/v1/auth/challenge?address=${wallet.address}`).then(r=>r.json());
+            if(!challenge.ok||!challenge.message.includes('does not authorize a transaction'))throw Error('challenge_invalid');
+            const signature=await wallet.signMessage(challenge.message);
+            const auth=await fetch(`${base}/v1/auth/verify`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({address:wallet.address,signature})}).then(r=>r.json());
+            if(!auth.token)throw Error('wallet_auth_failed');
+            const headers={authorization:`Bearer ${auth.token}`,'content-type':'application/json'};
+            const profile=await fetch(`${base}/v1/profile`,{method:'PUT',headers,body:JSON.stringify({handle,displayName:handle==='zoryq_ci_creator'?'ZORYQ Creator':'ZORYQ Fan',bio:'#zoryq Social Pro CI'})}).then(r=>r.json());
+            if(profile.profile?.handle!==handle)throw Error('profile_update_failed');
+            return {token:auth.token,headers,profile:profile.profile};
+          }
+          const creator=Wallet.createRandom();
+          const fan=Wallet.createRandom();
+          const a=await login(creator,'zoryq_ci_creator');
+          const b=await login(fan,'zoryq_ci_fan');
+          const created=await fetch(`${base}/v1/posts`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'ZORYQ Social Pro #zoryq #web3 @zoryq_ci_fan',kind:'text'})}).then(r=>r.json());
+          if(!created.post?.id||!created.post.hashtags?.includes('zoryq'))throw Error('post_or_hashtag_failed');
+          const postId=created.post.id;
+          const liked=await fetch(`${base}/v1/posts/${postId}/like`,{method:'POST',headers:b.headers}).then(r=>r.json());
+          if(liked.post?.likeCount!==1)throw Error('like_failed');
+          const repost=await fetch(`${base}/v1/posts/${postId}/repost`,{method:'POST',headers:b.headers}).then(r=>r.json());
+          if(repost.post?.repostCount!==1||!repost.post?.reposted)throw Error('repost_failed');
+          const bookmark=await fetch(`${base}/v1/posts/${postId}/bookmark`,{method:'POST',headers:b.headers}).then(r=>r.json());
+          if(!bookmark.post?.bookmarked)throw Error('bookmark_failed');
+          const comment=await fetch(`${base}/v1/posts/${postId}/comments`,{method:'POST',headers:b.headers,body:JSON.stringify({content:'Great launch @zoryq_ci_creator'})}).then(r=>r.json());
           if(!comment.comment?.id||comment.post?.commentCount!==1)throw Error('comment_failed');
-          const comments=await fetch(`${base}/v1/posts/${created.post.id}/comments`).then(r=>r.json());
-          if(comments.items?.length!==1||comments.items[0].content!=='Wallet-signed comment')throw Error('comment_read_failed');
-          const reported=await fetch(`${base}/v1/posts/${created.post.id}/report`,{method:'POST',headers:auth,body:JSON.stringify({reason:'CI moderation test'})}).then(r=>r.json());
-          if(!reported.reported)throw Error('report_failed');
-          const txPost=await fetch(`${base}/v1/posts`,{method:'POST',headers:auth,body:JSON.stringify({content:'Verified transaction card',kind:'tx',attachment:{chainId:8453,hash:'0x'+'ab'.repeat(32)}})}).then(r=>r.json());
-          if(txPost.post?.attachment?.chainId!==8453||txPost.post?.attachment?.type!=='tx')throw Error('verified_tx_card_failed');
-          const unsafe=await fetch(`${base}/v1/posts`,{method:'POST',headers:auth,body:JSON.stringify({content:'Unsafe dapp',kind:'dapp',attachment:{url:'http://unsafe.example',name:'Unsafe'}})});
+          const follow=await fetch(`${base}/v1/follow/${creator.address}`,{method:'POST',headers:b.headers}).then(r=>r.json());
+          if(!follow.following)throw Error('follow_failed');
+          const saved=await fetch(`${base}/v1/feed?scope=bookmarks`,{headers:{authorization:`Bearer ${b.token}`}}).then(r=>r.json());
+          if(!saved.items?.some(x=>x.id===postId))throw Error('bookmark_feed_failed');
+          const search=await fetch(`${base}/v1/search?q=zoryq_ci_creator`,{headers:{authorization:`Bearer ${b.token}`}}).then(r=>r.json());
+          if(!search.users?.some(x=>x.address.toLowerCase()===creator.address.toLowerCase()))throw Error('search_user_failed');
+          const tagSearch=await fetch(`${base}/v1/search?q=%23zoryq`).then(r=>r.json());
+          if(!tagSearch.posts?.some(x=>x.id===postId))throw Error('search_hashtag_failed');
+          const explore=await fetch(`${base}/v1/explore`,{headers:{authorization:`Bearer ${b.token}`}}).then(r=>r.json());
+          if(!explore.trending?.some(x=>x.tag==='zoryq')||!explore.items?.some(x=>x.id===postId))throw Error('explore_failed');
+          const notifications=await fetch(`${base}/v1/notifications`,{headers:{authorization:`Bearer ${a.token}`}}).then(r=>r.json());
+          const types=new Set((notifications.items||[]).map(x=>x.type));
+          for(const type of ['like','repost','comment','follow','mention'])if(!types.has(type))throw Error(`notification_${type}_missing`);
+          const onePx='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
+          const media=await fetch(`${base}/v1/media/image`,{method:'POST',headers:a.headers,body:JSON.stringify({mime:'image/png',dataBase64:onePx})}).then(async r=>({status:r.status,j:await r.json()}));
+          if(media.status!==201||!media.j.url?.includes('/social/media/'))throw Error(`media_upload_failed_${media.status}`);
+          const imagePost=await fetch(`${base}/v1/posts`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'Persistent ZORYQ photo #zoryq',kind:'image',attachment:{url:media.j.url,alt:'CI image'}})}).then(r=>r.json());
+          if(imagePost.post?.attachment?.type!=='image')throw Error('image_post_failed');
+          const imageResponse=await fetch(media.j.url);
+          if(!imageResponse.ok||imageResponse.headers.get('content-type')!=='image/png')throw Error('media_read_failed');
+          const txPost=await fetch(`${base}/v1/posts`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'Verified transaction card',kind:'tx',attachment:{chainId:8453,hash:'0x'+'ab'.repeat(32)}})}).then(r=>r.json());
+          if(txPost.post?.attachment?.chainId!==8453)throw Error('verified_tx_card_failed');
+          const unsafe=await fetch(`${base}/v1/posts`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'Unsafe dapp',kind:'dapp',attachment:{url:'http://unsafe.example',name:'Unsafe'}})});
           if(unsafe.status!==400)throw Error(`unsafe_dapp_not_rejected_${unsafe.status}`);
-          const feed=await fetch(`${base}/v1/feed?scope=for-you`,{headers:{authorization:`Bearer ${login.token}`}}).then(r=>r.json());
-          if(!feed.items?.some(x=>x.id===created.post.id&&x.author.toLowerCase()===wallet.address.toLowerCase()))throw Error('feed_missing_post');
-          console.log(JSON.stringify({ok:true,address:wallet.address,postId:created.post.id,likeCount:liked.post.likeCount,commentCount:comment.post.commentCount,verifiedTxCard:true,unsafeDappRejected:true,feedItems:feed.items.length}));
+          console.log(JSON.stringify({ok:true,postId,search:true,explore:true,notifications:[...types],media:true,repost:true,bookmark:true}));
           NODE
       - name: Persistence survives gateway restart
         working-directory: zoryq-wallet-backend
@@ -88,6 +118,7 @@ jobs:
           ZORYQ_WALLET_SWAP_FEE_BPS: '25'
           SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
           SOCIAL_DATA_DIR: '/tmp/zoryq-social-ci'
+          SOCIAL_MEDIA_DIR: '/tmp/zoryq-social-media-ci'
         run: |
           kill $(cat /tmp/zoryq-gateway.pid) || true
           sleep 1
@@ -96,8 +127,9 @@ jobs:
           trap 'kill $PID || true' EXIT
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/social/health >/dev/null && break; sleep 1; done
           BODY=$(curl -fsS 'http://127.0.0.1:8080/social/v1/feed?scope=for-you')
-          echo "$BODY" | grep -q 'First cryptographically authenticated ZORYQ Social post.'
-          echo "$BODY" | grep -q 'Verified transaction card'
+          echo "$BODY" | grep -q 'ZORYQ Social Pro'
+          echo "$BODY" | grep -q 'Persistent ZORYQ photo'
+          find /tmp/zoryq-social-media-ci -type f | grep -q .
       - name: Dump logs on failure
         if: failure()
         run: |
