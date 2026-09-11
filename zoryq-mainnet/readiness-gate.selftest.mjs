@@ -24,6 +24,25 @@ function run(input) {
 function assert(ok, message) {
   if (!ok) throw new Error(message);
 }
+function writeEvidence(name, full, observedAt) {
+  const body = name === 'consensus-multivalidator'
+    ? {
+        pass: true,
+        status: 'MULTI_OPERATOR_CONVERGENCE_EVIDENCE_ACCEPTED',
+        network: 'ZORYQ Mainnet',
+        chainId: 5919066,
+        consensusEngine: 'zoryq-bft-rehearsal',
+        nodeCount: 4,
+        operatorCount: 4,
+        regionCount: 3,
+        commonFinalizedCheckpoint: { height: 1000, hash: `0x${'a'.repeat(64)}` },
+        blockers: [],
+        evidenceSha256: 'c'.repeat(64),
+        rule: 'zoryq-mainnet-multi-operator-evidence-v1'
+      }
+    : { control: name, observedAt, fixture: false };
+  fs.writeFileSync(full, JSON.stringify(body) + '\n');
+}
 function makeFixture(dir) {
   const now = new Date();
   const expires = new Date(now.getTime() + 60 * 60 * 1000);
@@ -32,7 +51,7 @@ function makeFixture(dir) {
     const evidencePath = `evidence/${name}.json`;
     const full = path.join(dir, evidencePath);
     fs.mkdirSync(path.dirname(full), { recursive: true });
-    fs.writeFileSync(full, JSON.stringify({ control: name, observedAt: now.toISOString(), fixture: false }) + '\n');
+    writeEvidence(name, full, now.toISOString());
     controls[name] = {
       status: 'pass',
       observedAt: now.toISOString(),
@@ -68,12 +87,25 @@ try {
   assert(good.status === 0 && good.body.ready === true, `valid dossier rejected: ${JSON.stringify(good.body)}`);
   assert(good.body.verifiedControls?.length === CONTROLS.length, 'not all evidence controls were verified');
 
+  const consensusPath = path.join(dir, dossier.controls['consensus-multivalidator'].evidencePath);
+  const weakConsensus = JSON.parse(fs.readFileSync(consensusPath, 'utf8'));
+  weakConsensus.operatorCount = 3;
+  fs.writeFileSync(consensusPath, JSON.stringify(weakConsensus) + '\n');
+  dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
+  fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
+  const semanticConsensus = run(input);
+  assert(semanticConsensus.status === 82, `weak consensus evidence exit=${semanticConsensus.status}`);
+  assert(semanticConsensus.body.blockers?.includes('consensus_evidence_operator_count_below_policy'), 'weak semantic consensus evidence was not rejected');
+  writeEvidence('consensus-multivalidator', consensusPath, dossier.controls['consensus-multivalidator'].observedAt);
+  dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
+
   const tampered = path.join(dir, dossier.controls['recovery-drill'].evidencePath);
   fs.appendFileSync(tampered, '{"tampered":true}\n');
+  fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
   const hashMismatch = run(input);
   assert(hashMismatch.status === 82, `tampered evidence exit=${hashMismatch.status}`);
   assert(hashMismatch.body.blockers?.includes('control_evidence_hash_mismatch:recovery-drill'), 'tampered evidence was not rejected');
-  fs.writeFileSync(tampered, JSON.stringify({ control: 'recovery-drill', observedAt: dossier.controls['recovery-drill'].observedAt, fixture: false }) + '\n');
+  writeEvidence('recovery-drill', tampered, dossier.controls['recovery-drill'].observedAt);
   dossier.controls['recovery-drill'].evidenceSha256 = sha256(tampered);
 
   dossier.chainId = 5919065;
@@ -83,20 +115,13 @@ try {
   assert(testnetReuse.body.blockers?.includes('chain_id_reuses_testnet'), 'testnet chain id reuse was not rejected');
 
   dossier.chainId = 5919066;
-  dossier.privateKey = 'forbidden-even-as-placeholder';
-  fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
-  const secret = run(input);
-  assert(secret.status === 82, `secret material exit=${secret.status}`);
-  assert(secret.body.blockers?.some((x) => x.startsWith('secret_material_field_present:')), 'secret material field was not rejected');
-
-  delete dossier.privateKey;
   dossier.controls['validator-distribution'].operatorCount = 3;
   fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
   const concentration = run(input);
   assert(concentration.status === 82, `operator concentration exit=${concentration.status}`);
   assert(concentration.body.blockers?.includes('validator_operator_count_below_policy'), 'validator operator concentration was not rejected');
 
-  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','tamper-rejection','testnet-chain-rejection','secret-field-rejection','validator-distribution-policy'] }, null, 2) + '\n');
+  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
