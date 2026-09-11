@@ -1,0 +1,28 @@
+name: ZORYQ Mainnet Readiness Gate
+
+on:
+  push:
+    paths:
+      - 'zoryq-mainnet/readiness-gate.mjs'
+      - 'zoryq-mainnet/readiness-gate.selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-readiness.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mainnet/readiness-gate.mjs'
+      - 'zoryq-mainnet/readiness-gate.selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-readiness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  readiness-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run evidence-backed readiness adversarial self-test
+        run: node zoryq-mainnet/readiness-gate.selftest.mjs
