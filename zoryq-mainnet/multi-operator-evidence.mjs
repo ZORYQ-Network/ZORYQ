@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import { createHash } from 'node:crypto';
+import { createHash, createPublicKey, verify } from 'node:crypto';
 
 const TESTNET_CHAIN_ID = 5919065;
 const EXIT_NOT_READY = 82;
@@ -35,8 +35,9 @@ function canonicalize(value) {
   for (const key of Object.keys(value).sort()) ordered[key] = canonicalize(value[key]);
   return ordered;
 }
+function canonicalJson(value) { return JSON.stringify(canonicalize(value)); }
 function canonicalSha256(value) {
-  return createHash('sha256').update(JSON.stringify(canonicalize(value))).digest('hex');
+  return createHash('sha256').update(canonicalJson(value)).digest('hex');
 }
 function hasSecretField(value, currentPath = '') {
   if (!value || typeof value !== 'object') return null;
@@ -48,6 +49,46 @@ function hasSecretField(value, currentPath = '') {
     if (nested) return nested;
   }
   return null;
+}
+function attestationStatement(evidence, node) {
+  return canonicalJson({
+    domain: 'zoryq-mainnet-multi-operator-node-attestation-v1',
+    network: evidence.network,
+    chainId: evidence.chainId,
+    genesisSha256: evidence.genesisSha256,
+    consensusEngine: evidence.consensusEngine,
+    operatorId: node.operatorId,
+    region: node.region,
+    p2pNodeId: node.p2pNodeId,
+    hostFingerprint: node.hostFingerprint,
+    peerCount: node.peerCount,
+    publicDebugEnabled: node.publicDebugEnabled,
+    headHeight: node.headHeight,
+    finalizedHeight: node.finalizedHeight,
+    finalizedHash: node.finalizedHash,
+    observedAt: node.observedAt,
+    checkpointHashes: node.checkpointHashes || {}
+  });
+}
+function verifyOperatorAttestation(evidence, node) {
+  const attestation = node?.operatorAttestation;
+  if (!attestation || attestation.algorithm !== 'ed25519') return { ok: false, reason: 'operator_attestation_missing_or_algorithm_invalid' };
+  if (typeof attestation.publicKeySpkiBase64 !== 'string' || typeof attestation.signatureBase64 !== 'string') return { ok: false, reason: 'operator_attestation_material_invalid' };
+  try {
+    const publicDer = Buffer.from(attestation.publicKeySpkiBase64, 'base64');
+    const signature = Buffer.from(attestation.signatureBase64, 'base64');
+    if (publicDer.length < 32 || signature.length !== 64) return { ok: false, reason: 'operator_attestation_material_invalid' };
+    const publicKey = createPublicKey({ key: publicDer, format: 'der', type: 'spki' });
+    if (publicKey.asymmetricKeyType !== 'ed25519') return { ok: false, reason: 'operator_attestation_key_not_ed25519' };
+    const ok = verify(null, Buffer.from(attestationStatement(evidence, node)), publicKey, signature);
+    return {
+      ok,
+      reason: ok ? null : 'operator_attestation_signature_invalid',
+      keyFingerprint: createHash('sha256').update(publicDer).digest('hex')
+    };
+  } catch {
+    return { ok: false, reason: 'operator_attestation_material_invalid' };
+  }
 }
 
 const args = parseArgs(process.argv);
@@ -77,6 +118,7 @@ const operators = new Set();
 const regions = new Set();
 const p2pIds = new Set();
 const hosts = new Set();
+const operatorKeys = new Set();
 const checkpoints = new Map();
 for (let i = 0; i < nodes.length; i++) {
   const node = nodes[i] || {};
@@ -95,6 +137,12 @@ for (let i = 0; i < nodes.length; i++) {
   const nodeObservedAt = parseTimestamp(node.observedAt);
   if (nodeObservedAt === null) blockers.push(`${prefix}:observed_at_invalid`);
   else if (observedAt !== null && Math.abs(nodeObservedAt - observedAt) > 120_000) blockers.push(`${prefix}:observation_outside_two_minute_window`);
+
+  const attestationResult = verifyOperatorAttestation(evidence, node);
+  if (!attestationResult.ok) blockers.push(`${prefix}:${attestationResult.reason}`);
+  else if (operatorKeys.has(attestationResult.keyFingerprint)) blockers.push(`${prefix}:duplicate_operator_attestation_key`);
+  else operatorKeys.add(attestationResult.keyFingerprint);
+
   if (Number.isSafeInteger(node.finalizedHeight) && isHash(node.finalizedHash)) {
     const key = String(node.finalizedHeight);
     const set = checkpoints.get(key) || new Set();
@@ -106,6 +154,7 @@ if (operators.size < 4) blockers.push('minimum_four_independent_operators_requir
 if (regions.size < 3) blockers.push('minimum_three_regions_required');
 if (p2pIds.size !== nodes.length) blockers.push('p2p_identity_uniqueness_failed');
 if (hosts.size !== nodes.length) blockers.push('host_independence_failed');
+if (operatorKeys.size !== nodes.length) blockers.push('operator_attestation_key_independence_failed');
 
 const finalizedHeights = nodes.map((node) => node?.finalizedHeight).filter(Number.isSafeInteger);
 if (finalizedHeights.length) {
@@ -143,12 +192,13 @@ const report = {
   consensusEngine: evidence.consensusEngine || null,
   nodeCount: nodes.length,
   operatorCount: operators.size,
+  operatorAttestationKeyCount: operatorKeys.size,
   regionCount: regions.size,
   commonFinalizedCheckpoint: commonCheckpoint,
   faultTestsRequired: REQUIRED_FAULT_TESTS,
   blockers,
   evidenceSha256: canonicalSha256(evidence),
-  rule: 'zoryq-mainnet-multi-operator-evidence-v2'
+  rule: 'zoryq-mainnet-multi-operator-evidence-v3-signed-operators'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
