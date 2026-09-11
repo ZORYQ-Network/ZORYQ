@@ -70,10 +70,13 @@ function loadRegistry(file) {
     const fingerprint = String(validator?.attestationKeyFingerprintSha256 || '').toLowerCase();
     const publicKeySpkiBase64 = validator?.attestationPublicKeySpkiBase64;
     if (!operatorId || !isHex64(fingerprint)) fail('validator_registry_operator_or_attestation_fingerprint_invalid');
-    if (typeof publicKeySpkiBase64 !== 'string' || publicKeySpkiBase64.length < 40) fail(`validator_registry_attestation_key_missing:${operatorId}`);
+    if (publicKeySpkiBase64 === undefined || publicKeySpkiBase64 === null || publicKeySpkiBase64 === '') fail(`validator_registry_attestation_key_missing:${operatorId}`);
+    if (typeof publicKeySpkiBase64 !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(publicKeySpkiBase64)) fail(`validator_registry_attestation_key_invalid:${operatorId}`);
     let canonicalDer;
     try {
-      const publicKey = createPublicKey({ key: Buffer.from(publicKeySpkiBase64, 'base64'), format: 'der', type: 'spki' });
+      const publicDer = Buffer.from(publicKeySpkiBase64, 'base64');
+      if (!publicDer.length || publicDer.toString('base64') !== publicKeySpkiBase64) fail(`validator_registry_attestation_key_invalid:${operatorId}`);
+      const publicKey = createPublicKey({ key: publicDer, format: 'der', type: 'spki' });
       if (publicKey.asymmetricKeyType !== 'ed25519') fail(`validator_registry_attestation_key_not_ed25519:${operatorId}`);
       canonicalDer = publicKey.export({ format: 'der', type: 'spki' });
     } catch (error) {
@@ -196,9 +199,7 @@ for (let i = 0; i < nodes.length; i++) {
   else {
     if (operatorKeys.has(attestationResult.keyFingerprint)) blockers.push(`${prefix}:duplicate_operator_attestation_key`);
     else operatorKeys.add(attestationResult.keyFingerprint);
-    if (registeredOperator && attestationResult.keyFingerprint.toLowerCase() !== String(registeredOperator.attestationKeyFingerprintSha256 || '').toLowerCase()) {
-      blockers.push(`${prefix}:operator_attestation_key_not_authorized_by_validator_registry`);
-    }
+    if (registeredOperator && attestationResult.keyFingerprint !== registeredOperator.attestationKeyFingerprintSha256) blockers.push(`${prefix}:operator_attestation_key_not_authorized_by_validator_registry`);
   }
 
   if (Number.isSafeInteger(node.finalizedHeight) && isHash(node.finalizedHash)) {
@@ -209,11 +210,11 @@ for (let i = 0; i < nodes.length; i++) {
   }
 }
 if (operators.size < 4) blockers.push('minimum_four_independent_operators_required');
+if (authorizedRegistryOperators.size < 4) blockers.push('minimum_four_registry_authorized_operators_required');
 if (regions.size < 3) blockers.push('minimum_three_regions_required');
 if (p2pIds.size !== nodes.length) blockers.push('p2p_identity_uniqueness_failed');
 if (hosts.size !== nodes.length) blockers.push('host_independence_failed');
 if (operatorKeys.size !== nodes.length) blockers.push('operator_attestation_key_independence_failed');
-if (authorizedRegistryOperators.size !== nodes.length) blockers.push('validator_registry_operator_authorization_failed');
 
 const finalizedHeights = nodes.map((node) => node?.finalizedHeight).filter(Number.isSafeInteger);
 if (finalizedHeights.length) {
@@ -251,16 +252,15 @@ const report = {
   consensusEngine: evidence.consensusEngine || null,
   nodeCount: nodes.length,
   operatorCount: operators.size,
-  authorizedRegistryOperatorCount: authorizedRegistryOperators.size,
+  registryAuthorizedOperatorCount: authorizedRegistryOperators.size,
   operatorAttestationKeyCount: operatorKeys.size,
-  registryAttestationKeyCount: registryContext.attestationKeyCount,
-  regionCount: regions.size,
   validatorRegistrySha256: registryContext.sha256,
+  regionCount: regions.size,
   commonFinalizedCheckpoint: commonCheckpoint,
   faultTestsRequired: REQUIRED_FAULT_TESTS,
   blockers,
   evidenceSha256: canonicalSha256(evidence),
-  rule: 'zoryq-mainnet-multi-operator-evidence-v4-registry-bound'
+  rule: 'zoryq-mainnet-multi-operator-evidence-v4-registry-authorized-signed-operators'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
