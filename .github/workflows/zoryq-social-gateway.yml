@@ -50,7 +50,8 @@ jobs:
           done
           curl -fsS http://127.0.0.1:8080/health | tee /tmp/swap-health.json
           curl -fsS http://127.0.0.1:8080/social/health | tee /tmp/social-health.json
-          grep -q '"version":"0.3.0"' /tmp/social-health.json
+          grep -q '"version":"0.4.0"' /tmp/social-health.json
+          grep -q '"eip712-profile-registration"' /tmp/social-health.json
           grep -q '"image-posts"' /tmp/social-health.json
           grep -q '"notifications"' /tmp/social-health.json
       - name: Wallet-authenticated Social Pro E2E
@@ -61,14 +62,18 @@ jobs:
           const base='http://127.0.0.1:8080/social';
           async function login(wallet,handle){
             const challenge=await fetch(`${base}/v1/auth/challenge?address=${wallet.address}`).then(r=>r.json());
-            if(!challenge.ok||!challenge.message.includes('does not authorize a transaction'))throw Error('challenge_invalid');
+            if(!challenge.ok||!challenge.message.includes('does not create a profile'))throw Error('challenge_invalid');
             const signature=await wallet.signMessage(challenge.message);
             const auth=await fetch(`${base}/v1/auth/verify`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({address:wallet.address,signature})}).then(r=>r.json());
-            if(!auth.token)throw Error('wallet_auth_failed');
+            if(!auth.token||auth.profileRegistrationRequired!==true)throw Error('wallet_auth_failed');
             const headers={authorization:`Bearer ${auth.token}`,'content-type':'application/json'};
-            const profile=await fetch(`${base}/v1/profile`,{method:'PUT',headers,body:JSON.stringify({handle,displayName:handle==='zoryq_ci_creator'?'ZORYQ Creator':'ZORYQ Fan',bio:'#zoryq Social Pro CI'})}).then(r=>r.json());
-            if(profile.profile?.handle!==handle)throw Error('profile_update_failed');
-            return {token:auth.token,headers,profile:profile.profile};
+            const desired={handle,displayName:handle==='zoryq_ci_creator'?'ZORYQ Creator':'ZORYQ Fan',bio:'#zoryq Social Pro CI'};
+            const registration=await fetch(`${base}/v1/profile/registration-challenge`,{method:'POST',headers,body:JSON.stringify(desired)}).then(r=>r.json());
+            if(!registration.ok||registration.scheme!=='eip712'||registration.chainId!==5919065||registration.typedData?.primaryType!=='ProfileRegistration')throw Error('registration_challenge_failed');
+            const typedSignature=await wallet.signTypedData(registration.typedData.domain,registration.typedData.types,registration.typedData.message);
+            const registered=await fetch(`${base}/v1/profile/register`,{method:'POST',headers,body:JSON.stringify({signature:typedSignature})}).then(async r=>({status:r.status,j:await r.json()}));
+            if(registered.status!==201||registered.j.profile?.handle!==handle||registered.j.registration?.scheme!=='eip712'||registered.j.registration?.chainId!==5919065)throw Error('profile_registration_failed');
+            return {token:auth.token,headers,profile:registered.j.profile};
           }
           const creator=Wallet.createRandom();
           const fan=Wallet.createRandom();
@@ -109,7 +114,7 @@ jobs:
           if(txPost.post?.attachment?.chainId!==8453)throw Error('verified_tx_card_failed');
           const unsafe=await fetch(`${base}/v1/posts`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'Unsafe dapp',kind:'dapp',attachment:{url:'http://unsafe.example',name:'Unsafe'}})});
           if(unsafe.status!==400)throw Error(`unsafe_dapp_not_rejected_${unsafe.status}`);
-          console.log(JSON.stringify({ok:true,postId,search:true,explore:true,notifications:[...types],media:true,repost:true,bookmark:true}));
+          console.log(JSON.stringify({ok:true,postId,search:true,explore:true,notifications:[...types],media:true,repost:true,bookmark:true,eip712ProfileRegistration:true}));
           NODE
       - name: Persistence survives gateway restart
         working-directory: zoryq-wallet-backend
