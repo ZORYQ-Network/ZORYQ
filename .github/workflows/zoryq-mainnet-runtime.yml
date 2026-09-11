@@ -49,8 +49,8 @@ jobs:
         run: |
           set -euo pipefail
           node zoryq-mainnet/preflight-fixture.mjs --out /tmp/zoryq-mainnet-fixture | tee /tmp/preflight-fixture.json
-          jq -e '.ok == true and .fixtureOnly == true' /tmp/preflight-fixture.json
-          jq -e '.productionEvidence == false and .fixtureOnly == true' /tmp/zoryq-mainnet-fixture/fixture-meta.json
+          jq -e '.ok == true and .fixtureOnly == true and .evidenceBound == true' /tmp/preflight-fixture.json
+          jq -e '.productionEvidence == false and .fixtureOnly == true and (.validatorRegistrySha256 | length == 64)' /tmp/zoryq-mainnet-fixture/fixture-meta.json
 
       - name: Run fail-closed mainnet image preflight
         run: |
@@ -72,6 +72,11 @@ jobs:
             -e ZORYQ_MAINNET_AUDIT_REPORT_PATH=/fixture/audit-report.txt \
             -e ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH=/fixture/incident-runbook.txt \
             -e ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH=/fixture/recovery-evidence.txt \
+            -e ZORYQ_MAINNET_VALIDATOR_REGISTRY_PATH=/fixture/validator-registry.json \
+            -e ZORYQ_MAINNET_CONSENSUS_EVIDENCE_PATH=/fixture/consensus-evidence.txt \
+            -e ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH=/fixture/key-custody-evidence.txt \
+            -e ZORYQ_MAINNET_RELEASE_GOVERNANCE_PATH=/fixture/release-governance.txt \
+            -e ZORYQ_MAINNET_OBSERVABILITY_EVIDENCE_PATH=/fixture/observability-evidence.txt \
             -e ZORYQ_MAINNET_LAUNCH_MANIFEST=/fixture/launch-manifest.json \
             -e ZORYQ_MAINNET_LAUNCH_POLICY=/fixture/launch-policy.json \
             -e ZORYQ_MAINNET_LAUNCH_APPROVALS=/fixture/launch-approvals.json \
@@ -81,6 +86,7 @@ jobs:
             -e ZORYQ_MAINNET_INCIDENT_RUNBOOK_READY=true \
             zoryq-mainnet-preflight | tee /tmp/mainnet-image-preflight.log
           grep -F '[zoryq-mainnet] preflight complete; runtime intentionally not started' /tmp/mainnet-image-preflight.log
+          grep -F 'threshold-ed25519-offline-approvals-v3-evidence-bound' /tmp/mainnet-image-preflight.log
 
       - name: Prove public mainnet backend blocks dangerous namespaces
         run: |
@@ -88,6 +94,8 @@ jobs:
           grep -F "debug_" zoryq-mainnet/backend.mjs
           grep -F "engine_" zoryq-mainnet/backend.mjs
           grep -F "faucet_not_available_on_mainnet" zoryq-mainnet/backend.mjs
+          grep -F "rpc_rate_limit" zoryq-mainnet/backend.mjs
+          grep -F "zoryq_mainnet_block_stall_seconds" zoryq-mainnet/backend.mjs
           if grep -F 'devFaucetWallets' zoryq-mainnet/backend.mjs; then
             echo 'development faucet wallet pool leaked into mainnet backend' >&2
             exit 1
