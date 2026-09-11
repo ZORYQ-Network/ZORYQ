@@ -1,0 +1,100 @@
+name: ZORYQ Communities
+
+'on':
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-wallet-backend/communities.mjs'
+      - 'zoryq-wallet-backend/gateway.mjs'
+      - 'zoryq-wallet-backend/Dockerfile'
+      - '.github/workflows/zoryq-communities.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  communities-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - name: Install dependencies
+        working-directory: zoryq-wallet-backend
+        run: npm install --no-audit --no-fund
+      - name: Start gateway
+        working-directory: zoryq-wallet-backend
+        env:
+          PORT: '8080'
+          ZORYQ_WALLET_TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+          ZORYQ_WALLET_SWAP_FEE_BPS: '25'
+          SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
+          SOCIAL_DATA_DIR: '/tmp/zoryq-community-social'
+          SOCIAL_MEDIA_DIR: '/tmp/zoryq-community-media'
+          COMMUNITY_DATA_DIR: '/tmp/zoryq-community-data'
+        run: |
+          rm -rf /tmp/zoryq-community-social /tmp/zoryq-community-media /tmp/zoryq-community-data
+          node gateway.mjs >/tmp/community-gateway.log 2>&1 &
+          echo $! >/tmp/community-gateway.pid
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/community/health >/dev/null && break; sleep 1; done
+      - name: Two-wallet community E2E
+        working-directory: zoryq-wallet-backend
+        run: |
+          node --input-type=module <<'NODE'
+          import {Wallet} from 'ethers';
+          const root='http://127.0.0.1:8080';
+          async function auth(wallet,handle){
+            const c=await fetch(`${root}/social/v1/auth/challenge?address=${wallet.address}`).then(r=>r.json());
+            const signature=await wallet.signMessage(c.message);
+            const login=await fetch(`${root}/social/v1/auth/verify`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({address:wallet.address,signature})}).then(r=>r.json());
+            if(!login.token)throw Error('auth_failed');
+            const headers={authorization:`Bearer ${login.token}`,'content-type':'application/json'};
+            await fetch(`${root}/social/v1/profile`,{method:'PUT',headers,body:JSON.stringify({handle,displayName:handle,bio:'community CI'})});
+            return {token:login.token,headers};
+          }
+          const owner=Wallet.createRandom(),member=Wallet.createRandom();
+          const a=await auth(owner,'community_owner_ci');
+          const b=await auth(member,'community_member_ci');
+          const created=await fetch(`${root}/community/v1/communities`,{method:'POST',headers:a.headers,body:JSON.stringify({name:'ZORYQ Builders',slug:'zoryq-builders-ci',description:'Builder community'})}).then(r=>r.json());
+          if(!created.community?.id||created.community.viewerRole!=='owner'||created.channel?.slug!=='general')throw Error('community_create_failed');
+          const cid=created.community.id,ch=created.channel.id;
+          const joined=await fetch(`${root}/community/v1/communities/${cid}/join`,{method:'POST',headers:b.headers}).then(r=>r.json());
+          if(!joined.community?.joined||joined.community?.members!==2)throw Error('community_join_failed');
+          const ownerMsg=await fetch(`${root}/community/v1/channels/${ch}/messages`,{method:'POST',headers:a.headers,body:JSON.stringify({content:'Welcome builders'})}).then(r=>r.json());
+          const memberMsg=await fetch(`${root}/community/v1/channels/${ch}/messages`,{method:'POST',headers:b.headers,body:JSON.stringify({content:'gm ZORYQ'})}).then(r=>r.json());
+          if(!ownerMsg.message?.id||!memberMsg.message?.id)throw Error('message_send_failed');
+          const messages=await fetch(`${root}/community/v1/channels/${ch}/messages`).then(r=>r.json());
+          if(messages.items?.length!==2||messages.items[1].content!=='gm ZORYQ')throw Error('message_read_failed');
+          const extra=await fetch(`${root}/community/v1/communities/${cid}/channels`,{method:'POST',headers:a.headers,body:JSON.stringify({name:'Builders',slug:'builders',description:'Build together'})}).then(r=>r.json());
+          if(extra.channel?.slug!=='builders')throw Error('channel_create_failed');
+          const list=await fetch(`${root}/community/v1/communities`,{headers:{authorization:`Bearer ${b.token}`}}).then(r=>r.json());
+          if(!list.items?.some(x=>x.id===cid&&x.joined===true&&x.channels===2))throw Error('community_list_failed');
+          console.log(JSON.stringify({ok:true,communityId:cid,members:2,channels:2,messages:2}));
+          NODE
+      - name: Persistence after restart
+        working-directory: zoryq-wallet-backend
+        env:
+          PORT: '8080'
+          ZORYQ_WALLET_TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+          ZORYQ_WALLET_SWAP_FEE_BPS: '25'
+          SOCIAL_SESSION_SECRET: 'ci-only-social-secret-0123456789abcdef0123456789abcdef'
+          SOCIAL_DATA_DIR: '/tmp/zoryq-community-social'
+          SOCIAL_MEDIA_DIR: '/tmp/zoryq-community-media'
+          COMMUNITY_DATA_DIR: '/tmp/zoryq-community-data'
+        run: |
+          kill $(cat /tmp/community-gateway.pid) || true
+          sleep 1
+          node gateway.mjs >/tmp/community-gateway-restart.log 2>&1 &
+          PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:8080/community/health >/dev/null && break; sleep 1; done
+          curl -fsS http://127.0.0.1:8080/community/v1/communities | grep -q 'ZORYQ Builders'
+          grep -q 'gm ZORYQ' /tmp/zoryq-community-data/communities.json
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          cat /tmp/community-gateway.log || true
+          cat /tmp/community-gateway-restart.log || true
