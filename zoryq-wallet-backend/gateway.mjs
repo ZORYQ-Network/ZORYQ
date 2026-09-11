@@ -2,6 +2,7 @@ import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {handleSocial} from './social.mjs';
+import {handleSocialMedia} from './media.mjs';
 
 const PORT=Number(process.env.PORT||8080);
 const SWAP_PORT=8081;
@@ -17,8 +18,11 @@ function proxy(req,res){
 
 const server=http.createServer(async(req,res)=>{
  const u=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`);
- if(u.pathname==='/gateway/health')return void (res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'}),res.end(JSON.stringify({ok:true,service:'zoryq-wallet-gateway',swapWorker:child.exitCode===null,socialPrefix:'/social'})));
- if(u.pathname.startsWith('/social')){await handleSocial(req,res,u);return}
+ if(u.pathname==='/gateway/health')return void (res.writeHead(200,{'content-type':'application/json','cache-control':'no-store'}),res.end(JSON.stringify({ok:true,service:'zoryq-wallet-gateway',swapWorker:child.exitCode===null,socialPrefix:'/social',mediaUpload:true})));
+ if(u.pathname.startsWith('/social')){
+  if(await handleSocialMedia(req,res,u))return;
+  await handleSocial(req,res,u);return
+ }
  proxy(req,res);
 });
 
