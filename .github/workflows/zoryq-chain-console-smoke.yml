@@ -1,0 +1,63 @@
+name: ZORYQ Chain Console Smoke
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/start.html'
+      - 'zoryq-evm-node/ai-ceo.mjs'
+      - 'zoryq-evm-node/server.mjs'
+      - '.github/workflows/zoryq-chain-console-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
+      RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
+    steps:
+      - name: Verify practical Chain Console is live
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 8 --retry-delay 3 "$BASE/start" -o /tmp/start.html
+          grep -Fq 'CHAIN CONSOLE' /tmp/start.html
+          grep -Fq 'Conectar carteira' /tmp/start.html
+          grep -Fq 'Receber 100 ZQ' /tmp/start.html
+          grep -Fq 'Enviar ZQ' /tmp/start.html
+          grep -Fq 'Gerar plano autônomo' /tmp/start.html
+          grep -Fq 'wallet_addEthereumChain' /tmp/start.html
+          grep -Fq 'sendTransaction' /tmp/start.html
+          echo 'Practical Chain Console is live.'
+
+      - name: Verify public network identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          health="$(curl --fail --silent --show-error --retry 8 --retry-delay 3 "$BASE/health")"
+          echo "$health" | jq -e '.ok == true and (.chain.chainId // .chainId) == 5919065 and (.chain.executionClient // .executionClient) == "reth"' >/dev/null
+          rpc="$(curl --fail --silent --show-error --retry 5 --retry-delay 2 -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "$RPC")"
+          echo "$rpc" | jq -e '.result == "0x5a5159"' >/dev/null
+          echo 'Public chain identity is correct.'
+
+      - name: Verify bounded AI CEO surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          status="$(curl --fail --silent --show-error --retry 8 --retry-delay 3 "$BASE/ai-ceo/status")"
+          echo "$status" | jq -e '.ok == true and .chainId == 5919065 and .syntheticEconomy == true and (.safety | type == "string" and length > 20)' >/dev/null
+          echo "$status" | jq -e 'has("configured") and has("contractAddress") and has("canonicalCompanyId")' >/dev/null
+          echo 'Bounded AI CEO status surface is healthy.'
+
+      - name: Verify debug remains inaccessible publicly
+        shell: bash
+        run: |
+          set -euo pipefail
+          blocked="$(curl --fail --silent --show-error -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":2,"method":"debug_traceTransaction","params":["0x0000000000000000000000000000000000000000000000000000000000000000"]}' "$RPC")"
+          echo "$blocked" | jq -e '.error.code == -32601' >/dev/null
+          echo 'Public debug namespace remains blocked.'
