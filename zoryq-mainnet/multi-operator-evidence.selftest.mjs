@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 
 const gate = path.resolve('zoryq-mainnet/multi-operator-evidence.mjs');
 const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'zoryq-multi-operator-'));
@@ -10,6 +10,42 @@ const hash = (text) => createHash('sha256').update(text).digest('hex');
 const checkpointHash = `0x${'ab'.repeat(32)}`;
 const genesis = hash('zoryq-mainnet-genesis');
 const now = new Date().toISOString();
+
+function canonicalize(value) {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(canonicalize);
+  const ordered = {};
+  for (const key of Object.keys(value).sort()) ordered[key] = canonicalize(value[key]);
+  return ordered;
+}
+function canonicalJson(value) { return JSON.stringify(canonicalize(value)); }
+function attestationStatement(evidence, node) {
+  return canonicalJson({
+    domain: 'zoryq-mainnet-multi-operator-node-attestation-v1',
+    network: evidence.network,
+    chainId: evidence.chainId,
+    genesisSha256: evidence.genesisSha256,
+    consensusEngine: evidence.consensusEngine,
+    operatorId: node.operatorId,
+    region: node.region,
+    p2pNodeId: node.p2pNodeId,
+    hostFingerprint: node.hostFingerprint,
+    peerCount: node.peerCount,
+    publicDebugEnabled: node.publicDebugEnabled,
+    headHeight: node.headHeight,
+    finalizedHeight: node.finalizedHeight,
+    finalizedHash: node.finalizedHash,
+    observedAt: node.observedAt,
+    checkpointHashes: node.checkpointHashes || {}
+  });
+}
+function signNode(evidence, node, keyPair) {
+  node.operatorAttestation = {
+    algorithm: 'ed25519',
+    publicKeySpkiBase64: keyPair.publicKey.export({ format: 'der', type: 'spki' }).toString('base64'),
+    signatureBase64: sign(null, Buffer.from(attestationStatement(evidence, node)), keyPair.privateKey).toString('base64')
+  };
+}
 
 function fixture() {
   const nodes = Array.from({ length: 4 }, (_, i) => ({
@@ -27,7 +63,7 @@ function fixture() {
     observedAt: now,
     checkpointHashes: { '1000': checkpointHash }
   }));
-  return {
+  const evidence = {
     network: 'ZORYQ Mainnet',
     productionEvidence: true,
     synthetic: false,
@@ -44,6 +80,9 @@ function fixture() {
       { name: 'node-restart-recovery', status: 'pass', evidenceSha256: hash('restart'), recoverySeconds: 53 }
     ]
   };
+  const keyPairs = nodes.map(() => generateKeyPairSync('ed25519'));
+  nodes.forEach((node, i) => signNode(evidence, node, keyPairs[i]));
+  return { evidence, keyPairs };
 }
 
 function run(name, evidence, shouldPass, expectedBlocker = null) {
@@ -60,11 +99,12 @@ function run(name, evidence, shouldPass, expectedBlocker = null) {
 }
 
 try {
-  const baseline = fixture();
-  const baselineReport = run('valid', baseline, true);
+  const { evidence: baseline } = fixture();
+  const baselineReport = run('valid-signed-operators', baseline, true);
+  if (baselineReport.operatorAttestationKeyCount !== 4) throw new Error('expected four independent operator attestation keys');
 
-  const nestedMutation = fixture();
-  nestedMutation.nodes[0].hostFingerprint = hash('host-0-mutated');
+  const { evidence: nestedMutation } = fixture();
+  nestedMutation.faultTests[0].evidenceSha256 = hash('producer-loss-mutated');
   const nestedMutationReport = run('nested-digest-mutation', nestedMutation, true);
   if (nestedMutationReport.evidenceSha256 === baselineReport.evidenceSha256) {
     throw new Error('nested evidence mutation did not change evidenceSha256');
@@ -90,28 +130,40 @@ try {
   }
   process.stdout.write('evidenceSha256 is stable across object key ordering\n');
 
-  const reusedTestnet = fixture();
+  const { evidence: unsigned } = fixture();
+  delete unsigned.nodes[0].operatorAttestation;
+  run('unsigned-operator', unsigned, false, 'operator_attestation_missing_or_algorithm_invalid');
+
+  const { evidence: tamperedSignedField } = fixture();
+  tamperedSignedField.nodes[0].hostFingerprint = hash('tampered-host');
+  run('tampered-signed-observation', tamperedSignedField, false, 'operator_attestation_signature_invalid');
+
+  const { evidence: duplicateKey, keyPairs: duplicateKeyPairs } = fixture();
+  signNode(duplicateKey, duplicateKey.nodes[3], duplicateKeyPairs[0]);
+  run('operator-key-reuse', duplicateKey, false, 'duplicate_operator_attestation_key');
+
+  const { evidence: reusedTestnet, keyPairs: reusedKeys } = fixture();
   reusedTestnet.chainId = 5919065;
-  reusedTestnet.nodes.forEach((node) => { node.chainId = 5919065; });
+  reusedTestnet.nodes.forEach((node, i) => { node.chainId = 5919065; signNode(reusedTestnet, node, reusedKeys[i]); });
   run('testnet-chain-id', reusedTestnet, false, 'chain_id_reuses_testnet');
 
-  const duplicateOperator = fixture();
+  const { evidence: duplicateOperator } = fixture();
   duplicateOperator.nodes[3].operatorId = duplicateOperator.nodes[0].operatorId;
   run('operator-concentration', duplicateOperator, false, 'minimum_four_independent_operators_required');
 
-  const duplicateHost = fixture();
+  const { evidence: duplicateHost } = fixture();
   duplicateHost.nodes[3].hostFingerprint = duplicateHost.nodes[0].hostFingerprint;
   run('host-reuse', duplicateHost, false, 'duplicate_host_fingerprint');
 
-  const debugExposed = fixture();
+  const { evidence: debugExposed } = fixture();
   debugExposed.nodes[2].publicDebugEnabled = true;
   run('public-debug', debugExposed, false, 'public_debug_must_be_false');
 
-  const divergentCheckpoint = fixture();
+  const { evidence: divergentCheckpoint } = fixture();
   divergentCheckpoint.nodes[1].checkpointHashes['1000'] = `0x${'cd'.repeat(32)}`;
   run('checkpoint-divergence', divergentCheckpoint, false, 'common_checkpoint_hash_mismatch');
 
-  const weakFaultEvidence = fixture();
+  const { evidence: weakFaultEvidence } = fixture();
   weakFaultEvidence.faultTests[1].status = 'fail';
   run('fault-test-failure', weakFaultEvidence, false, 'fault_test_not_passed:network-partition-recovery');
 
