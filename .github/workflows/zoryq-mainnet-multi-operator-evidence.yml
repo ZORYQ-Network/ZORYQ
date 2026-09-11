@@ -5,11 +5,13 @@ on:
     paths:
       - 'zoryq-mainnet/multi-operator-evidence.mjs'
       - 'zoryq-mainnet/multi-operator-evidence.selftest.mjs'
+      - 'zoryq-mainnet/validator-registry.mjs'
       - '.github/workflows/zoryq-mainnet-multi-operator-evidence.yml'
   pull_request:
     paths:
       - 'zoryq-mainnet/multi-operator-evidence.mjs'
       - 'zoryq-mainnet/multi-operator-evidence.selftest.mjs'
+      - 'zoryq-mainnet/validator-registry.mjs'
       - '.github/workflows/zoryq-mainnet-multi-operator-evidence.yml'
 
 permissions:
