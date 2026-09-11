@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07080d">
+<meta name="description" content="ZORIQ Social — uma rede social que evolui com você. Perfil evolutivo, Pulse, Worlds, Powers, ZORIQ DNA e ZORI.">
+<title>ZORIQ Social — Your social world evolves with you</title>
+<link rel="stylesheet" href="/zoriq-social-v2.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/zoriq"><span class="mark">Z</span><span>ZORIQ</span><span class="beta">SOCIAL EVOLUTION</span></a>
+  <div class="top-actions"><span class="pill">Human First <b data-human-score>94</b>/100</span><button class="secondary" data-view="profile">Meu perfil</button><button class="primary" data-view="zori">✦ ZORI</button></div>
+</header>
+<main class="layout">
+  <aside class="sidebar">
+    <nav class="nav" aria-label="Navegação ZORIQ Social">
+      <button class="nav-btn active" data-view="home"><span class="nav-dot"></span><span class="label">Início</span></button>
+      <button class="nav-btn" data-view="pulse"><span class="nav-dot"></span><span class="label">Pulse</span></button>
+      <button class="nav-btn" data-view="worlds"><span class="nav-dot"></span><span class="label">Worlds</span></button>
+      <button class="nav-btn" data-view="profile"><span class="nav-dot"></span><span class="label">Perfil</span></button>
+      <button class="nav-btn" data-view="zori"><span class="nav-dot"></span><span class="label">ZORI</span></button>
+      <button class="nav-btn" data-view="reputation"><span class="nav-dot"></span><span class="label">Reputação</span></button>
+    </nav>
+    <section class="mini-profile">
+      <div class="row"><div class="avatar small power-electric" data-me>YOU</div><div class="mini-copy"><b data-profile-name>Explorer</b><div class="level"><span data-level>Creator</span> · <span data-xp>1.280</span> XP</div></div></div>
+      <div class="xp-track"><div class="xp-fill"></div></div>
+    </section>
+  </aside>
+
+  <section class="center">
+    <section class="view active" id="view-home">
+      <div class="hero">
+        <div class="eyebrow">YOUR SOCIAL WORLD EVOLVES WITH YOU</div>
+        <h1>Uma rede social que <span class="gradient">evolui com você.</span></h1>
+        <p>Seu perfil ganha identidade, reputação, Powers, conquistas e um DNA social próprio. Você escolhe o que quer ver, participa de Worlds e acompanha o que está acontecendo agora no Pulse.</p>
+        <div class="hero-badges"><span class="hero-badge">Perfil Evolutivo</span><span class="hero-badge">ZORIQ XP</span><span class="hero-badge">Powers</span><span class="hero-badge">Pulse</span><span class="hero-badge">Worlds</span><span class="hero-badge">Human First</span><span class="hero-badge">ZORIQ DNA</span></div>
+      </div>
+      <div class="modes" aria-label="Controle do feed">
+        <button class="mode" data-mode="explore">🌎 Explorar</button><button class="mode" data-mode="fun">😂 Divertir</button><button class="mode" data-mode="learn">🧠 Aprender</button><button class="mode" data-mode="trend">🔥 Tendências</button><button class="mode" data-mode="meet">🤝 Conhecer pessoas</button><button class="mode" data-mode="tech">💻 Tecnologia</button><button class="mode" data-mode="gaming">🎮 Games</button><button class="mode" data-mode="crypto">₿ Cripto</button><button class="mode" data-mode="following">👥 Seguindo</button>
+      </div>
+      <section class="composer">
+        <textarea id="compose" maxlength="500" placeholder="O que você quer compartilhar com o seu mundo?"></textarea>
+        <div class="row between"><div class="composer-tools"><span class="composer-tool">🎯 Meta</span><span class="composer-tool">📊 Enquete</span><span class="composer-tool">🏆 Desafio</span><span class="composer-tool">🤝 Colab</span></div><button class="primary" id="publish">Publicar</button></div>
+      </section>
+      <div id="feed"></div>
+    </section>
+
+    <section class="view" id="view-pulse">
+      <div class="hero"><div class="eyebrow">ZORIQ PULSE</div><h1>O que está acontecendo <span class="gradient">agora.</span></h1><p>Pulse organiza conversas vivas por assunto. No produto conectado, presença, contagem e conteúdo serão atualizados em tempo real.</p></div>
+      <div class="section-tabs"><span class="chip active">Tudo</span><span class="chip">Tech</span><span class="chip">Crypto</span><span class="chip">Games</span><span class="chip">Creators</span></div>
+      <div class="pulse-grid" id="pulseGrid"></div>
+      <p class="notice">Esta versão demonstra a experiência e as interações localmente. Contagens globais e salas realmente sincronizadas exigem o serviço realtime do backend.</p>
+    </section>
+
+    <section class="view" id="view-worlds">
+      <div class="hero"><div class="eyebrow">ZORIQ WORLDS</div><h1>Entre em mundos que combinam <span class="gradient">com você.</span></h1><p>Cada World pode reunir feed, Pulse, chat, missões, ranking e conteúdo próprio sem fragmentar sua identidade principal.</p></div>
+      <div class="world-grid" id="worldGrid" style="margin-top:14px"></div>
+    </section>
+
+    <section class="view" id="view-profile">
+      <section class="profile-hero">
+        <div class="profile-main"><div class="avatar power-electric" data-me>YOU</div><div><div class="eyebrow">PERFIL EVOLUTIVO</div><h2 style="margin:5px 0" data-profile-name>Explorer</h2><div class="level"><span data-level>Creator</span> · <span data-xp>1.280</span> XP · Reputação <span data-reputation>86</span>/100</div></div></div>
+        <div class="xp-track"><div class="xp-fill"></div></div>
+        <div class="profile-stats"><div class="stat"><strong id="profileFollowers">248</strong><span class="tiny">seguidores</span></div><div class="stat"><strong id="profileFollowing">91</strong><span class="tiny">seguindo</span></div><div class="stat"><strong id="profileStreak">7d</strong><span class="tiny">sequência</span></div><div class="stat"><strong id="profileAchievements">5</strong><span class="tiny">conquistas</span></div></div>
+      </section>
+      <section class="dna-card"><div class="eyebrow">ZORIQ DNA</div><h2>Seu DNA social muda com você.</h2><div class="dna-wrap"><div class="dna-orb" id="dnaOrb"></div><div class="dna-legend" id="dnaLegend"></div></div><p class="small">Nesta versão o DNA reage às escolhas de feed. Em produção, o modelo deve usar apenas sinais transparentes e configuráveis pelo usuário.</p></section>
+      <section class="card"><div class="row between"><div><div class="eyebrow">ZORIQ POWERS</div><h2 style="margin:5px 0 12px">Sua identidade visual evolutiva</h2></div><span class="tag">COSMÉTICO</span></div><div class="power-grid" id="powers"></div></section>
+    </section>
+
+    <section class="view" id="view-reputation">
+      <div class="hero"><div class="eyebrow">REPUTATION GRAPH</div><h1>Valorize confiança, não apenas <span class="gradient">seguidores.</span></h1><p>Reputação combina autenticidade, originalidade, participação em comunidade, histórico e conversas. Curtidas isoladas não concedem XP automaticamente.</p></div>
+      <section class="card" style="margin-top:14px"><div class="row between"><div><div class="eyebrow">REPUTAÇÃO</div><h2><span data-reputation>86</span>/100</h2></div><div class="human"><span class="human-dot"></span><span id="humanLabel">HUMAN SIGNAL FORTE</span> · <span data-human-score>94</span></div></div><div class="rep-grid" id="repRows"></div></section>
+      <section class="card"><div class="eyebrow">HUMAN FIRST</div><h2>Proteção contra comportamento artificial</h2><p class="muted">A demonstração reduz um sinal local quando detecta ações rápidas demais ou texto repetitivo. O sistema real deve usar sinais de servidor, limites, revisão, recurso e privacidade — nunca um único número opaco para punir usuários.</p></section>
+    </section>
+
+    <section class="view" id="view-zori">
+      <section class="assistant"><div class="zori">✦</div><div class="eyebrow">ZORI · COMPANHEIRO SOCIAL</div><h1 style="font-size:38px;margin:8px 0">Seu guia dentro da ZORIQ.</h1><p class="muted">Nesta entrega o ZORI funciona com respostas locais e não envia suas mensagens a um provedor externo.</p><div class="assistant-log" id="assistantLog"></div><div class="assistant-form"><input id="assistantInput" maxlength="240" placeholder="Ex.: resuma o que aconteceu"><button class="primary" id="assistantSend">Perguntar</button></div><div class="section-tabs"><button class="chip" onclick="document.getElementById('assistantInput').value='Resuma o que aconteceu enquanto eu estava fora'">Resumo</button><button class="chip" onclick="document.getElementById('assistantInput').value='Explique meu DNA social'">Meu DNA</button><button class="chip" onclick="document.getElementById('assistantInput').value='Encontre um World para mim'">Worlds</button><button class="chip" onclick="document.getElementById('assistantInput').value='O que está acontecendo no Pulse?'">Pulse</button></div></section>
+    </section>
+  </section>
+
+  <aside class="rail">
+    <section class="card"><h3>Seu progresso</h3><div class="row"><div class="avatar small power-electric" data-me>YOU</div><div><b data-level>Creator</b><div class="tiny"><span data-xp>1.280</span> XP · rep <span data-reputation>86</span></div></div></div><div class="xp-track"><div class="xp-fill"></div></div></section>
+    <section class="card"><h3>Pulse agora</h3><div class="pulse-list"><div class="pulse-item"><span>₿ Bitcoin</span><span class="pulse-live">18.3K</span></div><div class="pulse-item"><span>✦ AI Builders</span><span class="pulse-live">12.8K</span></div><div class="pulse-item"><span>♫ Music Live</span><span class="pulse-live">11.2K</span></div></div><button class="secondary" data-view="pulse" style="width:100%;margin-top:10px">Abrir Pulse</button></section>
+    <section class="card"><h3>Human First</h3><div class="human"><span class="human-dot"></span><span>Sinal <b data-human-score>94</b>/100</span></div><p class="tiny">Heurística local de demonstração. Não é uma prova de identidade.</p></section>
+    <section class="card"><h3>Princípio do XP</h3><p class="small">Conteúdo e participação podem gerar XP com limites. Uma curtida isolada não compra reputação.</p></section>
+    <section class="card"><h3>Dados da demo</h3><p class="tiny">Posts, Worlds, Powers e preferências são salvos apenas neste navegador.</p><button class="secondary" id="resetDemo" style="width:100%">Restaurar demo</button></section>
+  </aside>
+</main>
+<footer style="max-width:1500px;margin:auto;padding:0 4vw 110px;color:#606a7d;font-size:11px">ZORIQ Social Evolution · <span id="year"></span> · interface web experimental do ecossistema ZORYQ.</footer>
+<div class="toast" id="toast" role="status"></div>
+<script src="/zoriq-social-v2.js"></script>
+</body>
+</html>
