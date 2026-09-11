@@ -27,6 +27,11 @@ const manifest = {
   auditReportSha256: '4'.repeat(64),
   incidentRunbookSha256: '5'.repeat(64),
   recoveryDrillSha256: '6'.repeat(64),
+  validatorRegistrySha256: 'a'.repeat(64),
+  consensusEvidenceSha256: 'b'.repeat(64),
+  keyCustodyEvidenceSha256: 'c'.repeat(64),
+  releaseGovernanceSha256: 'd'.repeat(64),
+  observabilityEvidenceSha256: 'e'.repeat(64),
   devMode: false,
   faucetEnabled: false,
   debugPublic: false
@@ -70,8 +75,8 @@ function run(expectedCode) {
 }
 
 const accepted = run(0);
-if (!accepted.ok || accepted.validApprovals.length !== 3 || accepted.validRoles.length !== 3) {
-  throw new Error('valid 3-role threshold certificate was not accepted');
+if (!accepted.ok || accepted.validApprovals.length !== 3 || accepted.validRoles.length !== 3 || !accepted.evidence?.validatorRegistrySha256) {
+  throw new Error('valid evidence-bound 3-role threshold certificate was not accepted');
 }
 
 const tampered = { ...manifest, chainId: manifest.chainId + 1 };
@@ -86,6 +91,15 @@ write('approvals', { approvals: approvals.approvals.slice(0, 2) });
 const rejectedThreshold = run(79);
 if (rejectedThreshold.ok || !rejectedThreshold.blockers.includes('approval_threshold_not_met')) {
   throw new Error('below-threshold launch certificate was not rejected');
+}
+
+const missingEvidence = { ...manifest };
+delete missingEvidence.consensusEvidenceSha256;
+write('manifest', missingEvidence);
+write('approvals', approvalsFor(missingEvidence));
+const rejectedEvidence = run(79);
+if (rejectedEvidence.ok || !rejectedEvidence.blockers.includes('consensus_evidence_hash_invalid')) {
+  throw new Error('missing consensus evidence was not rejected');
 }
 
 const expiredManifest = {
@@ -119,6 +133,8 @@ process.stdout.write(`${JSON.stringify({
   scheme: 'ed25519',
   threshold: 3,
   requiredRoles: roles,
+  evidenceBound: true,
+  missingEvidenceRejected: true,
   tamperRejected: true,
   belowThresholdRejected: true,
   expiredCertificateRejected: true,
