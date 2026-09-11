@@ -1,39 +1,47 @@
-# ZORYQ EVM Testnet
+# ZORYQ Network
 
-ZORYQ is an EVM-compatible public testnet focused on wallet onboarding, testnet activity, quests, Genesis participation and developer tooling.
+**Experimental EVM-compatible public testnet for evidence-first Web3 engineering.**
 
-> Testnet only. ZQ has no monetary value and participation does not guarantee any future token, airdrop or financial reward.
+ZORYQ exists to make blockchain engineering easier to inspect: developer-facing capabilities should be backed by working public surfaces, code, tests or reproducible evidence, while research ideas remain explicitly labeled as research.
 
-## Network
+> **Current stage:** active experimental development / centralized public testnet. ZQ has no monetary value. This repository does not claim production-mainnet readiness, audited security, decentralization, novel consensus or measured high performance unless linked evidence explicitly demonstrates it.
+
+ZORYQ is researching **adaptive verifiable execution** — a blockchain architecture designed to dynamically handle different transaction workloads while preserving deterministic state. This is a research direction, not a proven performance capability.
+
+## Start building
+
+| Step | Public surface |
+| --- | --- |
+| Start | https://zoryq-evm-node-live-production.up.railway.app/start |
+| Faucet | https://zoryq-evm-node-live-production.up.railway.app/faucet |
+| Explorer | https://zoryq-evm-node-live-production.up.railway.app/explorer |
+| RPC | https://zoryq-evm-node-live-production.up.railway.app/rpc |
+
+### Network configuration
 
 | Parameter | Value |
-|---|---|
-| Network name | ZORYQ EVM Testnet |
+| --- | --- |
+| Network | ZORYQ EVM Testnet |
 | Chain ID | `5919065` |
 | Chain ID (hex) | `0x5a5159` |
-| Network ID | `5919065` |
 | Native symbol | `ZQ` |
 | Decimals | `18` |
-| Public RPC | `https://zoryq-evm-node-live-production.up.railway.app/rpc` |
-| Explorer | `https://zoryq-evm-node-live-production.up.railway.app/explorer` |
-| Faucet | `https://zoryq-evm-node-live-production.up.railway.app/faucet` |
-| Start | `https://zoryq-evm-node-live-production.up.railway.app/start` |
 
-The Chain ID `5919065` is treated as permanent for this testnet.
+## Zero-to-build path
 
-## Add ZORYQ to MetaMask / Rabby
+**Docs → Faucet → First transaction → First contract → First application → Contribution**
 
-Use the wallet's custom network flow with:
+### 1. Verify the RPC
 
-```text
-Network Name: ZORYQ EVM Testnet
-RPC URL: https://zoryq-evm-node-live-production.up.railway.app/rpc
-Chain ID: 5919065
-Currency Symbol: ZQ
-Block Explorer: https://zoryq-evm-node-live-production.up.railway.app/explorer
+```bash
+curl -s https://zoryq-evm-node-live-production.up.railway.app/rpc \
+  -H 'content-type: application/json' \
+  --data '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
 ```
 
-Equivalent `wallet_addEthereumChain` payload:
+Expected chain identity: `5919065` (`0x5a5159`). A reproducible RPC compliance script is available at `zoryq-evm-node/scripts/rpc-compliance.mjs`.
+
+### 2. Add ZORYQ to an EIP-1193 wallet
 
 ```js
 await ethereum.request({
@@ -47,6 +55,68 @@ await ethereum.request({
   }]
 });
 ```
+
+Never share or commit a private key, mnemonic or production credential.
+
+### 3. Get test ZQ
+
+Use the public faucet. ZQ is testnet-only and has no monetary value. Faucet access is subject to anti-abuse controls.
+
+### 4. Verify activity
+
+Use permanent Explorer routes where available:
+
+```text
+/tx/<transaction-hash>
+/address/<wallet-or-contract-address>
+/block/<block-number>
+```
+
+Explorer metadata must not be described as EIP-3091 compatible until those public permanent routes are verified live.
+
+### 5. Connect with ethers v6
+
+```js
+import { JsonRpcProvider } from 'ethers';
+
+const provider = new JsonRpcProvider(
+  'https://zoryq-evm-node-live-production.up.railway.app/rpc',
+  5919065
+);
+
+console.log(await provider.getNetwork());
+console.log(await provider.getBlockNumber());
+```
+
+### 6. Connect with viem
+
+```js
+import { createPublicClient, defineChain, http } from 'viem';
+
+const zoryq = defineChain({
+  id: 5919065,
+  name: 'ZORYQ EVM Testnet',
+  nativeCurrency: { name: 'ZORYQ', symbol: 'ZQ', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://zoryq-evm-node-live-production.up.railway.app/rpc'] }
+  }
+});
+
+const client = createPublicClient({ chain: zoryq, transport: http() });
+console.log(await client.getBlockNumber());
+```
+
+### 7. Deploy a Solidity contract
+
+Standard EVM tooling can target the testnet. Example with Foundry:
+
+```bash
+forge create src/MyContract.sol:MyContract \
+  --rpc-url https://zoryq-evm-node-live-production.up.railway.app/rpc \
+  --private-key "$DEPLOYER_PRIVATE_KEY"
+```
+
+Use a disposable testnet key and never commit it.
 
 ## EVM JSON-RPC compatibility
 
@@ -62,85 +132,25 @@ The public RPC is intended to work with standard EVM clients without proprietary
 - `eth_getLogs`
 - `eth_sendRawTransaction`
 
-A reproducible audit script is available at:
-
-```text
-zoryq-evm-node/scripts/rpc-compliance.mjs
-```
-
-Run it with Node.js 22+:
+Run the reproducible compliance script with Node.js 22+:
 
 ```bash
 node zoryq-evm-node/scripts/rpc-compliance.mjs
 ```
 
-## Explorer URLs
+## Evidence and research
 
-The explorer is being standardized around EIP-3091-style permanent routes:
+ZORYQ separates implemented behavior from research hypotheses. Performance, finality, recovery or scalability claims should include methodology and reproducible artifacts before they are promoted as capabilities.
 
-```text
-/tx/<transaction-hash>
-/address/<wallet-or-contract-address>
-/block/<block-number>
-```
+Relevant repository evidence includes:
 
-These routes are validated against the live deployment before the chain registry metadata is declared `EIP3091`.
+- [`PROTOCOL.md`](PROTOCOL.md) and [`SPECIFICATION.md`](SPECIFICATION.md) — protocol/specification work;
+- [`RESEARCH.md`](RESEARCH.md) and [`research/`](research/) — research process;
+- [`BENCHMARKS.md`](BENCHMARKS.md) and [`benchmarks/`](benchmarks/) — benchmark methodology/evidence;
+- [`SECURITY.md`](SECURITY.md) — security reporting;
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — contribution workflow.
 
-## Faucet
-
-Open the public faucet and enter a standard EVM address (`0x...`). The faucet is testnet-only, applies anti-abuse controls/cooldowns and returns a transaction hash when the claim is fulfilled on-chain.
-
-```text
-https://zoryq-evm-node-live-production.up.railway.app/faucet
-```
-
-## ethers v6 example
-
-```js
-import { JsonRpcProvider } from 'ethers';
-
-const provider = new JsonRpcProvider(
-  'https://zoryq-evm-node-live-production.up.railway.app/rpc',
-  5919065
-);
-
-console.log(await provider.getNetwork());
-console.log(await provider.getBlockNumber());
-```
-
-## viem example
-
-```js
-import { createPublicClient, defineChain, http } from 'viem';
-
-const zoryq = defineChain({
-  id: 5919065,
-  name: 'ZORYQ EVM Testnet',
-  nativeCurrency: { name: 'ZORYQ', symbol: 'ZQ', decimals: 18 },
-  rpcUrls: {
-    default: { http: ['https://zoryq-evm-node-live-production.up.railway.app/rpc'] }
-  }
-});
-
-const client = createPublicClient({
-  chain: zoryq,
-  transport: http()
-});
-
-console.log(await client.getBlockNumber());
-```
-
-## Deploy a Solidity contract
-
-Any standard EVM deployment workflow can target ZORYQ by using Chain ID `5919065` and the public RPC. Example with Foundry:
-
-```bash
-forge create src/MyContract.sol:MyContract \
-  --rpc-url https://zoryq-evm-node-live-production.up.railway.app/rpc \
-  --private-key "$DEPLOYER_PRIVATE_KEY"
-```
-
-Never commit private keys, mnemonics, API credentials or production secrets to this repository.
+Any future TPS, latency, finality or recovery claim should identify the tested commit, hardware/environment, topology, workload, duration, raw output, methodology and limitations.
 
 ## Current architecture
 
@@ -160,7 +170,7 @@ Wallets / ethers / viem / MetaMask / Rabby
  Persistent Railway volume
 ```
 
-Railway currently provides infrastructure hosting. A custom ZORYQ domain structure is planned so infrastructure hostnames are no longer the public network identity.
+This is the current experimental testnet architecture, not evidence of decentralized validation or production-mainnet security. Railway currently provides infrastructure hosting. Infrastructure and protocol architecture are expected to evolve as independently reproducible node and protocol work matures.
 
 ## Genesis and identity
 
@@ -170,11 +180,13 @@ ENS identity support currently verifies an Ethereum Sepolia ENSv2 beta primary n
 
 ## ETHOnline 2026 development
 
-For ETHOnline, new work is being separated from pre-existing ZORYQ infrastructure. The planned new demonstrable module is **ZORYQ Genesis Intelligence**: live indexing and analytics for testnet wallets, contracts, Genesis actions, quests and network statistics, with The Graph as an essential data layer.
+For ETHOnline, new work is separated from pre-existing ZORYQ infrastructure. The planned demonstrable module is **ZORYQ Genesis Intelligence**: indexing and analytics for testnet wallets, contracts, Genesis actions, quests and network statistics, with The Graph as an essential data layer. Planned work is not represented as completed until evidence exists.
 
-## Chain registry
+## Contribute
 
-A registry contribution is open for Chain ID `5919065`. Registry metadata is kept aligned with the live RPC, faucet and explorer. Explorer metadata must not be marked `EIP3091` until the public permanent routes are verified live.
+ZORYQ is open to contributors interested in EVM tooling, distributed systems, security, developer experience, reproducible benchmarking and blockchain research. Look for public issues labeled `good first issue` and `help wanted`.
+
+Useful contributions include developer examples, failure-case tests, RPC compatibility checks, benchmark workloads, documentation improvements and falsifiable research experiments. Negative experimental results are useful when documented clearly.
 
 ## Security
 
@@ -183,3 +195,16 @@ A registry contribution is open for Chain ID `5919065`. Registry metadata is kep
 - Faucet access is rate-limited/cooldown-controlled.
 - Testnet assets have no monetary value.
 - This is not a mainnet security guarantee or audit.
+
+## Engineering principles
+
+- **Evidence first** — measured claims link to methodology and raw results.
+- **Research is labeled** — hypotheses stay separate from implemented behavior.
+- **Security before marketing** — critical risks block release claims.
+- **Reproducibility** — another engineer should be able to rebuild a result.
+- **Determinism before speed** — optimization cannot silently weaken correctness.
+- **Failures are data** — known limitations and negative results are documented.
+
+---
+
+**ZORYQ Network — build it, test it, verify it.**
