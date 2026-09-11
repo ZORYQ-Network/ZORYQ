@@ -52,7 +52,7 @@ jobs:
           curl -sS -X POST http://127.0.0.1:18081/quote -H 'content-type: application/json' -d '{"chainId":999999,"sellToken":"0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE","buyToken":"0x1111111111111111111111111111111111111111","sellAmount":"1000","taker":"0x2222222222222222222222222222222222222222"}' >/tmp/bad.json
           jq -e '.ok == false and .error == "UNSUPPORTED_CHAIN"' /tmp/bad.json
           kill $PID; wait $PID || true; trap - EXIT
-      - name: Verify live Kyber treasury-fee quote adapter
+      - name: Verify live Ethereum Kyber treasury-fee quote adapter
         run: |
           set -euo pipefail
           PORT=18082 ZORYQ_WALLET_TREASURY='0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33' ZORYQ_WALLET_SWAP_FEE_BPS=25 node zoryq-wallet-backend/server.mjs >/tmp/live-backend.log 2>&1 & PID=$!
@@ -80,3 +80,32 @@ jobs:
             (.quote.transaction.data|startswith("0x")) and
             (.quote.buyAmount|test("^[1-9][0-9]*$"))
           ' /tmp/live-quote.json
+          kill $PID; wait $PID || true; trap - EXIT
+      - name: Verify live Base Kyber treasury-fee quote adapter
+        run: |
+          set -euo pipefail
+          PORT=18083 ZORYQ_WALLET_TREASURY='0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33' ZORYQ_WALLET_SWAP_FEE_BPS=25 node zoryq-wallet-backend/server.mjs >/tmp/live-base-backend.log 2>&1 & PID=$!
+          trap 'kill $PID || true' EXIT
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:18083/health >/tmp/live-base-health.json && break || sleep 1; done
+          code=000
+          for i in 1 2 3; do
+            code=$(curl -sS -o /tmp/live-base-quote.json -w '%{http_code}' -X POST http://127.0.0.1:18083/quote \
+              -H 'content-type: application/json' \
+              -d '{"chainId":8453,"sellToken":"0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913","buyToken":"0x4200000000000000000000000000000000000006","sellAmount":"1000000","taker":"0x2222222222222222222222222222222222222222"}')
+            [ "$code" = "200" ] && break
+            sleep $((i*2))
+          done
+          cat /tmp/live-base-quote.json
+          test "$code" = "200"
+          jq -e '
+            .ok == true and
+            .provider == "kyberswap-aggregator-v1" and
+            .chainId == 8453 and
+            .feePolicy.feeBps == 25 and
+            (.feePolicy.feeRecipient|ascii_downcase) == "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33" and
+            .feePolicy.hidden == false and
+            (.quote.fees.integratorFee.amount|test("^[1-9][0-9]*$")) and
+            (.quote.transaction.to|test("^0x[0-9A-Fa-f]{40}$")) and
+            (.quote.transaction.data|startswith("0x")) and
+            (.quote.buyAmount|test("^[1-9][0-9]*$"))
+          ' /tmp/live-base-quote.json
