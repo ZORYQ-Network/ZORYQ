@@ -14,6 +14,8 @@ on:
       - 'zoryq-web/vercel.json'
       - 'zoryq-mobile/Social.tsx'
       - 'zoryq-mobile/SocialSuite.tsx'
+      - 'zoryq-mobile/SocialSuite.native.js'
+      - 'zoryq-mobile/MiniGames.tsx'
       - 'zoryq-mobile/SyncedFeed.tsx'
       - 'zoryq-mobile/socialBackend.ts'
       - 'zoryq-mobile/index.js'
@@ -25,6 +27,7 @@ on:
       - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
       - 'zoryq-developer/scripts/check-zoriq-verified.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-mini-games.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   push:
     branches:
@@ -41,6 +44,8 @@ on:
       - 'zoryq-web/vercel.json'
       - 'zoryq-mobile/Social.tsx'
       - 'zoryq-mobile/SocialSuite.tsx'
+      - 'zoryq-mobile/SocialSuite.native.js'
+      - 'zoryq-mobile/MiniGames.tsx'
       - 'zoryq-mobile/SyncedFeed.tsx'
       - 'zoryq-mobile/socialBackend.ts'
       - 'zoryq-mobile/index.js'
@@ -52,6 +57,7 @@ on:
       - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
       - 'zoryq-developer/scripts/check-zoriq-verified.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-mini-games.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   workflow_dispatch:
 
@@ -78,3 +84,5 @@ jobs:
         run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs
       - name: Validate ZORIQ Verified annual ETH package
         run: node zoryq-developer/scripts/check-zoriq-verified.mjs
+      - name: Validate ZORIQ Mini Games package
+        run: node zoryq-developer/scripts/check-zoriq-mini-games.mjs
