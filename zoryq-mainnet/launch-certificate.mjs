@@ -66,9 +66,19 @@ if (chainId === TESTNET_CHAIN_ID) blockers.push('testnet_chain_id_forbidden');
 if (!isHex64(manifest.genesisSha256)) blockers.push('genesis_hash_invalid');
 if (!isCommit(manifest.releaseCommit)) blockers.push('release_commit_invalid');
 if (!isImageDigest(manifest.imageDigest)) blockers.push('image_digest_invalid');
-if (!isHex64(manifest.auditReportSha256)) blockers.push('audit_report_hash_invalid');
-if (!isHex64(manifest.incidentRunbookSha256)) blockers.push('incident_runbook_hash_invalid');
-if (!isHex64(manifest.recoveryDrillSha256)) blockers.push('recovery_drill_hash_invalid');
+const requiredEvidenceHashes = [
+  ['auditReportSha256', 'audit_report_hash_invalid'],
+  ['incidentRunbookSha256', 'incident_runbook_hash_invalid'],
+  ['recoveryDrillSha256', 'recovery_drill_hash_invalid'],
+  ['validatorRegistrySha256', 'validator_registry_hash_invalid'],
+  ['consensusEvidenceSha256', 'consensus_evidence_hash_invalid'],
+  ['keyCustodyEvidenceSha256', 'key_custody_evidence_hash_invalid'],
+  ['releaseGovernanceSha256', 'release_governance_hash_invalid'],
+  ['observabilityEvidenceSha256', 'observability_evidence_hash_invalid']
+];
+for (const [field, blocker] of requiredEvidenceHashes) {
+  if (!isHex64(manifest[field])) blockers.push(blocker);
+}
 if (manifest.network !== 'ZORYQ Mainnet') blockers.push('network_name_invalid');
 if (manifest.devMode === true) blockers.push('dev_mode_forbidden');
 if (manifest.faucetEnabled === true) blockers.push('faucet_forbidden');
@@ -151,13 +161,14 @@ const report = {
   validFrom: manifest.validFrom || null,
   expiresAt: manifest.expiresAt || null,
   manifestSha256,
+  evidence: Object.fromEntries(requiredEvidenceHashes.map(([field]) => [field, manifest[field] || null])),
   validApprovals: [...validIds],
   validRoles: [...validRoles].sort(),
   threshold,
   requiredRoles,
   rejectedApprovals,
   blockers,
-  policy: 'threshold-ed25519-offline-approvals-v2-expiring'
+  policy: 'threshold-ed25519-offline-approvals-v3-evidence-bound'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(79);
