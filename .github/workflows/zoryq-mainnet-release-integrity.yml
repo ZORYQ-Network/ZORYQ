@@ -1,0 +1,28 @@
+name: ZORYQ Mainnet Release Integrity
+
+on:
+  push:
+    paths:
+      - 'zoryq-mainnet/release-bundle.mjs'
+      - 'zoryq-mainnet/release-bundle.selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-release-integrity.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mainnet/release-bundle.mjs'
+      - 'zoryq-mainnet/release-bundle.selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-release-integrity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  release-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run launch integrity adversarial self-test
+        run: node zoryq-mainnet/release-bundle.selftest.mjs
