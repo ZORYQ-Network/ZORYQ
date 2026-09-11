@@ -52,7 +52,7 @@
       <div class="hero"><div class="eyebrow">ZORIQ PULSE</div><h1>O que está acontecendo <span class="gradient">agora.</span></h1><p>Pulse organiza conversas vivas por assunto. No produto conectado, presença, contagem e conteúdo serão atualizados em tempo real.</p></div>
       <div class="section-tabs"><span class="chip active">Tudo</span><span class="chip">Tech</span><span class="chip">Crypto</span><span class="chip">Games</span><span class="chip">Creators</span></div>
       <div class="pulse-grid" id="pulseGrid"></div>
-      <p class="notice">Esta versão demonstra a experiência e as interações localmente. Contagens globais e salas realmente sincronizadas exigem o serviço realtime do backend.</p>
+      <p class="notice">A camada de posts, perfis, follows, mensagens e notificações pode sincronizar via Supabase/RLS quando a wallet está autenticada. As contagens demonstrativas do Pulse continuam locais nesta fase.</p>
     </section>
 
     <section class="view" id="view-worlds">
@@ -86,12 +86,14 @@
     <section class="card"><h3>Pulse agora</h3><div class="pulse-list"><div class="pulse-item"><span>₿ Bitcoin</span><span class="pulse-live">18.3K</span></div><div class="pulse-item"><span>✦ AI Builders</span><span class="pulse-live">12.8K</span></div><div class="pulse-item"><span>♫ Music Live</span><span class="pulse-live">11.2K</span></div></div><button class="secondary" data-view="pulse" style="width:100%;margin-top:10px">Abrir Pulse</button></section>
     <section class="card"><h3>Human First</h3><div class="human"><span class="human-dot"></span><span>Sinal <b data-human-score>94</b>/100</span></div><p class="tiny">Heurística local de demonstração. Não é uma prova de identidade.</p></section>
     <section class="card"><h3>Princípio do XP</h3><p class="small">Conteúdo e participação podem gerar XP com limites. Uma curtida isolada não compra reputação.</p></section>
-    <section class="card"><h3>Dados da demo</h3><p class="tiny">Posts, Worlds, Powers, preferências sociais e controles de privacidade são salvos apenas neste navegador nesta versão.</p><button class="secondary" id="resetDemo" style="width:100%">Restaurar demo</button></section>
+    <section class="card"><h3>Modo híbrido</h3><p class="tiny">A interface continua utilizável localmente. Quando há uma sessão SIWE válida, posts, perfis, follows, mensagens, notificações e preferências suportadas são sincronizados pelo backend Supabase com RLS. E2EE, mídia e push ainda exigem etapas próprias.</p><button class="secondary" id="resetDemo" style="width:100%">Restaurar demo local</button></section>
   </aside>
 </main>
-<footer style="max-width:1500px;margin:auto;padding:0 4vw 110px;color:#606a7d;font-size:11px">ZORIQ Social Evolution · <span id="year"></span> · interface web experimental do ecossistema ZORYQ.</footer>
+<footer style="max-width:1500px;margin:auto;padding:0 4vw 110px;color:#606a7d;font-size:11px">ZORIQ Social Evolution · <span id="year"></span> · interface híbrida local + backend compartilhado do ecossistema ZORYQ.</footer>
 <div class="toast" id="toast" role="status"></div>
 <script src="/zoriq-social-v2.js"></script>
 <script src="/zoriq-social-suite.js"></script>
+<script src="/zoriq-social-backend.js"></script>
+<script src="/zoriq-social-sync.js"></script>
 </body>
 </html>
