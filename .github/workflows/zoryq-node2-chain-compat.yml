@@ -1,0 +1,77 @@
+name: ZORYQ Node2 Chain Compatibility
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - '.github/workflows/zoryq-node2-chain-compat.yml'
+      - 'zoryq-evm-node/render-node2.mjs'
+      - 'Dockerfile.render-node2'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compare-chain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Query Node1 canonical genesis and head
+        id: node1
+        shell: bash
+        run: |
+          set -euo pipefail
+          RPC='https://zoryq-evm-node-live-production.up.railway.app/rpc'
+          rpc() {
+            curl --fail-with-body --silent --show-error --max-time 20 \
+              -H 'content-type: application/json' \
+              --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$1\",\"params\":${2:-[]}}" \
+              "$RPC"
+          }
+          CHAIN=$(rpc eth_chainId | jq -r '.result')
+          GENESIS=$(rpc eth_getBlockByNumber '["0x0",false]' | jq -r '.result.hash')
+          HEAD_NUM=$(rpc eth_blockNumber | jq -r '.result')
+          HEAD=$(rpc eth_getBlockByNumber "[\"$HEAD_NUM\",false]" | jq -r '.result.hash')
+          test "$CHAIN" = '0x5a5159'
+          test "$GENESIS" != 'null' -a -n "$GENESIS"
+          echo "chain=$CHAIN" >> "$GITHUB_OUTPUT"
+          echo "genesis=$GENESIS" >> "$GITHUB_OUTPUT"
+          echo "head_num=$HEAD_NUM" >> "$GITHUB_OUTPUT"
+          echo "head=$HEAD" >> "$GITHUB_OUTPUT"
+          echo "Node1 chainId=$CHAIN genesis=$GENESIS headNumber=$HEAD_NUM headHash=$HEAD"
+
+      - name: Query Render Node2 health
+        id: node2
+        shell: bash
+        run: |
+          set -euo pipefail
+          URL='https://zoryq-node-2.onrender.com/health'
+          BODY=$(curl --fail-with-body --silent --show-error --retry 4 --retry-delay 15 --max-time 70 "$URL")
+          OK=$(jq -r '.ok' <<<"$BODY")
+          CHAIN=$(jq -r '.chainId' <<<"$BODY")
+          GENESIS=$(jq -r '.genesisHash' <<<"$BODY")
+          PEERS=$(jq -r '.peerCount' <<<"$BODY")
+          BLOCK=$(jq -r '.blockNumber' <<<"$BODY")
+          test "$OK" = 'true'
+          test "$CHAIN" = '5919065'
+          test "$GENESIS" != 'null' -a -n "$GENESIS"
+          echo "genesis=$GENESIS" >> "$GITHUB_OUTPUT"
+          echo "peers=$PEERS" >> "$GITHUB_OUTPUT"
+          echo "block=$BLOCK" >> "$GITHUB_OUTPUT"
+          echo "Node2 chainId=$CHAIN genesis=$GENESIS blockNumber=$BLOCK peerCount=$PEERS"
+
+      - name: Verify exact genesis compatibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          N1='${{ steps.node1.outputs.genesis }}'
+          N2='${{ steps.node2.outputs.genesis }}'
+          if [ "$N1" != "$N2" ]; then
+            echo "GENESIS_MISMATCH Node1=$N1 Node2=$N2"
+            echo "Node2 must receive the frozen effective Node1 genesis before P2P is enabled."
+            exit 1
+          fi
+          echo "GENESIS_MATCH $N1"
+          echo "Node1 head=${{ steps.node1.outputs.head_num }} / ${{ steps.node1.outputs.head }}"
+          echo "Node2 block=${{ steps.node2.outputs.block }} peers=${{ steps.node2.outputs.peers }}"
