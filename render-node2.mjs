@@ -9,7 +9,11 @@ const DATA_DIR = process.env.ZORYQ_RETH_DATA_DIR || '/tmp/zoryq-render-node2';
 const HTTP_PORT = Number(process.env.ZORYQ_RETH_HTTP_PORT || 8545);
 const GENESIS = '/app/zoryq-reth-genesis.json';
 const EXPECTED_GENESIS_SHA256 = (process.env.ZORYQ_GENESIS_SHA256 || '').trim().toLowerCase();
-const TRUSTED_PEER = (process.env.ZORYQ_TRUSTED_PEER || process.env.ZORYQ_NODE2_TRUSTED_PEERS || process.env.ZORYQ_NODE2_BOOTNODES || '').trim();
+const DEFAULT_NODE1_PEER = 'enode://7e3f88fe3d4df573c58b1fdb6983e5e080083bb04de9c1b9771328814cc24adafce0fd3276253986d96c79bfb75eaf9ae2f6a6787c65e6a09ce2715988f48e24@nozomi.proxy.rlwy.net:48857';
+const ENV_PEER = (process.env.ZORYQ_TRUSTED_PEER || process.env.ZORYQ_NODE2_TRUSTED_PEERS || process.env.ZORYQ_NODE2_BOOTNODES || '').trim();
+const TRUSTED_PEER = ENV_PEER || DEFAULT_NODE1_PEER;
+const PEER_SOURCE = ENV_PEER ? 'environment' : 'default-node1-testnet';
+const PEER_ENDPOINT = TRUSTED_PEER.includes('@') ? TRUSTED_PEER.split('@').pop() : null;
 
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -31,13 +35,16 @@ const args = [
   '--engine.memory-block-buffer-target', '1', '--engine.persistence-threshold', '1',
   '--tx-channel-memory-limit', '8388608', '--rpc.evm-memory-limit', '16777216'
 ];
-if (TRUSTED_PEER) args.push('--trusted-peers', TRUSTED_PEER);
+if (TRUSTED_PEER) {
+  args.push('--trusted-peers', TRUSTED_PEER);
+  args.push('--bootnodes', TRUSTED_PEER);
+}
 
 let child = null;
 let lastExit = null;
 const startedAt = Date.now();
 function startReth() {
-  console.log(`[zoryq-node2] p2p configured=${Boolean(TRUSTED_PEER)}${TRUSTED_PEER ? ' via trusted peer' : ''}`);
+  console.log(`[zoryq-node2] p2p configured=${Boolean(TRUSTED_PEER)} source=${PEER_SOURCE} endpoint=${PEER_ENDPOINT || 'unknown'}`);
   child = spawn('/usr/local/bin/reth', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   child.stdout.on('data', d => process.stdout.write(`[reth] ${d}`));
   child.stderr.on('data', d => process.stderr.write(`[reth] ${d}`));
@@ -89,6 +96,8 @@ const server = http.createServer(async (req, res) => {
     genesisSha256, expectedGenesisSha256: EXPECTED_GENESIS_SHA256 || null,
     genesisVerified: !EXPECTED_GENESIS_SHA256 || genesisSha256 === EXPECTED_GENESIS_SHA256,
     p2pConfigured: Boolean(TRUSTED_PEER),
+    p2pPeerSource: PEER_SOURCE,
+    p2pPeerEndpoint: PEER_ENDPOINT,
     persistentDisk: false, freeTierProbeOnly: true,
     processAlive: Boolean(child), uptimeSec: Math.floor((Date.now()-startedAt)/1000), lastExit
   };
