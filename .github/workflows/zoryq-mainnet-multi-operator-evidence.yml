@@ -1,0 +1,28 @@
+name: ZORYQ Mainnet Multi-Operator Evidence
+
+on:
+  push:
+    paths:
+      - 'zoryq-mainnet/multi-operator-evidence.mjs'
+      - 'zoryq-mainnet/multi-operator-evidence.selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-multi-operator-evidence.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mainnet/multi-operator-evidence.mjs'
+      - 'zoryq-mainnet/multi-operator-evidence.selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-multi-operator-evidence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  multi-operator-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run multi-operator convergence adversarial self-test
+        run: node zoryq-mainnet/multi-operator-evidence.selftest.mjs
