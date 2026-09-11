@@ -22,6 +22,7 @@ const REQUIRED_REHEARSAL_PHASES = [
   'rpc-protection-verified','debug-publicly-inaccessible'
 ];
 const REQUIRED_FAULT_TESTS = ['producer-loss','network-partition-recovery','node-restart-recovery'];
+const VALIDATOR_REGISTRY_SHA256 = '2'.repeat(64);
 
 function sha256(file) {
   return createHash('sha256').update(fs.readFileSync(file)).digest('hex');
@@ -43,15 +44,18 @@ function writeEvidence(name, full, observedAt) {
       status: 'MULTI_OPERATOR_CONVERGENCE_EVIDENCE_ACCEPTED',
       network: 'ZORYQ Mainnet',
       chainId: 5919066,
+      validatorRegistrySha256: VALIDATOR_REGISTRY_SHA256,
       consensusEngine: 'zoryq-bft-rehearsal',
       nodeCount: 4,
       operatorCount: 4,
+      authorizedRegistryOperatorCount: 4,
+      operatorAttestationKeyCount: 4,
       regionCount: 3,
       commonFinalizedCheckpoint: { height: 1000, hash: `0x${'a'.repeat(64)}` },
       faultTestsRequired: REQUIRED_FAULT_TESTS,
       blockers: [],
       evidenceSha256: 'c'.repeat(64),
-      rule: 'zoryq-mainnet-multi-operator-evidence-v2'
+      rule: 'zoryq-mainnet-multi-operator-evidence-v4-registry-bound'
     };
   } else if (name === 'launch-rehearsal') {
     body = {
@@ -110,7 +114,7 @@ function makeFixture(dir) {
     productionEvidence: true,
     chainId: 5919066,
     genesisSha256: '1'.repeat(64),
-    validatorRegistrySha256: '2'.repeat(64),
+    validatorRegistrySha256: VALIDATOR_REGISTRY_SHA256,
     releaseCommit: 'a'.repeat(40),
     imageDigest: `sha256:${'b'.repeat(64)}`,
     generatedAt: now.toISOString(),
@@ -128,16 +132,39 @@ try {
   const good = run(input);
   assert(good.status === 0 && good.body.ready === true, `valid dossier rejected: ${JSON.stringify(good.body)}`);
   assert(good.body.verifiedControls?.length === CONTROLS.length, 'not all evidence controls were verified');
+  assert(good.body.validatorRegistrySha256 === VALIDATOR_REGISTRY_SHA256, 'readiness report did not retain registry binding');
 
   const consensusPath = path.join(dir, dossier.controls['consensus-multivalidator'].evidencePath);
   const legacyConsensus = JSON.parse(fs.readFileSync(consensusPath, 'utf8'));
-  legacyConsensus.rule = 'zoryq-mainnet-multi-operator-evidence-v1';
+  legacyConsensus.rule = 'zoryq-mainnet-multi-operator-evidence-v3-signed-operators';
   fs.writeFileSync(consensusPath, JSON.stringify(legacyConsensus) + '\n');
   dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
   fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
   const legacyRule = run(input);
   assert(legacyRule.status === 82, `legacy consensus rule exit=${legacyRule.status}`);
-  assert(legacyRule.body.blockers?.includes('consensus_evidence_rule_invalid'), 'legacy v1 consensus evidence was not rejected');
+  assert(legacyRule.body.blockers?.includes('consensus_evidence_rule_invalid'), 'legacy consensus evidence was not rejected');
+  writeEvidence('consensus-multivalidator', consensusPath, dossier.controls['consensus-multivalidator'].observedAt);
+  dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
+
+  const registryMismatchEvidence = JSON.parse(fs.readFileSync(consensusPath, 'utf8'));
+  registryMismatchEvidence.validatorRegistrySha256 = '9'.repeat(64);
+  fs.writeFileSync(consensusPath, JSON.stringify(registryMismatchEvidence) + '\n');
+  dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
+  fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
+  const registryMismatch = run(input);
+  assert(registryMismatch.status === 82, `registry mismatch exit=${registryMismatch.status}`);
+  assert(registryMismatch.body.blockers?.includes('consensus_evidence_validator_registry_mismatch'), 'consensus evidence with wrong registry hash was not rejected');
+  writeEvidence('consensus-multivalidator', consensusPath, dossier.controls['consensus-multivalidator'].observedAt);
+  dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
+
+  const weakAuthorization = JSON.parse(fs.readFileSync(consensusPath, 'utf8'));
+  weakAuthorization.authorizedRegistryOperatorCount = 3;
+  fs.writeFileSync(consensusPath, JSON.stringify(weakAuthorization) + '\n');
+  dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
+  fs.writeFileSync(input, JSON.stringify(dossier, null, 2));
+  const authorization = run(input);
+  assert(authorization.status === 82, `weak registry authorization exit=${authorization.status}`);
+  assert(authorization.body.blockers?.includes('consensus_evidence_registry_authorization_below_policy'), 'weak registry authorization was not rejected');
   writeEvidence('consensus-multivalidator', consensusPath, dossier.controls['consensus-multivalidator'].observedAt);
   dossier.controls['consensus-multivalidator'].evidenceSha256 = sha256(consensusPath);
 
@@ -198,7 +225,7 @@ try {
   assert(concentration.status === 82, `operator concentration exit=${concentration.status}`);
   assert(concentration.body.blockers?.includes('validator_operator_count_below_policy'), 'validator operator concentration was not rejected');
 
-  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','legacy-consensus-v1-rejection','semantic-rehearsal-rejection','semantic-governance-rejection','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
+  process.stdout.write(JSON.stringify({ ok: true, cases: ['valid-evidence','legacy-consensus-rejection','registry-hash-binding','registry-authorization-policy','semantic-rehearsal-rejection','semantic-governance-rejection','semantic-consensus-rejection','tamper-rejection','testnet-chain-rejection','validator-distribution-policy'] }, null, 2) + '\n');
 } finally {
   fs.rmSync(dir, { recursive: true, force: true });
 }
