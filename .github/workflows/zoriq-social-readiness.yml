@@ -8,6 +8,8 @@ on:
       - 'zoryq-web/zoriq-social-v2.js'
       - 'zoryq-web/zoriq-social-suite.css'
       - 'zoryq-web/zoriq-social-suite.js'
+      - 'zoryq-web/zoriq-social-backend.js'
+      - 'zoryq-web/zoriq-social-sync.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
       - 'zoryq-mobile/Social.tsx'
@@ -17,6 +19,7 @@ on:
       - 'zoryq-mobile/package.json'
       - 'database/migrations/*zoriq_social*.sql'
       - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
+      - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   push:
@@ -28,6 +31,8 @@ on:
       - 'zoryq-web/zoriq-social-v2.js'
       - 'zoryq-web/zoriq-social-suite.css'
       - 'zoryq-web/zoriq-social-suite.js'
+      - 'zoryq-web/zoriq-social-backend.js'
+      - 'zoryq-web/zoriq-social-sync.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
       - 'zoryq-mobile/Social.tsx'
@@ -37,6 +42,7 @@ on:
       - 'zoryq-mobile/package.json'
       - 'database/migrations/*zoriq_social*.sql'
       - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
+      - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   workflow_dispatch:
@@ -56,5 +62,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Check browser adapter syntax
+        run: |
+          node --check zoryq-web/zoriq-social-backend.js
+          node --check zoryq-web/zoriq-social-sync.js
       - name: Validate ZORIQ Social deployment package
         run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs
