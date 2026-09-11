@@ -2,19 +2,33 @@
   "expo": {
     "name": "ZORYQ Wallet",
     "slug": "zoryq-wallet",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/zoryq-icon.png",
     "android": {
       "package": "com.zoryq.wallet",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./assets/zoryq-icon.png",
         "backgroundColor": "#050609"
       }
     },
-    "plugins": ["expo-secure-store"]
+    "ios": {
+      "bundleIdentifier": "com.zoryq.wallet",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Permita que a ZORYQ Wallet use o Face ID para proteger sua carteira."
+        }
+      ]
+    ]
   }
 }
