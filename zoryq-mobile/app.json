@@ -5,7 +5,7 @@
     "scheme": "zoriq",
     "version": "0.3.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "icon": "./assets/zoryq-icon.png",
     "ios": {
       "infoPlist": {
@@ -35,6 +35,14 @@
         "expo-local-authentication",
         {
           "faceIDPermission": "Permitir que o ZORIQ use Face ID para desbloquear o aplicativo e proteger o acesso à wallet."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que o ZORIQ acesse suas fotos para você escolher uma foto de perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
         }
       ]
     ]
