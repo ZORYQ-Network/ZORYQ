@@ -92,6 +92,23 @@ The APK exposes **Wallet / Recovery** as a primary product surface rather than h
 - A valid imported phrase restores the same first EVM account/address for that derivation path.
 - Invalid phrases are rejected locally.
 
+## Biometric security
+
+The APK includes a dedicated **ZORIQ Security** surface using `expo-local-authentication`.
+
+### App unlock
+- Supports secure fingerprint and secure facial recognition where provided by the device.
+- Can require biometric authentication when the app opens and when it returns from the background.
+- Device credential fallback is allowed by the operating-system authentication prompt when supported.
+- The user can enable or disable app-lock biometrics in the Security surface.
+
+### Transaction confirmation
+- Can require biometric confirmation before every call that reaches the wallet signer `sendTransaction` path.
+- This covers ZQ transfers, stake, unstake, swaps and token approvals in the current wallet implementation.
+- When a swap needs both an ERC-20 approval and the swap transaction, each on-chain signature can require its own biometric confirmation.
+- Cancelling or failing authentication prevents the signer from broadcasting the transaction.
+- Biometric authentication never replaces the private key; it authorizes local use of the key for that action.
+
 ### Security rules
 - Never ask for a seed phrase on a website, chat, support channel or backend form.
 - Never transmit the phrase to analytics, crash reporting or an AI service.
@@ -112,10 +129,11 @@ The previous social prototype remains in the repository as `zoryq-web/zoriq-soci
 ## APK implementation
 
 - `zoryq-mobile/Social.tsx` contains the native social experience.
-- `zoryq-mobile/index.js` is the new Expo entry point.
-- The APK opens with **ZORIQ Social** and includes a top switch to **Wallet / Recovery**.
+- `zoryq-mobile/index.js` is the new Expo entry point and biometric security gate.
+- The APK opens with **ZORIQ Social** and includes top-level access to **Wallet / Recovery** and **ZORIQ Security**.
 - Existing `zoryq-mobile/App.tsx` wallet logic is not replaced; it remains the signing, wallet creation, recovery, faucet, transfer, stake and swap surface.
 - Social demo persistence uses AsyncStorage key `zoriq.social.v2.mobile`.
+- Biometric security preferences use AsyncStorage key `zoriq.security.biometric.v1`.
 
 ## Production boundaries / next backend layer
 
@@ -134,6 +152,7 @@ The v1 branch intentionally separates functional client UX from capabilities tha
 11. Accessibility, localization, privacy controls and account deletion/export flows.
 12. Automated web smoke tests, React Native typecheck/build checks and end-to-end tests.
 13. Production-grade encrypted recovery/backup flow for wallet secrets.
+14. Device-level tests for Android fingerprint/face flows and iOS Face ID/Touch ID using development/release builds.
 
 ## Naming
 
