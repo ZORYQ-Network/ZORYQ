@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import { createHash, verify } from 'node:crypto';
 
 const TESTNET_CHAIN_ID = 5919065;
+const DEFAULT_MAX_CERTIFICATE_LIFETIME_SECONDS = 24 * 60 * 60;
+const CLOCK_SKEW_SECONDS = 60;
 
 function fail(message, code = 2) {
   process.stderr.write(`[zoryq-mainnet] ${message}\n`);
@@ -42,6 +44,11 @@ function isCommit(value) {
 function isImageDigest(value) {
   return /^sha256:[0-9a-f]{64}$/.test(String(value || '').toLowerCase());
 }
+function parseTimestamp(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(value)) return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 const args = parseArgs(process.argv);
 if (!args.manifest || !args.policy || !args.approvals) {
@@ -66,6 +73,25 @@ if (manifest.network !== 'ZORYQ Mainnet') blockers.push('network_name_invalid');
 if (manifest.devMode === true) blockers.push('dev_mode_forbidden');
 if (manifest.faucetEnabled === true) blockers.push('faucet_forbidden');
 if (manifest.debugPublic === true) blockers.push('public_debug_forbidden');
+if (!/^[0-9a-f]{32,64}$/i.test(String(manifest.ceremonyId || ''))) blockers.push('ceremony_id_invalid');
+
+const validFromMs = parseTimestamp(manifest.validFrom);
+const expiresAtMs = parseTimestamp(manifest.expiresAt);
+const nowMs = Date.now();
+const maxCertificateLifetimeSeconds = Number(policy.maxCertificateLifetimeSeconds ?? DEFAULT_MAX_CERTIFICATE_LIFETIME_SECONDS);
+if (!Number.isSafeInteger(maxCertificateLifetimeSeconds) || maxCertificateLifetimeSeconds < 300 || maxCertificateLifetimeSeconds > 7 * 24 * 60 * 60) {
+  blockers.push('certificate_lifetime_policy_invalid');
+}
+if (validFromMs === null) blockers.push('valid_from_invalid');
+if (expiresAtMs === null) blockers.push('expires_at_invalid');
+if (validFromMs !== null && expiresAtMs !== null) {
+  if (expiresAtMs <= validFromMs) blockers.push('certificate_time_window_invalid');
+  if (Number.isSafeInteger(maxCertificateLifetimeSeconds) && expiresAtMs - validFromMs > maxCertificateLifetimeSeconds * 1000) {
+    blockers.push('certificate_lifetime_exceeds_policy');
+  }
+  if (nowMs + CLOCK_SKEW_SECONDS * 1000 < validFromMs) blockers.push('certificate_not_yet_valid');
+  if (nowMs - CLOCK_SKEW_SECONDS * 1000 >= expiresAtMs) blockers.push('certificate_expired');
+}
 
 const signers = Array.isArray(policy.signers) ? policy.signers : [];
 const threshold = Number(policy.threshold);
@@ -121,6 +147,9 @@ const report = {
   ok: blockers.length === 0,
   network: manifest.network || null,
   chainId: Number.isSafeInteger(chainId) ? chainId : null,
+  ceremonyId: manifest.ceremonyId || null,
+  validFrom: manifest.validFrom || null,
+  expiresAt: manifest.expiresAt || null,
   manifestSha256,
   validApprovals: [...validIds],
   validRoles: [...validRoles].sort(),
@@ -128,7 +157,7 @@ const report = {
   requiredRoles,
   rejectedApprovals,
   blockers,
-  policy: 'threshold-ed25519-offline-approvals-v1'
+  policy: 'threshold-ed25519-offline-approvals-v2-expiring'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(79);
