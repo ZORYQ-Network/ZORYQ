@@ -5,12 +5,14 @@ on:
     paths:
       - 'zoryq-mainnet/multi-operator-evidence.mjs'
       - 'zoryq-mainnet/multi-operator-evidence.selftest.mjs'
+      - 'zoryq-mainnet/multi-operator-registry-consumer.selftest.mjs'
       - 'zoryq-mainnet/validator-registry.mjs'
       - '.github/workflows/zoryq-mainnet-multi-operator-evidence.yml'
   pull_request:
     paths:
       - 'zoryq-mainnet/multi-operator-evidence.mjs'
       - 'zoryq-mainnet/multi-operator-evidence.selftest.mjs'
+      - 'zoryq-mainnet/multi-operator-registry-consumer.selftest.mjs'
       - 'zoryq-mainnet/validator-registry.mjs'
       - '.github/workflows/zoryq-mainnet-multi-operator-evidence.yml'
 
@@ -28,3 +30,5 @@ jobs:
           node-version: '22'
       - name: Run multi-operator convergence adversarial self-test
         run: node zoryq-mainnet/multi-operator-evidence.selftest.mjs
+      - name: Verify validator-registry key material independently
+        run: node zoryq-mainnet/multi-operator-registry-consumer.selftest.mjs
