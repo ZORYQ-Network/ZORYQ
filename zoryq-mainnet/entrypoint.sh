@@ -126,6 +126,13 @@ node /app/launch-certificate.mjs \
   --policy "$ZORYQ_MAINNET_LAUNCH_POLICY" \
   --approvals "$ZORYQ_MAINNET_LAUNCH_APPROVALS"
 
+custody_args=(--input "$ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH")
+if [[ "${ZORYQ_MAINNET_PREFLIGHT_ONLY:-false}" == "true" ]]; then
+  custody_args+=(--allow-fixture)
+fi
+node /app/key-custody-evidence.mjs "${custody_args[@]}"
+unset custody_args
+
 if [[ "${ZORYQ_MAINNET_PREFLIGHT_ONLY:-false}" == "true" ]]; then
   echo '[zoryq-mainnet] preflight complete; runtime intentionally not started'
   exit 0
