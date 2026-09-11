@@ -1,0 +1,70 @@
+name: Deploy ZORIQ Social Pay Router Testnet
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-contracts/src/ZoryqSocialPayRouter.sol'
+      - 'zoryq-contracts/test/ZoryqSocialPayRouter.t.sol'
+      - '.github/workflows/zoryq-social-pay-router-testnet.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-testnet-router:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RPC_URL: https://zoryq-evm-node-live-production.up.railway.app/rpc
+      FAUCET_URL: https://zoryq-evm-node-live-production.up.railway.app/faucet
+      OWNER: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+      TREASURY: '0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33'
+      FEE_BPS: '50'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+      - name: Prepare Foundry project
+        working-directory: zoryq-contracts
+        run: |
+          test -f foundry.toml || printf '[profile.default]\nsrc = "src"\ntest = "test"\nout = "out"\nsolc_version = "0.8.24"\n' > foundry.toml
+      - name: Build and test payment router
+        working-directory: zoryq-contracts
+        run: |
+          forge build
+          forge test --match-contract ZoryqSocialPayRouterTest -vv
+      - name: Fund transient deployer and deploy
+        working-directory: zoryq-contracts
+        run: |
+          set -euo pipefail
+          DEPLOYER_KEY="0x$(openssl rand -hex 32)"
+          DEPLOYER="$(cast wallet address --private-key "$DEPLOYER_KEY")"
+          echo "Funding transient deployer $DEPLOYER"
+          curl --fail --retry 8 --retry-delay 4 --retry-all-errors \
+            -X POST "$FAUCET_URL" -H 'content-type: application/json' \
+            -d "{\"address\":\"$DEPLOYER\"}" > /tmp/faucet.json
+          sleep 4
+          test "$(cast chain-id --rpc-url "$RPC_URL")" = "5919065"
+          forge create src/ZoryqSocialPayRouter.sol:ZoryqSocialPayRouter \
+            --rpc-url "$RPC_URL" --private-key "$DEPLOYER_KEY" --broadcast --json \
+            --constructor-args "$OWNER" "$TREASURY" "$FEE_BPS" > /tmp/router-deploy.json
+          ROUTER="$(jq -r '.deployedTo // .deployed_to // .contractAddress // empty' /tmp/router-deploy.json)"
+          TX="$(jq -r '.transactionHash // .transaction_hash // .txHash // empty' /tmp/router-deploy.json)"
+          test -n "$ROUTER"
+          test "$(cast code "$ROUTER" --rpc-url "$RPC_URL")" != "0x"
+          test "$(cast call "$ROUTER" 'feeBps()(uint16)' --rpc-url "$RPC_URL")" = "50"
+          ROUTER_TREASURY="$(cast call "$ROUTER" 'treasury()(address)' --rpc-url "$RPC_URL" | tr '[:upper:]' '[:lower:]')"
+          test "$ROUTER_TREASURY" = "$(echo "$TREASURY" | tr '[:upper:]' '[:lower:]')"
+          jq -n --arg chainId '5919065' --arg router "$ROUTER" --arg treasury "$TREASURY" --arg feeBps "$FEE_BPS" --arg deploymentTx "$TX" \
+            '{chainId:$chainId,router:$router,treasury:$treasury,feeBps:$feeBps,deploymentTx:$deploymentTx,verified:true}' > ../zoryq-social-pay-router-testnet.json
+          unset DEPLOYER_KEY
+      - name: Upload deployment metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZORIQ-Social-Pay-Router-Testnet
+          path: zoryq-social-pay-router-testnet.json
+          if-no-files-found: error
+          retention-days: 30
