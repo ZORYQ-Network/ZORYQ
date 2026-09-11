@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { createHash, generateKeyPairSync, randomBytes, sign } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -45,9 +44,14 @@ fs.writeFileSync(path.join(out, 'jwt.hex'), `${randomBytes(32).toString('hex')}\
 
 const releaseCommit = 'a'.repeat(40);
 const imageDigest = `sha256:${'b'.repeat(64)}`;
+const validFrom = new Date().toISOString();
+const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
 const manifest = {
   network: 'ZORYQ Mainnet',
   chainId: config.chainId,
+  ceremonyId: randomBytes(16).toString('hex'),
+  validFrom,
+  expiresAt,
   genesisSha256: sha(path.join(out, 'genesis.json')),
   releaseCommit,
   imageDigest,
@@ -70,7 +74,12 @@ for (const role of roles) {
   approvals.push({ signerId: id, signature: sign(null, payload, privateKey).toString('base64') });
 }
 fs.writeFileSync(path.join(out, 'launch-manifest.json'), JSON.stringify(manifest, null, 2));
-fs.writeFileSync(path.join(out, 'launch-policy.json'), JSON.stringify({ threshold: 3, requiredRoles: roles, signers }, null, 2));
+fs.writeFileSync(path.join(out, 'launch-policy.json'), JSON.stringify({
+  threshold: 3,
+  requiredRoles: roles,
+  maxCertificateLifetimeSeconds: 3600,
+  signers
+}, null, 2));
 fs.writeFileSync(path.join(out, 'launch-approvals.json'), JSON.stringify({ approvals }, null, 2));
 fs.writeFileSync(path.join(out, 'fixture-meta.json'), JSON.stringify({
   ok: true,
@@ -79,7 +88,19 @@ fs.writeFileSync(path.join(out, 'fixture-meta.json'), JSON.stringify({
   chainId: config.chainId,
   genesisSha256: manifest.genesisSha256,
   releaseCommit,
-  imageDigest
+  imageDigest,
+  ceremonyId: manifest.ceremonyId,
+  validFrom,
+  expiresAt
 }, null, 2));
 
-console.log(JSON.stringify({ ok: true, out, chainId: config.chainId, genesisSha256: manifest.genesisSha256, fixtureOnly: true }, null, 2));
+console.log(JSON.stringify({
+  ok: true,
+  out,
+  chainId: config.chainId,
+  genesisSha256: manifest.genesisSha256,
+  ceremonyId: manifest.ceremonyId,
+  validFrom,
+  expiresAt,
+  fixtureOnly: true
+}, null, 2));
