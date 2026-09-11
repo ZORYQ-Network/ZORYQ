@@ -10,7 +10,10 @@ const files={
  package:'zoryq-mobile/package.json',
  social:'zoryq-mobile/Social.tsx',
  app:'zoryq-mobile/app.json',
- profileWallet:'database/migrations/20260911_zoriq_social_profile_wallet_theme.sql'
+ profileWallet:'database/migrations/20260911_zoriq_social_profile_wallet_theme.sql',
+ paymentDestination:'zoryq-mobile/socialPaymentDestination.ts',
+ payments:'zoryq-mobile/socialPayments.ts',
+ paymentSheet:'zoryq-mobile/SocialPaymentSheet.tsx'
 };
 for(const [name,file] of Object.entries(files)){if(!fs.existsSync(file))fail(`${name} missing: ${file}`);else pass(`${name}: ${file}`)}
 if(process.exitCode)process.exit(process.exitCode);
@@ -22,6 +25,9 @@ const pkg=JSON.parse(fs.readFileSync(files.package,'utf8'));
 const social=fs.readFileSync(files.social,'utf8');
 const app=fs.readFileSync(files.app,'utf8');
 const profileWallet=fs.readFileSync(files.profileWallet,'utf8');
+const paymentDestination=fs.readFileSync(files.paymentDestination,'utf8');
+const payments=fs.readFileSync(files.payments,'utf8');
+const paymentSheet=fs.readFileSync(files.paymentSheet,'utf8');
 
 for(const marker of ['ZORIQ MINI GAMES','Jogo da Velha','STOP','Xadrez','Damas','Pedra · Papel · Tesoura','Memória','Sem apostas','sem risco de saldo da wallet','new Chess','freshCheckers','winnerTTT','scoreStop']){if(!games.includes(marker))fail(`game marker missing: ${marker}`);else pass(`game marker: ${marker}`)}
 for(const marker of ["mode?:'fun'|'gaming'",'Desafiar amigo','Share.share','AsyncStorage']){if(!games.includes(marker))fail(`games integration marker missing: ${marker}`);else pass(`games integration: ${marker}`)}
@@ -39,11 +45,21 @@ if(pkg.dependencies?.['expo-image-picker']!=='~17.0.11')fail('expo-image-picker 
 if(!app.includes('"userInterfaceStyle": "automatic"')||!app.includes('expo-image-picker'))fail('automatic theme / image picker app config missing');else pass('automatic theme and image picker app config present');
 if(!social.includes("['fun','😂 Divertir']")||!social.includes("['gaming','🎮 Games']"))fail('Social feed modes Divertir/Games are missing');else pass('Social feed keeps Divertir/Games modes');
 
-// The social shell may read the private key from SecureStore only to construct the local signer for the explicit $ transfer.
-// What must never happen is rendering, logging, persisting elsewhere, or uploading mnemonic/private-key material from the profile UI.
+// Social/profile UI may initiate a transfer but must never display or persist signing secrets.
 for(const forbidden of ['mnemonic','seed phrase','MNEMONIC_KEY','console.log(pk)','console.log(privateKey)','<Text>{pk}</Text>','<Text>{privateKey}</Text>','avatar_url:pk','privateKey:pk']){if(native.toLowerCase().includes(forbidden.toLowerCase()))fail(`profile/social shell exposes wallet secret marker: ${forbidden}`);else pass(`profile/social shell avoids secret exposure marker: ${forbidden}`)}
-if(!native.includes("SecureStore.getItemAsync(WALLET_KEY)"))fail('profile payment signer must load the local wallet from SecureStore');else pass('profile payment signer uses SecureStore');
-if(!native.includes('wallet.sendTransaction({to:addr,value})'))fail('profile $ action must send only to the locked backend-provided address');else pass('profile $ action signs locked-recipient transfer');
+
+// Current Social Pay architecture: the payment module owns signing, loads only the local
+// embedded wallet from SecureStore, and re-resolves the verified backend destination at
+// the last responsible moment. The UI address is display-only; a mismatch aborts.
+if(!payments.includes('SecureStore.getItemAsync(WALLET_KEY)'))fail('Social Pay signer must load the local APK wallet from SecureStore');else pass('Social Pay signer uses the local SecureStore wallet');
+for(const marker of ['social_payment_destination','chain_namespace',"'eip155'",'payment_destination_changed']){if(!paymentDestination.includes(marker))fail(`locked payment destination marker missing: ${marker}`);else pass(`locked payment destination: ${marker}`)}
+if(!payments.includes('assertSocialPaymentDestination(profileId,recipient)')||!payments.includes('const lockedRecipient=destination.address'))fail('Social Pay must re-resolve and lock the backend-verified recipient immediately before signing');else pass('Social Pay re-resolves and locks the verified recipient before signing');
+if(!payments.includes('router.payNative(lockedRecipient,paymentRef')||!payments.includes('router.payToken(asset.tokenAddress,lockedRecipient,gross,paymentRef)'))fail('Social Pay router calls must use only the locked backend recipient');else pass('Social Pay router sends only to the locked backend recipient');
+if(!native.includes('p.can_receive_crypto&&p.receive_wallet_address')||!native.includes('setTransferTarget(p)'))fail('profile $ action must only open for a backend-approved receiving profile');else pass('profile $ action only opens for an approved receiving profile');
+if(!paymentSheet.includes('Destinatário verificado')||!paymentSheet.includes('target.address'))fail('payment sheet must display the locked recipient for review');else pass('payment sheet displays the verified locked recipient');
+if(paymentSheet.includes('onChangeText={setRecipient}')||paymentSheet.includes('onChangeText={v=>setRecipient'))fail('payment sheet must not expose an editable recipient field');else pass('payment sheet has no editable recipient field');
+if(!payments.includes("if(!network.routerAddress||!isAddress(network.routerAddress))throw new Error('payment_router_not_deployed')"))fail('Social Pay must block undeployed routers');else pass('Social Pay blocks undeployed routers');
+
 for(const forbidden of ['betAmount','wager','casino','stakeGame','privateKey','MNEMONIC_KEY']){if(games.includes(forbidden))fail(`forbidden games capability found: ${forbidden}`);else pass(`no games wallet/wager marker: ${forbidden}`)}
 
 if(process.exitCode)process.exit(process.exitCode);
