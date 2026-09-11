@@ -1,1 +1,1 @@
-export {default} from './MainnetWallet';
+export {default} from './WalletApp';
