@@ -28,6 +28,7 @@ jobs:
       EXPO_PUBLIC_ZORYQ_BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
       EXPO_PUBLIC_ZORYQ_RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
       EXPO_PUBLIC_ZORYQ_EXPLORER: 'https://zoryq-testnet.vercel.app/explorer.html'
+      EXPO_PUBLIC_REOWN_PROJECT_ID: '${{ vars.REOWN_PROJECT_ID }}'
       EXPO_PUBLIC_REWARD_REGISTRY: '0xAB1Dd21c529b182191ED84f00A4dF1917652CB10'
       EXPO_PUBLIC_QUEST_REGISTRY: '0x85747F9BdCd758fcfB562c929236CCA6eEB025a9'
       EXPO_PUBLIC_QUEST_COMPLETION_REGISTRY: '0xD371eb7863cA000fF5039e2Db613F2094ba46b15'
