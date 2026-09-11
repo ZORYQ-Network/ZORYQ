@@ -1,6 +1,6 @@
-FROM ghcr.io/paradigmxyz/reth:v2.5.2 AS reth
-FROM node:22-bookworm-slim AS node
-FROM ubuntu:24.04
+FROM ghcr.io/paradigmxyz/reth:v2.5.2@sha256:68e76b32ad9ac1a3de54984d6f15bbce2047a92a771ff4efbcd08ee8f9dbd4d1 AS reth
+FROM node:22-bookworm-slim@sha256:83f487e0a63425e5b4d146fb5e5be574bcbe1b7b843d3ebafdd95eaf7767a7e5 AS node
+FROM ubuntu:24.04@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libstdc++6 libgcc-s1 libatomic1 coreutils gawk bash \
