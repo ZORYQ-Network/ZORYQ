@@ -1,0 +1,40 @@
+name: ZORYQ Mainnet PoMI
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-mainnet/pomi.mjs'
+      - 'zoryq-mainnet/pomi.selftest.mjs'
+      - 'zoryq-mainnet/genesis-ceremony.mjs'
+      - '.github/workflows/zoryq-mainnet-pomi.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mainnet/pomi.mjs'
+      - 'zoryq-mainnet/pomi.selftest.mjs'
+      - 'zoryq-mainnet/genesis-ceremony.mjs'
+      - '.github/workflows/zoryq-mainnet-pomi.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pomi:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: PoMI deterministic/tamper/genesis proof
+        run: |
+          set -euo pipefail
+          node zoryq-mainnet/pomi.selftest.mjs | tee /tmp/pomi.json
+          jq -e '.ok == true and .deterministic == true and .tamperChangesCommitment == true and .wrongGenesisRejected == true and .anchorBytes == 32' /tmp/pomi.json
+      - name: Mainnet remains fail-closed
+        run: |
+          set +e
+          ZORYQ_NETWORK_MODE=mainnet node zoryq-evm-node/mainnet-guard.mjs > /tmp/guard.json
+          code=$?
+          set -e
+          test "$code" -eq 78
+          jq -e '.mainnetActivated == false and .launchGuard == "blocked"' /tmp/guard.json
