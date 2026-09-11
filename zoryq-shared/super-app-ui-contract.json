@@ -1,6 +1,6 @@
 {
   "schema": "zoryq-super-app-ui-contract-v1",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "rule": "Web and APK are two responsive clients of the same ZORYQ product. They must expose the same user-facing modules, field names, social actions, data semantics and visual identity. Screen placement may adapt to viewport size, but product capability and naming parity is mandatory.",
   "brand": {
     "productName": "ZORYQ",
@@ -35,7 +35,14 @@
     "transactionFields": ["Chain ID", "Hash"],
     "dappFields": ["Chain ID", "Nome", "HTTPS URL"]
   },
-  "postActions": ["Curtir", "Comentar", "Repostar", "Salvar", "Compartilhar", "Tip"],
+  "postActions": ["Curtir", "Comentar", "Repostar", "Salvar", "Compartilhar", "$ Transferir"],
+  "socialTransfer": {
+    "icon": "$",
+    "recipient": "post.author.walletAddress",
+    "requiresExplicitConfirmation": true,
+    "reviewFields": ["@usuário", "Wallet destinatária", "Rede", "Valor", "Taxa estimada"],
+    "mustNeverAutoSend": true
+  },
   "profileStats": ["Seguidores", "Seguindo", "Posts", "Reputação"],
   "responsivePolicy": {
     "allowed": ["sidebar-on-desktop", "bottom-navigation-on-mobile", "multi-column-desktop", "single-column-mobile"],
