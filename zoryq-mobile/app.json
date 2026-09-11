@@ -2,13 +2,13 @@
   "expo": {
     "name": "ZORYQ Wallet",
     "slug": "zoryq-wallet",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/zoryq-icon.png",
     "android": {
       "package": "com.zoryq.wallet",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./assets/zoryq-icon.png",
