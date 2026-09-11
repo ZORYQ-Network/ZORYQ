@@ -42,6 +42,9 @@ jobs:
       - name: Run key custody evidence adversarial self-test
         run: node zoryq-mainnet/key-custody-evidence.selftest.mjs
 
+      - name: Run P2P topology adversarial self-test
+        run: node zoryq-mainnet/p2p-topology.selftest.mjs
+
       - name: Build isolated mainnet execution image
         run: docker build -f zoryq-mainnet/Dockerfile -t zoryq-mainnet-preflight .
 
