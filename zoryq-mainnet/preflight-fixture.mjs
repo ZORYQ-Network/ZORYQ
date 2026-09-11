@@ -62,14 +62,41 @@ const audit = path.join(out, 'audit-report.txt');
 const runbook = path.join(out, 'incident-runbook.txt');
 const recovery = path.join(out, 'recovery-evidence.txt');
 const consensus = path.join(out, 'consensus-evidence.txt');
-const keyCustody = path.join(out, 'key-custody-evidence.txt');
+const keyCustody = path.join(out, 'key-custody-evidence.json');
 const governance = path.join(out, 'release-governance.txt');
 const observability = path.join(out, 'observability-evidence.txt');
 fs.writeFileSync(audit, 'CI PREFLIGHT FIXTURE — not a production audit\n');
 fs.writeFileSync(runbook, 'CI PREFLIGHT FIXTURE — not a production incident runbook\n');
 fs.writeFileSync(recovery, 'CI PREFLIGHT FIXTURE — not production recovery evidence\n');
 fs.writeFileSync(consensus, 'CI PREFLIGHT FIXTURE — not production consensus evidence\n');
-fs.writeFileSync(keyCustody, 'CI PREFLIGHT FIXTURE — not production key-custody evidence\n');
+fs.writeFileSync(keyCustody, JSON.stringify({
+  formatVersion: 1,
+  network: 'ZORYQ Mainnet',
+  productionEvidence: false,
+  fixtureOnly: true,
+  signer: {
+    type: 'hsm',
+    provider: 'ci-preflight-fixture',
+    keyId: 'fixture-key-01',
+    privateKeyExportable: false,
+    localPrivateKeyMaterial: false,
+    mfaRequired: true
+  },
+  separationOfDuties: {
+    enabled: true,
+    minimumApprovers: 2,
+    roles: ['security', 'operations']
+  },
+  recoveryDrill: {
+    status: 'pass',
+    testedAt: new Date().toISOString(),
+    evidenceSha256: createHash('sha256').update('CI PREFLIGHT FIXTURE recovery drill').digest('hex')
+  },
+  keyRotation: {
+    documented: true,
+    maximumAgeDays: 90
+  }
+}, null, 2));
 fs.writeFileSync(governance, 'CI PREFLIGHT FIXTURE — not production release-governance evidence\n');
 fs.writeFileSync(observability, 'CI PREFLIGHT FIXTURE — not production observability evidence\n');
 fs.writeFileSync(path.join(out, 'jwt.hex'), `${randomBytes(32).toString('hex')}\n`, { mode: 0o600 });
@@ -125,6 +152,7 @@ fs.writeFileSync(path.join(out, 'fixture-meta.json'), JSON.stringify({
   chainId: config.chainId,
   genesisSha256: manifest.genesisSha256,
   validatorRegistrySha256: manifest.validatorRegistrySha256,
+  keyCustodyEvidenceSha256: manifest.keyCustodyEvidenceSha256,
   releaseCommit,
   imageDigest,
   ceremonyId: manifest.ceremonyId,
@@ -138,6 +166,7 @@ console.log(JSON.stringify({
   chainId: config.chainId,
   genesisSha256: manifest.genesisSha256,
   validatorRegistrySha256: manifest.validatorRegistrySha256,
+  keyCustodyEvidenceSha256: manifest.keyCustodyEvidenceSha256,
   evidenceBound: true,
   ceremonyId: manifest.ceremonyId,
   validFrom,
