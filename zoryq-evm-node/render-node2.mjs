@@ -19,8 +19,6 @@ const args = [
   '--http.addr', '127.0.0.1',
   '--http.port', String(HTTP_PORT),
   '--http.api', 'eth,net,web3',
-  '--discovery.disable-discv4',
-  '--discovery.disable-discv5',
   '--engine.disable-state-cache',
   '--engine.disable-prewarming',
   '--engine.memory-block-buffer-target', '1',
