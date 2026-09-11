@@ -127,6 +127,20 @@ requireBoundEvidence({
   legacyBlocker: 'production_consensus_not_attested'
 });
 requireBoundEvidence({
+  readyEnv: 'ZORYQ_MAINNET_REDUNDANCY_READY',
+  pathEnv: 'ZORYQ_MAINNET_REDUNDANCY_EVIDENCE_PATH',
+  manifestField: 'redundancyEvidenceSha256',
+  prefix: 'network_redundancy',
+  legacyBlocker: 'multi_node_redundancy_not_attested'
+});
+requireBoundEvidence({
+  readyEnv: 'ZORYQ_MAINNET_RECOVERY_READY',
+  pathEnv: 'ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH',
+  manifestField: 'recoveryEvidenceSha256',
+  prefix: 'disaster_recovery',
+  legacyBlocker: 'disaster_recovery_not_attested'
+});
+requireBoundEvidence({
   readyEnv: 'ZORYQ_MAINNET_AUDIT_READY',
   pathEnv: 'ZORYQ_MAINNET_AUDIT_REPORT_PATH',
   manifestField: 'auditReportSha256',
@@ -149,7 +163,7 @@ const report = {
   blockers,
   evidence,
   policy: {
-    version: 'zoryq-mainnet-guard-v2-evidence-bound',
+    version: 'zoryq-mainnet-guard-v3-redundancy-recovery-bound',
     distinctGenesis: true,
     distinctChainId: true,
     pinnedGenesisHash: true,
@@ -158,6 +172,8 @@ const report = {
     noEmbeddedDevFaucet: true,
     externalSignerRequired: true,
     productionConsensusRequired: true,
+    multiNodeRedundancyRequired: true,
+    disasterRecoveryRequired: true,
     securityAuditRequired: true,
     incidentRunbookRequired: true,
     evidenceFilesRequired: true,
