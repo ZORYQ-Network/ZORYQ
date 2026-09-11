@@ -1,0 +1,81 @@
+name: ZORYQ Mainnet Launch Guard
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'Dockerfile'
+      - 'zoryq-evm-node/Dockerfile'
+      - 'zoryq-evm-node/entrypoint.sh'
+      - 'zoryq-evm-node/mainnet-guard.mjs'
+      - 'zoryq-evm-node/server.mjs'
+      - 'zoryq-evm-node/prepare-reth-genesis.mjs'
+      - 'zoryq-evm-node/zoryq-reth-genesis.json'
+      - '.github/workflows/zoryq-mainnet-launch-guard.yml'
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'zoryq-evm-node/Dockerfile'
+      - 'zoryq-evm-node/entrypoint.sh'
+      - 'zoryq-evm-node/mainnet-guard.mjs'
+      - 'zoryq-evm-node/server.mjs'
+      - 'zoryq-evm-node/prepare-reth-genesis.mjs'
+      - 'zoryq-evm-node/zoryq-reth-genesis.json'
+      - '.github/workflows/zoryq-mainnet-launch-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  launch-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Accept explicit testnet mode
+        run: |
+          set -euo pipefail
+          ZORYQ_NETWORK_MODE=testnet node zoryq-evm-node/mainnet-guard.mjs | tee /tmp/testnet-guard.json
+          jq -e '.ok == true and .mode == "testnet" and .mainnetActivated == false and .launchGuard == "armed"' /tmp/testnet-guard.json
+
+      - name: Reject unknown network modes
+        run: |
+          set +e
+          ZORYQ_NETWORK_MODE=production node zoryq-evm-node/mainnet-guard.mjs > /tmp/invalid-mode.json
+          code=$?
+          set -e
+          cat /tmp/invalid-mode.json
+          test "$code" -eq 64
+          jq -e '.ok == false and .error == "unsupported_network_mode"' /tmp/invalid-mode.json
+
+      - name: Prove current code cannot be mislabeled mainnet
+        run: |
+          set +e
+          ZORYQ_NETWORK_MODE=mainnet node zoryq-evm-node/mainnet-guard.mjs > /tmp/mainnet-guard.json
+          code=$?
+          set -e
+          cat /tmp/mainnet-guard.json
+          test "$code" -eq 78
+          jq -e '
+            .ok == false and
+            .mode == "mainnet" and
+            .mainnetActivated == false and
+            (.blockers | index("execution_client_dev_mode")) != null and
+            (.blockers | index("execution_client_dev_mnemonic")) != null and
+            (.blockers | index("embedded_dev_faucet_wallets")) != null and
+            (.blockers | index("operator_mnemonic_autogeneration")) != null and
+            (.blockers | index("mainnet_genesis_path_missing")) != null and
+            (.blockers | index("external_signer_not_attested")) != null and
+            (.blockers | index("production_consensus_not_attested")) != null and
+            (.blockers | index("security_audit_not_attested")) != null and
+            (.blockers | index("incident_runbook_not_attested")) != null
+          ' /tmp/mainnet-guard.json
+
+      - name: Verify public debug remains blocked in source policy
+        run: |
+          set -euo pipefail
+          grep -F "debug_" zoryq-evm-node/server.mjs
+          grep -F "BLOCKED_PREFIXES" zoryq-evm-node/server.mjs
+          grep -F "Administrative or node-managed signing RPC method disabled" zoryq-evm-node/server.mjs
