@@ -1,10 +1,12 @@
 import http from 'node:http';
 import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {handleSocial} from './social.mjs';
 
 const PORT=Number(process.env.PORT||8080);
 const SWAP_PORT=8081;
-const child=spawn(process.execPath,['/app/server.mjs'],{env:{...process.env,PORT:String(SWAP_PORT)},stdio:['ignore','inherit','inherit']});
+const SWAP_SERVER=fileURLToPath(new URL('./server.mjs',import.meta.url));
+const child=spawn(process.execPath,[SWAP_SERVER],{env:{...process.env,PORT:String(SWAP_PORT)},stdio:['ignore','inherit','inherit']});
 child.on('exit',(code)=>{console.error(`[zoryq-gateway] swap worker exited code=${code}`);process.exit(code??1)});
 
 function proxy(req,res){
