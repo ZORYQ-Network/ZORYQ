@@ -1,0 +1,44 @@
+{
+  "schema": "zoryq-super-app-ui-contract-v1",
+  "version": "1.0.0",
+  "rule": "Web and APK are two responsive clients of the same ZORYQ product. They must expose the same user-facing modules, field names, social actions, data semantics and visual identity. Screen placement may adapt to viewport size, but product capability and naming parity is mandatory.",
+  "brand": {
+    "productName": "ZORYQ",
+    "descriptor": "WEB3 SUPER APP",
+    "background": "#050609",
+    "panel": "#0b1018",
+    "panelSecondary": "#111722",
+    "border": "#1b2433",
+    "text": "#f5f7fb",
+    "muted": "#8390a6",
+    "primary": "#7657ff",
+    "accent": "#5edbff",
+    "danger": "#ff6688",
+    "radius": 14,
+    "darkOnly": true
+  },
+  "identity": {
+    "accountKey": "walletAddress",
+    "profileRegistration": "EIP-712",
+    "chainId": 5919065,
+    "fields": ["@handle", "Nome", "Bio"],
+    "sync": ["profile", "posts", "likes", "comments", "reposts", "bookmarks", "followers", "following", "communities", "messages"]
+  },
+  "primaryNavigation": ["Home", "Explorar", "Criar", "Atividade", "Perfil"],
+  "productNavigation": ["Comunidades", "Mensagens", "Wallet", "Swap"],
+  "feedScopes": ["Para você", "Seguindo", "Salvos"],
+  "composer": {
+    "types": ["Texto", "Imagem", "Token", "Transação", "dApp"],
+    "commonFields": ["Conteúdo"],
+    "imageFields": ["Foto"],
+    "tokenFields": ["Chain ID", "Contrato", "Símbolo", "Nome"],
+    "transactionFields": ["Chain ID", "Hash"],
+    "dappFields": ["Chain ID", "Nome", "HTTPS URL"]
+  },
+  "postActions": ["Curtir", "Comentar", "Repostar", "Salvar", "Compartilhar", "Tip"],
+  "profileStats": ["Seguidores", "Seguindo", "Posts", "Reputação"],
+  "responsivePolicy": {
+    "allowed": ["sidebar-on-desktop", "bottom-navigation-on-mobile", "multi-column-desktop", "single-column-mobile"],
+    "forbidden": ["different-fields", "different-module-names", "different-brand-colors", "different-data-source", "feature-only-on-one-client"]
+  }
+}
