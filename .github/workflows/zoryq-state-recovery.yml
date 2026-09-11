@@ -35,7 +35,7 @@ jobs:
             zoryq-recovery
           for i in $(seq 1 120); do
             if curl -fsS http://127.0.0.1:18081/health >/tmp/health.json; then
-              if jq -e '(.chain.chainId // .chainId) == 5919065 and .persistence.mode == "reth-native-db" and .persistence.ready == true' /tmp/health.json >/dev/null; then
+              if jq -e '(.chain.chainId // .chainId) == 5919065 and .persistence.mode == "reth-native-db" and .persistence.readyForTraffic == true' /tmp/health.json >/dev/null; then
                 docker exec zoryq-recovery test -d /data/reth/db
                 exit 0
               fi
@@ -104,7 +104,7 @@ jobs:
           ready=0
           for i in $(seq 1 120); do
             if curl -fsS http://127.0.0.1:18081/health >/tmp/recovered-health.json; then
-              if jq -e '(.chain.chainId // .chainId) == 5919065 and .persistence.mode == "reth-native-db" and .persistence.ready == true' /tmp/recovered-health.json >/dev/null; then
+              if jq -e '(.chain.chainId // .chainId) == 5919065 and .persistence.mode == "reth-native-db" and .persistence.readyForTraffic == true' /tmp/recovered-health.json >/dev/null; then
                 ready=1
                 break
               fi
