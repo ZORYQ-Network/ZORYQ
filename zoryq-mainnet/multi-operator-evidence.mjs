@@ -16,7 +16,7 @@ function fail(message, code = 64) {
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i += 2) {
-    if (!argv[i]?.startsWith('--') || argv[i + 1] === undefined) fail('usage: node multi-operator-evidence.mjs --input <evidence.json>');
+    if (!argv[i]?.startsWith('--') || argv[i + 1] === undefined) fail('usage: node multi-operator-evidence.mjs --input <evidence.json> --registry <validator-registry.json>');
     args[argv[i].slice(2)] = argv[i + 1];
   }
   return args;
@@ -36,9 +36,8 @@ function canonicalize(value) {
   return ordered;
 }
 function canonicalJson(value) { return JSON.stringify(canonicalize(value)); }
-function canonicalSha256(value) {
-  return createHash('sha256').update(canonicalJson(value)).digest('hex');
-}
+function sha256(bytes) { return createHash('sha256').update(bytes).digest('hex'); }
+function canonicalSha256(value) { return sha256(canonicalJson(value)); }
 function hasSecretField(value, currentPath = '') {
   if (!value || typeof value !== 'object') return null;
   for (const [key, child] of Object.entries(value)) {
@@ -50,12 +49,38 @@ function hasSecretField(value, currentPath = '') {
   }
   return null;
 }
+function loadRegistry(file) {
+  let raw;
+  let registry;
+  try {
+    raw = fs.readFileSync(file);
+    registry = JSON.parse(raw.toString('utf8'));
+  } catch {
+    fail('validator_registry_invalid_or_unreadable');
+  }
+  if (registry?.formatVersion !== 2) fail('validator_registry_format_v2_required');
+  if (registry?.network !== 'ZORYQ Mainnet') fail('validator_registry_network_invalid');
+  if (registry?.containsPrivateKeyMaterial !== false) fail('validator_registry_private_key_safety_invalid');
+  const validators = Array.isArray(registry.validators) ? registry.validators : [];
+  if (validators.length < 4) fail('validator_registry_requires_at_least_four_validators');
+  const byOperator = new Map();
+  for (const validator of validators) {
+    const operatorId = String(validator?.operatorId || '').trim();
+    const fingerprint = String(validator?.attestationKeyFingerprintSha256 || '').toLowerCase();
+    if (!operatorId || !isHex64(fingerprint)) fail('validator_registry_operator_or_attestation_fingerprint_invalid');
+    const key = operatorId.toLowerCase();
+    if (byOperator.has(key)) fail(`validator_registry_duplicate_operator:${operatorId}`);
+    byOperator.set(key, validator);
+  }
+  return { registry, byOperator, sha256: sha256(raw) };
+}
 function attestationStatement(evidence, node) {
   return canonicalJson({
-    domain: 'zoryq-mainnet-multi-operator-node-attestation-v1',
+    domain: 'zoryq-mainnet-multi-operator-node-attestation-v2-registry-bound',
     network: evidence.network,
     chainId: evidence.chainId,
     genesisSha256: evidence.genesisSha256,
+    validatorRegistrySha256: evidence.validatorRegistrySha256,
     consensusEngine: evidence.consensusEngine,
     operatorId: node.operatorId,
     region: node.region,
@@ -80,11 +105,12 @@ function verifyOperatorAttestation(evidence, node) {
     if (publicDer.length < 32 || signature.length !== 64) return { ok: false, reason: 'operator_attestation_material_invalid' };
     const publicKey = createPublicKey({ key: publicDer, format: 'der', type: 'spki' });
     if (publicKey.asymmetricKeyType !== 'ed25519') return { ok: false, reason: 'operator_attestation_key_not_ed25519' };
+    const canonicalDer = publicKey.export({ format: 'der', type: 'spki' });
     const ok = verify(null, Buffer.from(attestationStatement(evidence, node)), publicKey, signature);
     return {
       ok,
       reason: ok ? null : 'operator_attestation_signature_invalid',
-      keyFingerprint: createHash('sha256').update(publicDer).digest('hex')
+      keyFingerprint: sha256(canonicalDer)
     };
   } catch {
     return { ok: false, reason: 'operator_attestation_material_invalid' };
@@ -92,7 +118,8 @@ function verifyOperatorAttestation(evidence, node) {
 }
 
 const args = parseArgs(process.argv);
-if (!args.input) fail('usage: node multi-operator-evidence.mjs --input <evidence.json>');
+if (!args.input || !args.registry) fail('usage: node multi-operator-evidence.mjs --input <evidence.json> --registry <validator-registry.json>');
+const registryContext = loadRegistry(args.registry);
 let evidence;
 try { evidence = JSON.parse(fs.readFileSync(args.input, 'utf8')); } catch { fail('evidence_invalid_json'); }
 
@@ -106,6 +133,8 @@ const chainId = Number(evidence.chainId);
 if (!Number.isSafeInteger(chainId) || chainId <= 0) blockers.push('chain_id_invalid');
 if (chainId === TESTNET_CHAIN_ID) blockers.push('chain_id_reuses_testnet');
 if (!isHex64(evidence.genesisSha256)) blockers.push('genesis_sha256_invalid');
+if (!isHex64(evidence.validatorRegistrySha256)) blockers.push('validator_registry_sha256_invalid');
+else if (String(evidence.validatorRegistrySha256).toLowerCase() !== registryContext.sha256.toLowerCase()) blockers.push('validator_registry_sha256_mismatch');
 if (!evidence.consensusEngine || ['dev', 'single-producer', 'mock', 'anvil'].includes(String(evidence.consensusEngine).toLowerCase())) blockers.push('production_consensus_engine_required');
 
 const observedAt = parseTimestamp(evidence.observedAt);
@@ -119,11 +148,19 @@ const regions = new Set();
 const p2pIds = new Set();
 const hosts = new Set();
 const operatorKeys = new Set();
+const authorizedRegistryOperators = new Set();
 const checkpoints = new Map();
 for (let i = 0; i < nodes.length; i++) {
   const node = nodes[i] || {};
   const prefix = `node_${i}`;
-  if (!node.operatorId) blockers.push(`${prefix}:operator_id_missing`); else operators.add(String(node.operatorId));
+  const operatorId = String(node.operatorId || '').trim();
+  if (!operatorId) blockers.push(`${prefix}:operator_id_missing`); else operators.add(operatorId);
+  const registeredOperator = operatorId ? registryContext.byOperator.get(operatorId.toLowerCase()) : null;
+  if (!registeredOperator) blockers.push(`${prefix}:operator_not_authorized_by_validator_registry`);
+  else {
+    authorizedRegistryOperators.add(operatorId.toLowerCase());
+    if (String(node.region || '').toLowerCase() !== String(registeredOperator.region || '').toLowerCase()) blockers.push(`${prefix}:region_mismatch_with_validator_registry`);
+  }
   if (!node.region) blockers.push(`${prefix}:region_missing`); else regions.add(String(node.region));
   if (!node.p2pNodeId) blockers.push(`${prefix}:p2p_node_id_missing`); else if (p2pIds.has(String(node.p2pNodeId))) blockers.push(`${prefix}:duplicate_p2p_node_id`); else p2pIds.add(String(node.p2pNodeId));
   if (!node.hostFingerprint) blockers.push(`${prefix}:host_fingerprint_missing`); else if (hosts.has(String(node.hostFingerprint))) blockers.push(`${prefix}:duplicate_host_fingerprint`); else hosts.add(String(node.hostFingerprint));
@@ -140,8 +177,13 @@ for (let i = 0; i < nodes.length; i++) {
 
   const attestationResult = verifyOperatorAttestation(evidence, node);
   if (!attestationResult.ok) blockers.push(`${prefix}:${attestationResult.reason}`);
-  else if (operatorKeys.has(attestationResult.keyFingerprint)) blockers.push(`${prefix}:duplicate_operator_attestation_key`);
-  else operatorKeys.add(attestationResult.keyFingerprint);
+  else {
+    if (operatorKeys.has(attestationResult.keyFingerprint)) blockers.push(`${prefix}:duplicate_operator_attestation_key`);
+    else operatorKeys.add(attestationResult.keyFingerprint);
+    if (registeredOperator && attestationResult.keyFingerprint.toLowerCase() !== String(registeredOperator.attestationKeyFingerprintSha256 || '').toLowerCase()) {
+      blockers.push(`${prefix}:operator_attestation_key_not_authorized_by_validator_registry`);
+    }
+  }
 
   if (Number.isSafeInteger(node.finalizedHeight) && isHash(node.finalizedHash)) {
     const key = String(node.finalizedHeight);
@@ -155,6 +197,7 @@ if (regions.size < 3) blockers.push('minimum_three_regions_required');
 if (p2pIds.size !== nodes.length) blockers.push('p2p_identity_uniqueness_failed');
 if (hosts.size !== nodes.length) blockers.push('host_independence_failed');
 if (operatorKeys.size !== nodes.length) blockers.push('operator_attestation_key_independence_failed');
+if (authorizedRegistryOperators.size !== nodes.length) blockers.push('validator_registry_operator_authorization_failed');
 
 const finalizedHeights = nodes.map((node) => node?.finalizedHeight).filter(Number.isSafeInteger);
 if (finalizedHeights.length) {
@@ -192,13 +235,15 @@ const report = {
   consensusEngine: evidence.consensusEngine || null,
   nodeCount: nodes.length,
   operatorCount: operators.size,
+  authorizedRegistryOperatorCount: authorizedRegistryOperators.size,
   operatorAttestationKeyCount: operatorKeys.size,
   regionCount: regions.size,
+  validatorRegistrySha256: registryContext.sha256,
   commonFinalizedCheckpoint: commonCheckpoint,
   faultTestsRequired: REQUIRED_FAULT_TESTS,
   blockers,
   evidenceSha256: canonicalSha256(evidence),
-  rule: 'zoryq-mainnet-multi-operator-evidence-v3-signed-operators'
+  rule: 'zoryq-mainnet-multi-operator-evidence-v4-registry-bound'
 };
 process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 if (blockers.length) process.exit(EXIT_NOT_READY);
