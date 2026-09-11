@@ -1,0 +1,32 @@
+name: ZORYQ Mainnet Release Governance
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-mainnet/release-governance-evidence.mjs'
+      - 'zoryq-mainnet/release-governance-evidence.selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-release-governance.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mainnet/release-governance-evidence.mjs'
+      - 'zoryq-mainnet/release-governance-evidence.selftest.mjs'
+      - '.github/workflows/zoryq-mainnet-release-governance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  governance-evidence-selftest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run adversarial release governance self-test
+        run: node zoryq-mainnet/release-governance-evidence.selftest.mjs
