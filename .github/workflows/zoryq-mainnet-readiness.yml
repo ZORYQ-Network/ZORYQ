@@ -1,15 +1,22 @@
 name: ZORYQ Mainnet Readiness Gate
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - 'zoryq-mainnet/readiness-gate.mjs'
       - 'zoryq-mainnet/readiness-gate.selftest.mjs'
+      - 'zoryq-mainnet/multi-operator-evidence.mjs'
+      - 'zoryq-mainnet/multi-operator-evidence.selftest.mjs'
+      - 'zoryq-mainnet/validator-registry.mjs'
       - '.github/workflows/zoryq-mainnet-readiness.yml'
   pull_request:
     paths:
       - 'zoryq-mainnet/readiness-gate.mjs'
       - 'zoryq-mainnet/readiness-gate.selftest.mjs'
+      - 'zoryq-mainnet/multi-operator-evidence.mjs'
+      - 'zoryq-mainnet/multi-operator-evidence.selftest.mjs'
+      - 'zoryq-mainnet/validator-registry.mjs'
       - '.github/workflows/zoryq-mainnet-readiness.yml'
 
 permissions:
@@ -24,5 +31,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Run producer-side multi-operator adversarial self-test
+        run: node zoryq-mainnet/multi-operator-evidence.selftest.mjs
       - name: Run evidence-backed readiness adversarial self-test
         run: node zoryq-mainnet/readiness-gate.selftest.mjs
