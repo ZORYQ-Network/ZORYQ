@@ -61,11 +61,22 @@ jobs:
           d.polygon(poly,fill=(65,92,255,255)); d.line([(250,250),(785,250),(665,390),(425,390)],fill=(73,231,255,255),width=14); d.line([(745,390),(430,775),(245,775)],fill=(198,73,255,255),width=14); d.polygon([(430,390),(745,390),(430,775),(535,635),(315,635)],fill=(30,46,195,255)); d.line([(430,390),(745,390),(430,775)],fill=(118,61,255,255),width=12)
           im=Image.alpha_composite(im,z.filter(ImageFilter.GaussianBlur(0.6))).convert('RGB'); im.save('zoryq-mobile/assets/zoryq-icon.png','PNG',optimize=True)
           PY
-      - name: Wallet, Social Pro and revenue security gate
+      - name: Wallet, unified Social and revenue security gate
         run: |
           set -euo pipefail
           grep -q "export {default} from './WalletApp'" zoryq-mobile/App.tsx
-          grep -q "SocialProApp" zoryq-mobile/WalletApp.tsx
+          grep -q "UnifiedSocialApp" zoryq-mobile/WalletApp.tsx
+          grep -q "CommunitiesApp" zoryq-mobile/WalletApp.tsx
+          grep -q "MessagesApp" zoryq-mobile/WalletApp.tsx
+          grep -q "signTypedData" zoryq-mobile/UnifiedSocialApp.tsx
+          grep -q "5919065" zoryq-mobile/UnifiedSocialApp.tsx
+          grep -q "/v1/profile/registration-challenge" zoryq-mobile/UnifiedSocialApp.tsx
+          grep -q "/v1/profile/register" zoryq-mobile/UnifiedSocialApp.tsx
+          grep -q "/v1/explore" zoryq-mobile/UnifiedSocialApp.tsx
+          grep -q "/v1/search" zoryq-mobile/UnifiedSocialApp.tsx
+          grep -q "/v1/notifications" zoryq-mobile/UnifiedSocialApp.tsx
+          grep -q "/v1/media/image" zoryq-mobile/UnifiedSocialApp.tsx
+          grep -q "provider.call" zoryq-mobile/UnifiedSocialApp.tsx
           grep -q "requireAuthentication" zoryq-mobile/MainnetWallet.tsx
           grep -q "provider.call" zoryq-mobile/MainnetWallet.tsx
           grep -q "estimateGas" zoryq-mobile/MainnetWallet.tsx
@@ -76,17 +87,11 @@ jobs:
           grep -q "Quote rejeitado: política da Treasury não confere" zoryq-mobile/SwapEngine.tsx
           grep -q "approve(getAddress(spender),needed)" zoryq-mobile/SwapEngine.tsx
           grep -q "provider.call({...req,from:wallet.address})" zoryq-mobile/SwapEngine.tsx
-          grep -q "signMessage" zoryq-mobile/SocialProApp.tsx
-          grep -q "launchImageLibraryAsync" zoryq-mobile/SocialProApp.tsx
-          grep -q "/v1/explore" zoryq-mobile/SocialProApp.tsx
-          grep -q "/v1/search" zoryq-mobile/SocialProApp.tsx
-          grep -q "/v1/notifications" zoryq-mobile/SocialProApp.tsx
-          grep -q "action:'like'|'repost'|'bookmark'" zoryq-mobile/SocialProApp.tsx
-          grep -q "/v1/media/image" zoryq-mobile/SocialProApp.tsx
-          grep -q "provider.estimateGas" zoryq-mobile/SocialProApp.tsx
-          grep -q "provider.call" zoryq-mobile/SocialProApp.tsx
-          grep -q "does not authorize a transaction" zoryq-wallet-backend/social.mjs
+          grep -q "ZORYQ Social Sign-In" zoryq-wallet-backend/social.mjs
+          grep -q "eip712-profile-registration" zoryq-wallet-backend/social.mjs
+          grep -q "PROFILE_REGISTRATION_REQUIRED" zoryq-wallet-backend/social.mjs
           grep -q "Ethereum Mainnet" zoryq-mobile/networks.ts
+          grep -q "Base" zoryq-mobile/networks.ts
           grep -q "Arbitrum One" zoryq-mobile/networks.ts
           grep -q "BNB Smart Chain" zoryq-mobile/networks.ts
           grep -q "Avalanche C-Chain" zoryq-mobile/networks.ts
@@ -116,20 +121,20 @@ jobs:
           test -n "$APK"
           unzip -l "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' >/dev/null
           grep -q '"name": "ZORYQ"' zoryq-mobile/app.json
-          grep -q '"version": "1.3.0"' zoryq-mobile/app.json
-          grep -q '"versionCode": 7' zoryq-mobile/app.json
+          grep -q '"version": "1.4.0"' zoryq-mobile/app.json
+          grep -q '"versionCode": 8' zoryq-mobile/app.json
           grep -q '"package": "com.zoryq.wallet"' zoryq-mobile/app.json
       - name: Package artifact
         run: |
           mkdir -p dist
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
-          cp "$APK" dist/ZORYQ-Super-App-1.3.0.apk
+          cp "$APK" dist/ZORYQ-Super-App-1.4.0.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: ZORYQ-Super-App-1.3.0-APK
+          name: ZORYQ-Super-App-1.4.0-APK
           path: |
-            dist/ZORYQ-Super-App-1.3.0.apk
+            dist/ZORYQ-Super-App-1.4.0.apk
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
