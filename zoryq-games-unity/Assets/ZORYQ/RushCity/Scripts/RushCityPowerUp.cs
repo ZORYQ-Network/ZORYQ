@@ -10,6 +10,7 @@ namespace Zoryq.Play.RushCity
         [SerializeField] float duration = 8f;
         [SerializeField] float spinDegrees = 120f;
 
+        public void Configure(RushPowerUpType newType,float newDuration){type=newType;duration=newDuration;}
         void Update(){transform.Rotate(0f,spinDegrees*Time.deltaTime,0f,Space.World);}
 
         void OnTriggerEnter(Collider other)
