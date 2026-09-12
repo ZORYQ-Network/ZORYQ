@@ -3,8 +3,10 @@ package network.zoryq.mobilenode
 import android.content.Context
 import android.net.TrafficStats
 import android.os.Process
-import java.time.LocalDate
-import java.time.ZoneOffset
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.math.max
 
 object MobileDataMeter {
@@ -16,7 +18,7 @@ object MobileDataMeter {
 
     fun sample(context: Context, currentlyCellular: Boolean): Long {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val today = LocalDate.now(ZoneOffset.UTC).toString()
+        val today = utcDay()
         val currentTotal = uidTotalBytes()
         val storedDay = prefs.getString(KEY_DAY, null)
         val previousTotal = prefs.getLong(KEY_UID_TOTAL, currentTotal)
@@ -38,9 +40,13 @@ object MobileDataMeter {
 
     fun bytesToday(context: Context): Long {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val today = LocalDate.now(ZoneOffset.UTC).toString()
+        val today = utcDay()
         return if (prefs.getString(KEY_DAY, null) == today) prefs.getLong(KEY_BYTES_TODAY, 0L) else 0L
     }
+
+    private fun utcDay(): String = SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }.format(Date())
 
     private fun uidTotalBytes(): Long {
         val rx = TrafficStats.getUidRxBytes(Process.myUid())
