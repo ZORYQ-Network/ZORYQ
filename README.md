@@ -16,6 +16,7 @@ A provisional research direction is **adaptive verifiable execution**: exploring
 
 | Area | Evidence | Status |
 | --- | --- | --- |
+| Developer onboarding | [`docs/DEVELOPER_ONBOARDING.md`](docs/DEVELOPER_ONBOARDING.md) | Evidence-gated path |
 | Project overview | [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | Active |
 | Architecture | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Documented |
 | Protocol | [`PROTOCOL.md`](PROTOCOL.md), [`SPECIFICATION.md`](SPECIFICATION.md) | Being established |
@@ -24,6 +25,14 @@ A provisional research direction is **adaptive verifiable execution**: exploring
 | Benchmarks | [`BENCHMARKS.md`](BENCHMARKS.md), [`benchmarks/`](benchmarks/) | Evidence framework; results not claimed |
 | Roadmap | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Active |
 | Contributing | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Open |
+
+## Developer path
+
+The target funnel is:
+
+**Discovery → Docs → Faucet → First Transaction → First Contract → First Application → Contribution → Ecosystem Project**
+
+The current P0 is **Faucet → First Transaction**. ZORYQ will not promote a zero-to-build flow as stable until an external developer can reproduce a fresh-wallet funding and signed transaction path with public evidence. Track the blocker in [Issue #55](https://github.com/ZORYQ-Network/ZORYQ/issues/55) and see [`docs/DEVELOPER_ONBOARDING.md`](docs/DEVELOPER_ONBOARDING.md).
 
 ## Network
 
