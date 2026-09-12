@@ -1,0 +1,38 @@
+name: ZORYQ Factory Onchain Live Proof
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-evm-node/scripts/factory-onchain-proof.mjs'
+      - '.github/workflows/factory-onchain-live-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install proof dependencies
+        working-directory: zoryq-evm-node
+        run: npm install --omit=dev --no-audit --no-fund
+      - name: Run live Factory snapshot proof
+        working-directory: zoryq-evm-node
+        run: |
+          mkdir -p ../evidence
+          node scripts/factory-onchain-proof.mjs | tee ../evidence/factory-onchain-proof.json
+      - name: Validate non-secret evidence
+        run: |
+          node -e "const e=require('./evidence/factory-onchain-proof.json'); if(e.network?.chainId!==5919065||e.write?.status!==1||e.readback?.matches!==true) process.exit(1); console.log('factory onchain proof verified')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Factory-Onchain-Proof-${{ github.run_number }}
+          path: evidence/factory-onchain-proof.json
+          if-no-files-found: error
+          retention-days: 30
