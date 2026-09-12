@@ -1,0 +1,11 @@
+participants:
+  - el_type: reth
+    cl_type: lighthouse
+    count: 2
+
+network_params:
+  preset: minimal
+  network_id: "5919065"
+
+additional_services:
+  - dora
