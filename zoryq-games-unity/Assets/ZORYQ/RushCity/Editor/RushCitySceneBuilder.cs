@@ -22,6 +22,7 @@ namespace Zoryq.Play.RushCity.Editor
             new GameObject("AdaptiveQuality").AddComponent<RushCityQualityManager>();
             new GameObject("Telemetry").AddComponent<RushCityTelemetry>();
             new GameObject("LiveOps").AddComponent<RushCityLiveOpsConfig>();
+            new GameObject("RouteDirector").AddComponent<RushCityRouteDirector>();
             new GameObject("MissionDirector").AddComponent<RushCityMissionDirector>();
             new GameObject("RushCityGameManager").AddComponent<RushCityGameManager>();
 
