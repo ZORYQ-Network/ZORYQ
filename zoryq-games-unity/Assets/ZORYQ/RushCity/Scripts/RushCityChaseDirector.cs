@@ -12,6 +12,8 @@ namespace Zoryq.Play.RushCity
         [SerializeField] float lateralSway = .9f;
         [SerializeField] Light warningLight;
 
+        public void Configure(Transform runner,Transform pursuer,Light warning){player=runner;chaser=pursuer;warningLight=warning;}
+
         void Start()
         {
             if(!player)
