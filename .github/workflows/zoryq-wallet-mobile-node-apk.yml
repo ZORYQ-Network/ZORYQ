@@ -53,8 +53,11 @@ jobs:
         working-directory: zoryq-mobile
         run: |
           set -euo pipefail
-          npx expo-modules-autolinking search > /tmp/autolink-search.json
-          npx expo-modules-autolinking resolve --platform android > /tmp/autolink-android.json
+          npx expo-modules-autolinking search | tee /tmp/autolink-search.json
+          npx expo-modules-autolinking resolve --platform android | tee /tmp/autolink-android.json
+          echo '--- local module files ---'
+          find modules/zoryq-mobile-node -maxdepth 3 -type f -print | sort
+          echo '--- autolink assertions ---'
           grep -q 'zoryq-mobile-node' /tmp/autolink-search.json
           grep -q 'ZoryqMobileNodeModule' /tmp/autolink-android.json
           grep -q 'ZoryqMobileNodeModule' modules/zoryq-mobile-node/expo-module.config.json
@@ -77,6 +80,7 @@ jobs:
           grep -q 'CHAIN_ID = 5919065L' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
           grep -q 'lastLocalProofXp", 0' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
           grep -q 'ResourceGovernor' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          grep -q 'independentRpcAgreement' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
           ! grep -q 'setInterval(()=>void round' zoryq-mobile/MobileNodeApp.tsx
 
       - uses: gradle/actions/setup-gradle@v4
