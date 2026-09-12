@@ -19,10 +19,10 @@ export type NativeNodeStatus={
  heartbeatStatus:string;
  lastHeartbeatAt:string;
  lastHeartbeatXp:number;
- wifiOnly:boolean;
- chargingOnly:boolean;
- allowMobileData:boolean;
- batteryMinimum:number;
+ wifiOnly?:boolean;
+ chargingOnly?:boolean;
+ allowMobileData?:boolean;
+ batteryMinimum?:number;
  mobileDataBytesToday:number;
  dailyMobileDataLimitBytes:number;
 };
