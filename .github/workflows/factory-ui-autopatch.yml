@@ -2,9 +2,11 @@ name: Wire Factory Automatic APK Button
 
 on:
   push:
-    branches: [fix/factory-standalone-apk-install]
+    branches:
+      - fix/factory-standalone-apk-install
     paths:
       - '.github/workflows/factory-ui-autopatch.yml'
+      - '.github/scripts/patch_factory_apk_ui.py'
   workflow_dispatch:
 
 permissions:
@@ -14,59 +16,22 @@ jobs:
   patch:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           ref: fix/factory-standalone-apk-install
-      - name: Patch Factory APK flow
-        shell: python
-        run: |
-          from pathlib import Path
-          p=Path('zoryq-web/launch-studio.html')
-          s=p.read_text()
-          old="""async function exclusiveApk(){if(!currentSpec)return;const payload=`APP NAME: ${currentSpec.name}\\
-APP SLUG: ${slugify(currentSpec.name)}\\
-APP URL: ${currentUrl}`;try{await navigator.clipboard.writeText(payload)}catch{}$('msg').innerHTML='<span class=\"yellow\">Dados do build exclusivo copiados.</span> No GitHub Actions abra “ZORYQ Factory Per-App APK”, clique Run workflow e cole nome, slug e URL.';window.open('https://github.com/ZORYQ-Network/ZORYQ/actions/workflows/factory-app-apk.yml','_blank','noopener')}"""
-          new="""const APK_BUILDER='https://accomplished-appreciation-production-6355.up.railway.app';
-function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
-async function exclusiveApk(){
-  if(!currentSpec||!currentUrl)return;
-  const btn=$('exclusiveApk');btn.disabled=true;btn.textContent='Gerando APK…';
-  try{
-    $('msg').innerHTML='<span class=\"yellow\">Gerando APK Android exclusivo e assinado…</span>';
-    const r=await fetch(APK_BUILDER+'/factory/apk/build',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({app_name:currentSpec.name,app_id:currentSpec.id,app_slug:slugify(currentSpec.name),app_url:currentUrl})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw Error(j.error||'Falha ao iniciar build Android');
-    let status=null;
-    for(let i=0;i<120;i++){
-      await sleep(3000);
-      const sr=await fetch(APK_BUILDER+j.statusUrl,{cache:'no-store'});
-      status=await sr.json().catch(()=>({}));
-      if(status.status==='ready'||status.status==='failed')break;
-      $('msg').innerHTML='<span class=\"yellow\">APK em compilação…</span> O Factory está assinando e verificando o pacote.';
-    }
-    if(!status||status.status!=='ready')throw Error(status?.error||'Build não concluiu no tempo esperado');
-    const url=APK_BUILDER+status.downloadUrl;
-    const a=document.createElement('a');a.href=url;a.download=`${slugify(currentSpec.name)}.apk`;document.body.appendChild(a);a.click();a.remove();
-    $('apkInfo').textContent=`APK exclusivo pronto · ${status.packageId} · v${status.versionName} · assinatura permanente · SHA-256 ${status.sha256}`;
-    $('msg').innerHTML='<span class=\"ok\">APK exclusivo gerado, assinado e liberado para download.</span>';
-  }catch(e){$('msg').innerHTML='<span class=\"bad\">'+String(e.message||e)+'</span>';}
-  finally{btn.disabled=false;btn.textContent='Gerar APK exclusivo'}
-}"""
-          if old not in s:
-              raise SystemExit('exclusiveApk block not found; refusing unsafe patch')
-          s=s.replace(old,new,1)
-          s=s.replace('Preparar build exclusivo','Gerar APK exclusivo',1)
-          s=s.replace('APK exclusivo usa o workflow dedicado.','APK exclusivo é gerado automaticamente pelo Factory.',1)
-          p.write_text(s)
-      - name: Commit patched Factory UI
+      - name: Wire automatic APK button
+        run: python .github/scripts/patch_factory_apk_ui.py
+      - name: Commit Factory UI
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'zoryq-factory-bot'
-          git config user.email 'actions@users.noreply.github.com'
+          git config user.name zoryq-factory-bot
+          git config user.email actions@users.noreply.github.com
           git add zoryq-web/launch-studio.html
-          git diff --cached --quiet && exit 0
+          if git diff --cached --quiet; then
+            echo 'No Factory UI changes required.'
+            exit 0
+          fi
           git commit -m 'feat(factory): generate signed APK from Factory button'
           git push origin HEAD:fix/factory-standalone-apk-install
-
-# trigger: 2026-09-12 automatic Factory wiring
