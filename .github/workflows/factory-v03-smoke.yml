@@ -1,0 +1,34 @@
+name: ZORYQ Factory v0.3 Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-evm-node/factory-compiler.mjs'
+      - 'zoryq-evm-node/factory-compiler.test.mjs'
+      - 'zoryq-evm-node/factory-cloud.mjs'
+      - 'zoryq-evm-node/factory-cloud.test.mjs'
+      - 'zoryq-evm-node/factory-cloud-preload.mjs'
+      - '.github/workflows/factory-v03-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check zoryq-evm-node/factory-compiler.mjs
+          node --check zoryq-evm-node/factory-cloud.mjs
+          node --check zoryq-evm-node/factory-cloud-preload.mjs
+      - name: Generalized compiler tests
+        run: node --test zoryq-evm-node/factory-compiler.test.mjs
+      - name: Durable cloud tests
+        run: node --test zoryq-evm-node/factory-cloud.test.mjs
