@@ -17,6 +17,7 @@ A provisional research direction is **adaptive verifiable execution**: exploring
 | Area | Evidence | Status |
 | --- | --- | --- |
 | Developer onboarding | [`docs/DEVELOPER_ONBOARDING.md`](docs/DEVELOPER_ONBOARDING.md) | Evidence-gated path |
+| External operator challenge | [Issue #73](https://github.com/ZORYQ-Network/ZORYQ/issues/73) | Looking for first independent Node 2 + developer reproduction |
 | Project overview | [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | Active |
 | Architecture | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Documented |
 | Protocol | [`PROTOCOL.md`](PROTOCOL.md), [`SPECIFICATION.md`](SPECIFICATION.md) | Being established |
@@ -25,6 +26,14 @@ A provisional research direction is **adaptive verifiable execution**: exploring
 | Benchmarks | [`BENCHMARKS.md`](BENCHMARKS.md), [`benchmarks/`](benchmarks/) | Evidence framework; results not claimed |
 | Roadmap | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Active |
 | Contributing | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Open |
+
+## External operator challenge
+
+ZORYQ is actively looking for its first **independent external node operator/developer**. The challenge is intentionally evidence-first: run Node 2 on infrastructure you control, peer with the public testnet, publish non-secret convergence evidence, then attempt the developer path without private assistance.
+
+Start here: **[Issue #73 — run an independent ZORYQ Node 2 and reproduce the developer path](https://github.com/ZORYQ-Network/ZORYQ/issues/73)**.
+
+A second process controlled by the ZORYQ primary operator does not count as independent evidence. Never publish private keys, mnemonics, discovery secrets, provider tokens or infrastructure credentials.
 
 ## Developer path
 
