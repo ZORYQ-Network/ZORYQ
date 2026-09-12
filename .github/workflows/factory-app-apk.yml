@@ -123,6 +123,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [ -e /dev/kvm ]; then sudo chmod 666 /dev/kvm || true; fi
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"; SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"; AVDMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/avdmanager"; ADB="$SDK_ROOT/platform-tools/adb"; EMULATOR="$SDK_ROOT/emulator/emulator"
           timeout 420 "$SDKMANAGER" --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64" >/tmp/sdkmanager.log 2>&1 || { cat /tmp/sdkmanager.log; exit 1; }
           test -x "$ADB"; test -x "$EMULATOR"
