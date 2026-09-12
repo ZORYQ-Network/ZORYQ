@@ -10,7 +10,7 @@ const {
 
 const NODE_PACKAGE = 'network.zoryq.mobilenode';
 const BRIDGE_PACKAGE = 'com.zoryq.wallet.mobilenodebridge';
-const NODE_FILES = ['BootReceiver.kt', 'MobileNodeApi.kt', 'NodeIdentity.kt', 'NodeMode.kt', 'ResourceGovernor.kt', 'WitnessService.kt'];
+const NODE_FILES = ['BootReceiver.kt', 'MobileDataMeter.kt', 'MobileNodeApi.kt', 'NodeIdentity.kt', 'NodeMode.kt', 'ResourceGovernor.kt', 'WitnessService.kt'];
 
 function addUniquePermission(manifest, name) {
   manifest.manifest['uses-permission'] = manifest.manifest['uses-permission'] || [];
