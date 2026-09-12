@@ -14,7 +14,7 @@ permissions:
 jobs:
   obep-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
@@ -59,6 +59,18 @@ jobs:
         run: |
           set -o pipefail
           node zoryq-developer/obep/verify-live-proof.mjs zoryq-evidence/obep/live-proof.json | tee zoryq-evidence/obep/live-proof-verification.txt
+
+      - name: Generate useful deterministic task and settle only after accepted recomputation
+        env:
+          ZORYQ_PUBLIC_BASE_URL: https://zoryq-evm-node-live-production.up.railway.app
+        run: |
+          set -o pipefail
+          node zoryq-developer/obep/external-task/live-task-proof.mjs zoryq-evidence/obep/external-task-live-proof.json | tee zoryq-evidence/obep/external-task-live-generation.txt
+
+      - name: Independently recompute task and verify useful-task settlement from public RPC
+        run: |
+          set -o pipefail
+          node zoryq-developer/obep/external-task/verify-live-task-proof.mjs zoryq-evidence/obep/external-task-live-proof.json | tee zoryq-evidence/obep/external-task-live-verification.txt
 
       - name: Upload OBEP evidence
         if: always()
