@@ -14,11 +14,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.json.JSONObject
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -29,7 +25,7 @@ class WitnessService : Service() {
         const val ACTION_PAUSE = "network.zoryq.mobilenode.PAUSE"
         private const val CHANNEL = "zoryq_mobile_node"
         private const val NOTIFICATION_ID = 5919065
-        private const val RPC = "https://zoryq-evm-node-live-production.up.railway.app/rpc"
+        private const val DEFAULT_RPC = "https://zoryq-evm-node-live-production.up.railway.app/rpc"
         private const val CHAIN_ID = 5919065L
     }
 
@@ -78,6 +74,7 @@ class WitnessService : Service() {
         if (witnessJob?.isActive == true) return
         val prefs = getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE)
         val governor = ResourceGovernor(this)
+        val multiRpc = MultiRpcVerifier(client)
         prefs.edit().putBoolean("running", true).apply()
         witnessJob = scope.launch {
             var previousBlock = prefs.getLong("lastBlock", -1)
@@ -103,38 +100,53 @@ class WitnessService : Service() {
                 }
 
                 try {
-                    val chainHex = rpc("eth_chainId", "[]")
-                    val chainId = chainHex.removePrefix("0x").toLong(16)
-                    require(chainId == CHAIN_ID) { "Chain ID mismatch: $chainId" }
+                    val configured = prefs.getString("rpcEndpoints", DEFAULT_RPC) ?: DEFAULT_RPC
+                    val endpoints = configured.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+                    val result = multiRpc.verify(endpoints, CHAIN_ID)
+                    require(result.observations.isNotEmpty()) { "No healthy ZORYQ RPC" }
+                    val best = result.observations.maxBy { it.blockNumber }
+                    require(previousBlock < 0 || best.blockNumber >= previousBlock) { "Block height moved backwards" }
 
-                    val block = rpcObject("eth_getBlockByNumber", "[\"latest\",false]")
-                    val numberHex = block.getString("number")
-                    val blockNumber = numberHex.removePrefix("0x").toLong(16)
-                    require(block.has("hash") && block.getString("hash").startsWith("0x")) { "Missing block hash" }
-                    require(block.has("parentHash") && block.getString("parentHash").startsWith("0x")) { "Missing parent hash" }
-                    require(previousBlock < 0 || blockNumber >= previousBlock) { "Block height moved backwards" }
-
-                    val hash = block.getString("hash")
-                    val parentHash = block.getString("parentHash")
                     val observedAt = Instant.now().toString()
-                    val proofPayload = "zoryq-mobile-observation-v1|$CHAIN_ID|$blockNumber|$hash|$parentHash|$observedAt"
+                    val checkpoint = result.checkpoint ?: "${best.blockNumber}:${best.blockHash}"
+                    val proofPayload = listOf(
+                        "zoryq-mobile-observation-v1",
+                        CHAIN_ID,
+                        best.blockNumber,
+                        best.blockHash,
+                        best.parentHash,
+                        checkpoint,
+                        result.votes,
+                        result.independentAgreement,
+                        observedAt,
+                    ).joinToString("|")
                     val proofSignature = nodeIdentity.signUtf8(proofPayload)
 
-                    previousBlock = blockNumber
+                    previousBlock = best.blockNumber
+                    val state = if (result.independentAgreement) {
+                        "Verified multi-RPC • block ${best.blockNumber}"
+                    } else {
+                        "Verified observer • independent RPC quorum unavailable"
+                    }
                     prefs.edit()
-                        .putLong("lastBlock", blockNumber)
-                        .putString("lastHash", hash)
+                        .putLong("lastBlock", best.blockNumber)
+                        .putString("lastHash", best.blockHash)
                         .putString("lastCheck", observedAt)
+                        .putString("lastCheckpoint", checkpoint)
+                        .putInt("rpcHealthyCount", result.observations.size)
+                        .putInt("rpcAgreementVotes", result.votes)
+                        .putBoolean("independentRpcAgreement", result.independentAgreement)
                         .putString("lastLocalProofPayload", proofPayload)
                         .putString("lastLocalProofSignature", proofSignature)
                         .putInt("lastLocalProofXp", 0)
-                        .putString("state", "Verified • block $blockNumber")
+                        .putString("state", state)
                         .apply()
-                    val nm = getSystemService(NotificationManager::class.java)
-                    nm.notify(NOTIFICATION_ID, notification("Verified ZORYQ block $blockNumber"))
+                    getSystemService(NotificationManager::class.java)
+                        .notify(NOTIFICATION_ID, notification(state))
                 } catch (e: Exception) {
                     prefs.edit()
                         .putString("lastCheck", Instant.now().toString())
+                        .putBoolean("independentRpcAgreement", false)
                         .putString("state", "Verification warning")
                         .apply()
                     getSystemService(NotificationManager::class.java)
@@ -154,30 +166,6 @@ class WitnessService : Service() {
             .apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
-    }
-
-    private fun rpc(method: String, paramsJson: String): String {
-        val obj = rpcResponse(method, paramsJson)
-        return obj.getString("result")
-    }
-
-    private fun rpcObject(method: String, paramsJson: String): JSONObject {
-        val obj = rpcResponse(method, paramsJson)
-        return obj.getJSONObject("result")
-    }
-
-    private fun rpcResponse(method: String, paramsJson: String): JSONObject {
-        val payload = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$paramsJson}"
-        val request = Request.Builder()
-            .url(RPC)
-            .post(payload.toRequestBody("application/json".toMediaType()))
-            .build()
-        client.newCall(request).execute().use { response ->
-            require(response.isSuccessful) { "HTTP ${response.code}" }
-            val json = JSONObject(response.body?.string() ?: error("Empty RPC response"))
-            require(!json.has("error")) { json.optJSONObject("error")?.optString("message") ?: "RPC error" }
-            return json
-        }
     }
 
     private fun createChannel() {
