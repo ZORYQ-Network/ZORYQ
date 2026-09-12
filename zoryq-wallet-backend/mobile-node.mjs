@@ -5,8 +5,14 @@ import path from 'node:path';
 export const ZORYQ_CHAIN_ID = 5919065;
 export const MOBILE_PROTOCOL_VERSION = 'zoryq-mobile-node-v1';
 export const XP_BLOCK_VERIFICATION = 3;
+export const TASK_CHALLENGE_COOLDOWN_MS = 15_000;
+export const HEARTBEAT_CHALLENGE_COOLDOWN_MS = 15_000;
+export const MAX_PENDING_TASKS_PER_NODE = 1;
+export const MAX_PENDING_HEARTBEATS_PER_NODE = 1;
+export const MAX_ACCEPTED_PROOFS_PER_HOUR = 20;
 const CHALLENGE_TTL_MS = 5 * 60_000;
 const MAX_CLOCK_SKEW_MS = 2 * 60_000;
+const XP_WINDOW_MS = 60 * 60_000;
 const NODE_ID = /^zq-[0-9a-f]{24}$/;
 const B64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
@@ -60,6 +66,8 @@ export class MobileNodeProtocol {
     this.usedChallenges = new Set();
     this.xpEvents = new Map();
     this.heartbeatEvents = [];
+    this.lastTaskChallengeAt = new Map();
+    this.lastHeartbeatChallengeAt = new Map();
     this.load();
   }
 
@@ -70,12 +78,19 @@ export class MobileNodeProtocol {
       let e; try { e = JSON.parse(line); } catch { throw new Error('MOBILE_STATE_CORRUPT'); }
       if (e.type === 'registration_challenge') this.registrationChallenges.set(e.challenge.id, e.challenge);
       if (e.type === 'node_registered') this.nodes.set(e.node.nodeId, e.node);
-      if (e.type === 'task_challenge') this.taskChallenges.set(e.challenge.id, e.challenge);
-      if (e.type === 'heartbeat_challenge') this.heartbeatChallenges.set(e.challenge.id, e.challenge);
+      if (e.type === 'task_challenge') {
+        this.taskChallenges.set(e.challenge.id, e.challenge);
+        this.lastTaskChallengeAt.set(e.challenge.nodeId, Date.parse(e.challenge.issuedAt));
+      }
+      if (e.type === 'heartbeat_challenge') {
+        this.heartbeatChallenges.set(e.challenge.id, e.challenge);
+        this.lastHeartbeatChallengeAt.set(e.challenge.nodeId, Date.parse(e.challenge.issuedAt));
+      }
       if (e.type === 'challenge_consumed') this.usedChallenges.add(e.challengeId);
       if (e.type === 'xp_awarded') this.xpEvents.set(e.challengeId, e);
       if (e.type === 'heartbeat_accepted') this.heartbeatEvents.push(e);
     }
+    this.cleanupExpiredChallenges();
   }
 
   append(event) {
@@ -85,7 +100,28 @@ export class MobileNodeProtocol {
     }
   }
 
+  cleanupExpiredChallenges(now = this.clock()) {
+    const expired = c => Number.isFinite(Date.parse(c?.expiresAt)) && now > Date.parse(c.expiresAt);
+    for (const [id, c] of this.registrationChallenges) if (expired(c) && !this.usedChallenges.has(id)) this.registrationChallenges.delete(id);
+    for (const [id, c] of this.taskChallenges) if (expired(c) && !this.usedChallenges.has(id)) this.taskChallenges.delete(id);
+    for (const [id, c] of this.heartbeatChallenges) if (expired(c) && !this.usedChallenges.has(id)) this.heartbeatChallenges.delete(id);
+  }
+
+  pendingFor(map, nodeId, now = this.clock()) {
+    let count = 0;
+    for (const [id, c] of map) {
+      if (c.nodeId === nodeId && !this.usedChallenges.has(id) && now <= Date.parse(c.expiresAt)) count++;
+    }
+    return count;
+  }
+
+  acceptedProofsInWindow(nodeId, now = this.clock()) {
+    const floor = now - XP_WINDOW_MS;
+    return [...this.xpEvents.values()].filter(e => e.nodeId === nodeId && Date.parse(e.at) > floor && Date.parse(e.at) <= now).length;
+  }
+
   registrationChallenge({ nodeId, publicKey }) {
+    this.cleanupExpiredChallenges();
     const derived = nodeIdFromPublicKey(publicKey);
     if (nodeId !== derived || !NODE_ID.test(nodeId)) throw new Error('NODE_ID_PUBLIC_KEY_MISMATCH');
     const issuedAtMs = this.clock();
@@ -115,17 +151,23 @@ export class MobileNodeProtocol {
 
   async taskChallenge(nodeId) {
     if (!this.nodes.has(nodeId)) throw new Error('NODE_NOT_REGISTERED');
+    const issuedAtMs = this.clock();
+    this.cleanupExpiredChallenges(issuedAtMs);
+    if (this.pendingFor(this.taskChallenges, nodeId, issuedAtMs) >= MAX_PENDING_TASKS_PER_NODE) throw new Error('TASK_CHALLENGE_PENDING');
+    const lastIssued = this.lastTaskChallengeAt.get(nodeId);
+    if (Number.isFinite(lastIssued) && issuedAtMs - lastIssued < TASK_CHALLENGE_COOLDOWN_MS) throw new Error('TASK_CHALLENGE_COOLDOWN');
+    if (this.acceptedProofsInWindow(nodeId, issuedAtMs) >= MAX_ACCEPTED_PROOFS_PER_HOUR) throw new Error('XP_RATE_LIMITED');
     const chain = await this.chainReader('latest');
     if (Number(chain.chainId) !== ZORYQ_CHAIN_ID) throw new Error('CHAIN_ID_MISMATCH');
     const targetBlock = Number(chain.blockNumber);
     if (!Number.isSafeInteger(targetBlock) || targetBlock < 0) throw new Error('INVALID_TARGET_BLOCK');
-    const issuedAtMs = this.clock();
     const challenge = {
       kind: 'block_verification', id: crypto.randomUUID(), nonce: crypto.randomBytes(24).toString('base64url'),
       nodeId, chainId: ZORYQ_CHAIN_ID, targetBlock, issuedAt: nowIso(issuedAtMs), expiresAt: nowIso(issuedAtMs + CHALLENGE_TTL_MS),
       protocolVersion: MOBILE_PROTOCOL_VERSION
     };
     this.taskChallenges.set(challenge.id, challenge);
+    this.lastTaskChallengeAt.set(nodeId, issuedAtMs);
     this.append({ type: 'task_challenge', at: challenge.issuedAt, challenge });
     return challenge;
   }
@@ -133,11 +175,16 @@ export class MobileNodeProtocol {
   heartbeatChallenge(nodeId) {
     if (!this.nodes.has(nodeId)) throw new Error('NODE_NOT_REGISTERED');
     const issuedAtMs = this.clock();
+    this.cleanupExpiredChallenges(issuedAtMs);
+    if (this.pendingFor(this.heartbeatChallenges, nodeId, issuedAtMs) >= MAX_PENDING_HEARTBEATS_PER_NODE) throw new Error('HEARTBEAT_CHALLENGE_PENDING');
+    const lastIssued = this.lastHeartbeatChallengeAt.get(nodeId);
+    if (Number.isFinite(lastIssued) && issuedAtMs - lastIssued < HEARTBEAT_CHALLENGE_COOLDOWN_MS) throw new Error('HEARTBEAT_CHALLENGE_COOLDOWN');
     const challenge = {
       kind: 'heartbeat', id: crypto.randomUUID(), nonce: crypto.randomBytes(24).toString('base64url'), nodeId,
       chainId: ZORYQ_CHAIN_ID, issuedAt: nowIso(issuedAtMs), expiresAt: nowIso(issuedAtMs + CHALLENGE_TTL_MS), protocolVersion: MOBILE_PROTOCOL_VERSION
     };
     this.heartbeatChallenges.set(challenge.id, challenge);
+    this.lastHeartbeatChallengeAt.set(nodeId, issuedAtMs);
     this.append({ type: 'heartbeat_challenge', at: challenge.issuedAt, challenge });
     return challenge;
   }
@@ -172,6 +219,7 @@ export class MobileNodeProtocol {
     if (this.usedChallenges.has(c.id) || this.xpEvents.has(c.id)) throw new Error('CHALLENGE_ALREADY_USED');
     const now = this.clock();
     if (now > Date.parse(c.expiresAt)) throw new Error('CHALLENGE_EXPIRED');
+    if (this.acceptedProofsInWindow(c.nodeId, now) >= MAX_ACCEPTED_PROOFS_PER_HOUR) throw new Error('XP_RATE_LIMITED');
     if (Number(proof.chainId) !== ZORYQ_CHAIN_ID || Number(proof.blockNumber) !== c.targetBlock) throw new Error('PROOF_TARGET_MISMATCH');
     const observedMs = Date.parse(proof.observedAt);
     if (!Number.isFinite(observedMs) || observedMs < Date.parse(c.issuedAt) - MAX_CLOCK_SKEW_MS || observedMs > now + MAX_CLOCK_SKEW_MS || observedMs > Date.parse(c.expiresAt) + MAX_CLOCK_SKEW_MS) throw new Error('PROOF_TIMESTAMP_INVALID');
@@ -201,8 +249,11 @@ export class MobileNodeProtocol {
     if (!this.nodes.has(nodeId)) throw new Error('NODE_NOT_REGISTERED');
     const events = [...this.xpEvents.values()].filter(e => e.nodeId === nodeId);
     const heartbeats = this.heartbeatEvents.filter(e => e.nodeId === nodeId);
+    const now = this.clock();
     return {
       ok: true, nodeId, totalXp: events.reduce((n, e) => n + Number(e.xpDelta || 0), 0), acceptedProofs: events.length,
+      acceptedProofsLastHour: this.acceptedProofsInWindow(nodeId, now), maxAcceptedProofsPerHour: MAX_ACCEPTED_PROOFS_PER_HOUR,
+      pendingTaskChallenges: this.pendingFor(this.taskChallenges, nodeId, now), pendingHeartbeatChallenges: this.pendingFor(this.heartbeatChallenges, nodeId, now),
       heartbeatCount: heartbeats.length, lastHeartbeatAt: heartbeats.at(-1)?.at || null, reputationStatus: 'not-scored',
       protocolVersion: MOBILE_PROTOCOL_VERSION, xpMeaning: 'testnet participation points; not money or guaranteed token value'
     };
