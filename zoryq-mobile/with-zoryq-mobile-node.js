@@ -184,7 +184,7 @@ class ZoryqNodeService:Service(){
       p.edit().putBoolean("healthy",result.optBoolean("healthy",false)).putLong("block",block)
         .putLong("heartbeatCount",result.optLong("heartbeatCount",0)).putLong("pendingPoints",result.optLong("pendingValidatorPointsEstimate",0))
         .putLong("lastHeartbeat",ts).putString("error","").apply()
-      updateNotification("Bloco $block · ${result.optLong("heartbeatCount",0)} heartbeats")
+      updateNotification("Bloco $block · "+result.optLong("heartbeatCount",0)+" heartbeats")
     }catch(e:Throwable){p.edit().putBoolean("healthy",false).putString("error",e.message?:e.javaClass.simpleName).apply();updateNotification("Node degradado · toque para abrir")}
   }
   override fun onDestroy(){task?.cancel(false);executor.shutdownNow();super.onDestroy()}
@@ -236,4 +236,4 @@ function withNative(config){
 }
 
 function plugin(config){config=withManifest(config);config=withApp(config);config=withNative(config);return config}
-module.exports=createRunOncePlugin(plugin,'zoryq-mobile-node-native','1.0.0');
+module.exports=createRunOncePlugin(plugin,'zoryq-mobile-node-native','1.0.1');
