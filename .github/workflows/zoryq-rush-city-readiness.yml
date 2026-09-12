@@ -8,6 +8,7 @@ name: ZORYQ Rush City Source Readiness
       - 'zoryq-mobile/ZoryqPlayBridge.ts'
       - 'zoryq-mobile/with-zoryq-game-bridge.js'
       - '.github/workflows/zoryq-rush-city-readiness.yml'
+      - '.github/workflows/zoryq-rush-city-unity-build.yml'
 
 permissions:
   contents: read
@@ -18,31 +19,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify Unity vertical slice structure
+      - name: Verify Unity production structure
         run: |
           ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity
+          test -f zoryq-games-unity/ProjectSettings/ProjectVersion.txt
+          grep -Fq '6000.3.15f1' zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           test -f zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
-          test -f $ROOT/Scripts/RushCityGameManager.cs
-          test -f $ROOT/Scripts/RushCityPlayerController.cs
-          test -f $ROOT/Scripts/RushCityTrackManager.cs
-          test -f $ROOT/Scripts/RushCityCameraController.cs
-          test -f $ROOT/Scripts/RushCityProceduralCity.cs
-          test -f $ROOT/Scripts/RushCityQualityManager.cs
-          test -f $ROOT/Scripts/RushCityMissionDirector.cs
-          test -f $ROOT/Scripts/RushCityPowerUp.cs
-          test -f $ROOT/Scripts/RushCityTelemetry.cs
-          test -f $ROOT/Scripts/RushCityChaseDirector.cs
-          test -f $ROOT/Scripts/RushCityNearMissZone.cs
-          test -f $ROOT/Scripts/RushCityGhostRecorder.cs
-          test -f $ROOT/Scripts/RushCityGhostPlayback.cs
-          test -f $ROOT/Scripts/RushCityGhostRaceManager.cs
-          test -f $ROOT/Scripts/RushCityLiveOpsConfig.cs
+          for f in RushCityGameManager RushCityPlayerController RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityEnvironmentDirector; do
+            test -f "$ROOT/Scripts/$f.cs"
+          done
           test -f $ROOT/Editor/RushCitySceneBuilder.cs
+          test -f $ROOT/Editor/RushCityCiBuild.cs
+
+      - name: Verify movement physics and branching routes
+        run: |
+          ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
+          PLAYER=$ROOT/RushCityPlayerController.cs
+          TRACK=$ROOT/RushCityTrackManager.cs
+          ROUTE=$ROOT/RushCityRouteDirector.cs
+          grep -Fq 'wallProbeDistance = 1.75f' "$PLAYER"
+          grep -Fq 'CharacterController' "$PLAYER"
+          grep -Fq 'WallRun()' "$PLAYER"
+          grep -Fq 'RushCityRouteDirector.Instance.CurrentCenterX' "$PLAYER"
+          grep -Fq '"Road"' "$TRACK"
+          grep -Fq '_road, true' "$TRACK"
+          grep -Fq 'ShiftFutureSegments' "$TRACK"
+          grep -Fq 'BranchDeck' "$TRACK"
+          grep -Fq 'RushCityRouteChoiceZone' "$TRACK"
+          grep -Fq 'CurrentCenterX' "$ROUTE"
+          grep -Fq 'ChooseBranch' "$ROUTE"
+          grep -Fq 'RushDistrict' "$ROUTE"
 
       - name: Verify premium gameplay systems
         run: |
           ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
-          PLAYER=$ROOT/RushCityPlayerController.cs
           GAME=$ROOT/RushCityGameManager.cs
           TRACK=$ROOT/RushCityTrackManager.cs
           QUALITY=$ROOT/RushCityQualityManager.cs
@@ -50,44 +60,68 @@ jobs:
           POWER=$ROOT/RushCityPowerUp.cs
           GHOST=$ROOT/RushCityGhostRecorder.cs
           PLAYBACK=$ROOT/RushCityGhostPlayback.cs
+          GHOSTMGR=$ROOT/RushCityGhostRaceManager.cs
           LIVEOPS=$ROOT/RushCityLiveOpsConfig.cs
-          grep -Fq 'ChangeLane' "$PLAYER"
-          grep -Fq 'Jump()' "$PLAYER"
-          grep -Fq 'Slide()' "$PLAYER"
-          grep -Fq 'WallRun()' "$PLAYER"
           grep -Fq 'SkillFlow' "$GAME"
           grep -Fq 'RegisterNearMiss' "$GAME"
           grep -Fq 'ActivatePowerUp' "$GAME"
+          grep -Fq 'RegisterRouteChoice' "$GAME"
           grep -Fq 'RushCityLiveOpsConfig.Instance' "$GAME"
-          grep -Fq 'BuildPattern' "$TRACK"
-          grep -Fq 'SpawnPowerUp' "$TRACK"
-          grep -Fq 'RushCityNearMissZone' "$TRACK"
+          grep -Fq 'ZqDensity' "$TRACK"
+          grep -Fq 'zqDensityMultiplier' "$TRACK"
           grep -Fq 'TargetFps' "$QUALITY"
           grep -Fq '120' "$QUALITY"
           grep -Fq 'RushMissionType' "$MISSION"
           grep -Fq 'NearMiss' "$MISSION"
-          grep -Fq 'RushPowerUpType' "$POWER"
-          grep -Fq 'Magnet' "$POWER"
-          grep -Fq 'Shield' "$POWER"
-          grep -Fq 'Overdrive' "$POWER"
-          grep -Fq 'Multiplier' "$POWER"
+          for p in Magnet Shield Overdrive Multiplier; do grep -Fq "$p" "$POWER"; done
           grep -Fq 'zoryq.rush.ghost.v1' "$GHOST"
           grep -Fq 'sampleInterval' "$GHOST"
           grep -Fq 'LoadJson' "$PLAYBACK"
+          grep -Fq 'ghostRaceEnabled' "$GHOSTMGR"
           grep -Fq 'zoryq.rush.liveops.v1' "$LIVEOPS"
-          grep -Fq 'seasonId' "$LIVEOPS"
+          grep -Fq 'stormEventEnabled' "$LIVEOPS"
 
-      - name: Verify scene assembles advanced systems
+      - name: Verify presentation game feel and HUD
+        run: |
+          ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
+          CAMERA=$ROOT/RushCityCameraController.cs
+          PRESENT=$ROOT/RushCityPresentationDirector.cs
+          AUDIO=$ROOT/RushCityAudioDirector.cs
+          HUD=$ROOT/RushCityHudPresenter.cs
+          VFX=$ROOT/RushCityVfxDirector.cs
+          ENV=$ROOT/RushCityEnvironmentDirector.cs
+          grep -Fq 'Impulse' "$CAMERA"
+          grep -Fq 'FovKick' "$CAMERA"
+          grep -Fq 'RollKick' "$CAMERA"
+          grep -Fq 'RushCityGameEvents' "$PRESENT"
+          grep -Fq 'Handheld.Vibrate' "$PRESENT"
+          grep -Fq 'windLoop' "$AUDIO"
+          grep -Fq 'chaseLoop' "$AUDIO"
+          grep -Fq 'CanvasScaler' "$HUD"
+          grep -Fq 'ChaseBar' "$HUD"
+          grep -Fq 'FlowBar' "$HUD"
+          grep -Fq 'ParticleSystem' "$VFX"
+          grep -Fq 'stormEventEnabled' "$ENV"
+          grep -Fq 'RenderSettings.fogColor' "$ENV"
+
+      - name: Verify scene assembles production systems
         run: |
           SCENE=zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCitySceneBuilder.cs
-          grep -Fq 'RushCityQualityManager' "$SCENE"
-          grep -Fq 'RushCityTelemetry' "$SCENE"
-          grep -Fq 'RushCityMissionDirector' "$SCENE"
-          grep -Fq 'RushCityChaseDirector' "$SCENE"
-          grep -Fq 'RushCityGhostRecorder' "$SCENE"
-          grep -Fq 'RushCityGhostPlayback' "$SCENE"
-          grep -Fq 'RushCityGhostRaceManager' "$SCENE"
+          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityChaseDirector; do
+            grep -Fq "$marker" "$SCENE"
+          done
           grep -Fq 'EngineeringRig' "$SCENE"
+
+      - name: Verify reproducible Unity Android export
+        run: |
+          BUILD=zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCityCiBuild.cs
+          FLOW=.github/workflows/zoryq-rush-city-unity-build.yml
+          grep -Fq 'ZORYQ-Rush-City-Vertical-Slice.apk' "$BUILD"
+          grep -Fq 'unityLibrary' "$BUILD"
+          grep -Fq 'IL2CPP' "$BUILD"
+          grep -Fq 'AndroidArchitecture.ARM64' "$BUILD"
+          grep -Fq 'game-ci/unity-builder@v5' "$FLOW"
+          grep -Fq 'ZORYQ-Rush-City-Unity-' "$FLOW"
 
       - name: Verify wallet security boundary
         run: |
@@ -100,4 +134,4 @@ jobs:
           grep -Fq 'GAME_ENGINE_UNAVAILABLE' "$NATIVE"
           grep -Fq 'zoryq_play_result' "$NATIVE"
           ! grep -R -E 'eth_sendTransaction|personal_sign|eth_signTypedData|Wallet\.createRandom|fromPhrase|mnemonic|privateKey|seedPhrase' zoryq-games-unity/Assets/ZORYQ --include='*.cs'
-          echo 'Rush City advanced source readiness verified.'
+          echo 'Rush City production source readiness verified.'
