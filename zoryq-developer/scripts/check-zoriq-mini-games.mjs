@@ -3,7 +3,8 @@ import fs from 'node:fs';
 const fail=(m)=>{console.error(`FAIL: ${m}`);process.exitCode=1};
 const pass=(m)=>console.log(`PASS: ${m}`);
 const files={
- games:'zoryq-mobile/MiniGames.tsx',
+ games:'zoryq-mobile/PremiumArcade.tsx',
+ wrapper:'zoryq-mobile/MiniGames.tsx',
  bridge:'zoryq-mobile/SocialSuite.native.js',
  native:'zoryq-mobile/ZoriqSocialNative.tsx',
  prefs:'zoryq-mobile/profilePreferences.ts',
@@ -18,6 +19,7 @@ const files={
 for(const [name,file] of Object.entries(files)){if(!fs.existsSync(file))fail(`${name} missing: ${file}`);else pass(`${name}: ${file}`)}
 if(process.exitCode)process.exit(process.exitCode);
 const games=fs.readFileSync(files.games,'utf8');
+const wrapper=fs.readFileSync(files.wrapper,'utf8');
 const bridge=fs.readFileSync(files.bridge,'utf8');
 const native=fs.readFileSync(files.native,'utf8');
 const prefs=fs.readFileSync(files.prefs,'utf8');
@@ -29,8 +31,9 @@ const paymentDestination=fs.readFileSync(files.paymentDestination,'utf8');
 const payments=fs.readFileSync(files.payments,'utf8');
 const paymentSheet=fs.readFileSync(files.paymentSheet,'utf8');
 
-for(const marker of ['ZORIQ MINI GAMES','Jogo da Velha','STOP','Xadrez','Damas','Pedra · Papel · Tesoura','Memória','Sem apostas','sem risco de saldo da wallet','new Chess','freshCheckers','winnerTTT','scoreStop']){if(!games.includes(marker))fail(`game marker missing: ${marker}`);else pass(`game marker: ${marker}`)}
-for(const marker of ["mode?:'fun'|'gaming'",'Desafiar amigo','Share.share','AsyncStorage']){if(!games.includes(marker))fail(`games integration marker missing: ${marker}`);else pass(`games integration: ${marker}`)}
+if(!wrapper.includes("export {default} from './PremiumArcade'"))fail('MiniGames wrapper must route to PremiumArcade');else pass('MiniGames wrapper routes to PremiumArcade');
+for(const marker of ['ZORYQ ARCADE','Neon 2048','Xadrez vs ZORI','Damas vs ZORI','Pulse Sequence','Reflex Rush','Memory Pro','Jogo da Velha Arena','Sem apostas','sem risco de saldo da wallet','new Chess','freshCheckers','winnerTTT','move2048','minimaxTTT','aiCheckersTurn']){if(!games.includes(marker))fail(`arcade marker missing: ${marker}`);else pass(`arcade marker: ${marker}`)}
+for(const marker of ["mode?:'fun'|'gaming'",'Desafiar amigo','Share.share','AsyncStorage','onEarnXp?.(xp)']){if(!games.includes(marker))fail(`games integration marker missing: ${marker}`);else pass(`games integration: ${marker}`)}
 
 if(!bridge.includes("export {default} from './ZoriqSocialNative'"))fail('native bridge must route to ZoriqSocialNative');else pass('native bridge routes to ZoriqSocialNative');
 for(const marker of ['MiniGames',"['home','⌂','Home']","['search','⌕','Buscar']","['play','◈','Play']","['alerts','♡','Alertas']","['profile','◎','Perfil']",'😂 Divertir','🎮 Games','$ Enviar cripto','can_receive_crypto','receive_wallet_address','ensureLocalWalletLinked','Alterar foto de perfil','☀ Dia','☾ Noite','◐ Automático','uploadProfileAvatar','theme_preference','Mensagens']){if(!native.includes(marker))fail(`native experience marker missing: ${marker}`);else pass(`native experience: ${marker}`)}
@@ -63,4 +66,4 @@ if(!payments.includes("if(!network.routerAddress||!isAddress(network.routerAddre
 for(const forbidden of ['betAmount','wager','casino','stakeGame','privateKey','MNEMONIC_KEY']){if(games.includes(forbidden))fail(`forbidden games capability found: ${forbidden}`);else pass(`no games wallet/wager marker: ${forbidden}`)}
 
 if(process.exitCode)process.exit(process.exitCode);
-console.log('ZORIQ simplified social + Mini Games readiness checks passed.');
+console.log('ZORYQ Social + Premium Arcade readiness checks passed.');
