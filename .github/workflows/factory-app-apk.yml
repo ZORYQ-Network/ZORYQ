@@ -185,18 +185,24 @@ jobs:
         run: |
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
-          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
-          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64" >/dev/null
-          echo no | "$SDK_ROOT/cmdline-tools/latest/bin/avdmanager" create avd --force --name zoryq-ci --package "system-images;android-35;google_apis;x86_64" >/dev/null
-          "$SDK_ROOT/emulator/emulator" -avd zoryq-ci -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect >/tmp/emulator.log 2>&1 &
-          adb wait-for-device
-          timeout 240 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
-          adb install /tmp/zoryq-final.apk | tee /tmp/ADB-INSTALL.txt
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+          AVDMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/avdmanager"
+          ADB="$SDK_ROOT/platform-tools/adb"
+          EMULATOR="$SDK_ROOT/emulator/emulator"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64" >/dev/null
+          test -x "$ADB"
+          test -x "$EMULATOR"
+          echo no | "$AVDMANAGER" create avd --force --name zoryq-ci --package "system-images;android-35;google_apis;x86_64" >/dev/null
+          "$EMULATOR" -avd zoryq-ci -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect >/tmp/emulator.log 2>&1 &
+          "$ADB" wait-for-device
+          timeout 240 bash -c 'ADB="$1"; until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done' _ "$ADB"
+          "$ADB" install /tmp/zoryq-final.apk | tee /tmp/ADB-INSTALL.txt
           grep -Fq 'Success' /tmp/ADB-INSTALL.txt
           PACKAGE_ID="$(cat /tmp/zoryq-package-id)"
-          adb shell pm path "$PACKAGE_ID" | tee /tmp/ADB-PACKAGE.txt
+          "$ADB" shell pm path "$PACKAGE_ID" | tee /tmp/ADB-PACKAGE.txt
           grep -Fq 'package:' /tmp/ADB-PACKAGE.txt
-          adb shell monkey -p "$PACKAGE_ID" -c android.intent.category.LAUNCHER 1 >/tmp/ADB-LAUNCH.txt
+          "$ADB" shell monkey -p "$PACKAGE_ID" -c android.intent.category.LAUNCHER 1 >/tmp/ADB-LAUNCH.txt
           echo 'emulator_install_verified=true' > /tmp/ANDROID-INSTALL.txt
 
       - name: Package verified artifact and evidence
