@@ -18,13 +18,14 @@ window.ZORYQ_CONFIG={
   autonomousEconomy:'0xe9E075d1d44DEC0ee973e94F6e3eE8B7c2b27397',
   autonomousCompanyV2:'0xab9654c5867CB71E0Cedb6B7379d61aadb57af60',
   onePromptCompany:'0xab9654c5867CB71E0Cedb6B7379d61aadb57af60',
+  externalWorkProof:'0x5B19Fc8A94294DF15e4D3Fb37b4234936014238B',
   adminTreasury:'0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33',
   scoreEpoch:1
 };
 
 // Autonomous helpers are isolated to the Autonomous product surface.
 if (/\/autonomous(?:\.html)?$/.test(window.location.pathname)) {
-  for (const src of ['./autonomous-evidence.js','./autonomous-wallet.js']) {
+  for (const src of ['./autonomous-evidence.js','./autonomous-external-proof.js','./autonomous-wallet.js']) {
     const script=document.createElement('script');
     script.src=src;
     script.defer=true;
