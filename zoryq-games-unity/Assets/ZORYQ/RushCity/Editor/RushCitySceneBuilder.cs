@@ -23,6 +23,7 @@ namespace Zoryq.Play.RushCity.Editor
             new GameObject("Telemetry").AddComponent<RushCityTelemetry>();
             new GameObject("LiveOps").AddComponent<RushCityLiveOpsConfig>();
             new GameObject("RunModeDirector").AddComponent<RushCityRunModeDirector>();
+            new GameObject("Progression").AddComponent<RushCityProgression>();
             new GameObject("RouteDirector").AddComponent<RushCityRouteDirector>();
             new GameObject("EnvironmentDirector").AddComponent<RushCityEnvironmentDirector>().Configure(light);
             new GameObject("MissionDirector").AddComponent<RushCityMissionDirector>();
@@ -78,7 +79,7 @@ namespace Zoryq.Play.RushCity.Editor
             EditorSceneManager.SaveScene(scene,ScenePath);
             EditorBuildSettings.scenes=new[]{new EditorBuildSettingsScene(ScenePath,true)};
             Selection.activeGameObject=player;
-            Debug.Log("[ZORYQ] Rush City production vertical slice scene generated with run modes and separated GameplayRoot/VisualRoot.");
+            Debug.Log("[ZORYQ] Rush City production vertical slice scene generated with run modes, progression and separated GameplayRoot/VisualRoot.");
         }
 
         static Material NewMat(Color c,float e){var s=Shader.Find("Universal Render Pipeline/Lit")??Shader.Find("Standard");var m=new Material(s);m.color=c;m.EnableKeyword("_EMISSION");m.SetColor("_EmissionColor",c*e);return m;}
