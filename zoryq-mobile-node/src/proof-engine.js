@@ -2,6 +2,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 const DEFAULT_TTL_MS = 120_000;
 const DEFAULT_XP = 10;
+const PROTOCOL_VERSION = 1;
 
 function encode(value) {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
@@ -21,13 +22,50 @@ function secureEqual(a, b) {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+function validateWitnessShape(witness) {
+  if (!witness?.ok) throw new Error('Witness proof is not healthy');
+  if (!Number.isInteger(witness.bestBlock) || witness.bestBlock < 0) throw new Error('Invalid witness block');
+  if (!witness.agreement?.checkpoint || !Number.isInteger(witness.agreement.votes)) {
+    throw new Error('Missing witness checkpoint');
+  }
+  if (witness.agreement.votes < 2) throw new Error('Independent RPC agreement required');
+
+  const separator = witness.agreement.checkpoint.indexOf(':');
+  if (separator <= 0) throw new Error('Malformed witness checkpoint');
+  const checkpointBlock = Number(witness.agreement.checkpoint.slice(0, separator));
+  const checkpointHash = witness.agreement.checkpoint.slice(separator + 1);
+  if (checkpointBlock !== witness.bestBlock || !checkpointHash.startsWith('0x') || checkpointHash.length < 4) {
+    throw new Error('Witness checkpoint mismatch');
+  }
+}
+
+/**
+ * Challenge/replay/XP state machine.
+ *
+ * SECURITY BOUNDARY: verifyWitness MUST be server-owned verification. The
+ * caller-provided witness object is never sufficient by itself to mint XP.
+ * A production adapter should re-read the requested block/checkpoint from
+ * independent ZORYQ RPCs and return true only when the evidence agrees.
+ *
+ * The in-memory consumed/XP stores are intentionally MVP-only. Production
+ * deployment must replace them with an append-only durable ledger before XP
+ * is treated as authoritative across process restarts or multiple replicas.
+ */
 export class ProofEngine {
-  constructor({ secret, ttlMs = DEFAULT_TTL_MS, xpPerProof = DEFAULT_XP, now = () => Date.now() } = {}) {
+  constructor({
+    secret,
+    ttlMs = DEFAULT_TTL_MS,
+    xpPerProof = DEFAULT_XP,
+    now = () => Date.now(),
+    verifyWitness
+  } = {}) {
     if (!secret || String(secret).length < 32) throw new Error('ProofEngine requires a secret of at least 32 characters');
+    if (typeof verifyWitness !== 'function') throw new Error('ProofEngine requires a server-owned verifyWitness function');
     this.secret = String(secret);
     this.ttlMs = ttlMs;
     this.xpPerProof = xpPerProof;
     this.now = now;
+    this.verifyWitness = verifyWitness;
     this.consumed = new Set();
     this.xp = new Map();
   }
@@ -36,7 +74,7 @@ export class ProofEngine {
     if (!nodeId) throw new Error('nodeId is required');
     const issuedAt = this.now();
     const payload = {
-      v: 1,
+      v: PROTOCOL_VERSION,
       nodeId,
       nonce: randomBytes(24).toString('hex'),
       issuedAt,
@@ -48,11 +86,16 @@ export class ProofEngine {
 
   inspectChallenge(token) {
     if (!token || !token.includes('.')) throw new Error('Malformed challenge');
-    const [body, signature] = token.split('.');
+    const parts = token.split('.');
+    if (parts.length !== 2) throw new Error('Malformed challenge');
+    const [body, signature] = parts;
     const expected = mac(this.secret, body);
     if (!secureEqual(signature, expected)) throw new Error('Invalid challenge signature');
     const payload = decode(body);
-    if (payload.v !== 1 || !payload.nodeId || !payload.nonce) throw new Error('Invalid challenge payload');
+    if (payload.v !== PROTOCOL_VERSION || !payload.nodeId || !payload.nonce) throw new Error('Invalid challenge payload');
+    if (!Number.isFinite(payload.issuedAt) || !Number.isFinite(payload.expiresAt) || payload.expiresAt <= payload.issuedAt) {
+      throw new Error('Invalid challenge time window');
+    }
     if (this.now() > payload.expiresAt) throw new Error('Expired challenge');
     return payload;
   }
@@ -61,10 +104,12 @@ export class ProofEngine {
     const payload = this.inspectChallenge(challenge);
     if (payload.nodeId !== nodeId) throw new Error('Challenge node mismatch');
     if (this.consumed.has(payload.nonce)) throw new Error('Replay rejected');
-    if (!witness?.ok) throw new Error('Witness proof is not healthy');
-    if (!Number.isInteger(witness.bestBlock) || witness.bestBlock < 0) throw new Error('Invalid witness block');
-    if (!witness.agreement?.checkpoint || witness.agreement.votes < 1) throw new Error('Missing witness checkpoint');
 
+    validateWitnessShape(witness);
+    const serverVerified = this.verifyWitness({ nodeId, challenge: payload, witness });
+    if (serverVerified !== true) throw new Error('Server witness verification failed');
+
+    // Consume only after every validation succeeds. Invalid work earns zero XP.
     this.consumed.add(payload.nonce);
     const previous = this.xp.get(nodeId) || 0;
     const balance = previous + this.xpPerProof;
@@ -72,7 +117,9 @@ export class ProofEngine {
 
     return {
       accepted: true,
+      protocolVersion: PROTOCOL_VERSION,
       replayProtected: true,
+      serverVerified: true,
       nodeId,
       xpAwarded: this.xpPerProof,
       xpBalance: balance,
