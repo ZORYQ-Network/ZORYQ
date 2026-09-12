@@ -8,13 +8,15 @@ namespace Zoryq.Play.RushCity
         public static RushCityTrackManager Instance { get; private set; }
         public Transform player;
         public int visibleSegments = 11;
+        public int prewarmSegments = 30;
         public float segmentLength = 24f;
         public int seed = 42042;
 
-        readonly Queue<GameObject> _segments = new Queue<GameObject>();
+        readonly Queue<GameObject> _activeSegments = new Queue<GameObject>();
+        readonly Queue<GameObject> _reserveSegments = new Queue<GameObject>();
         System.Random _rng;
         float _nextZ;
-        int _spawnedSegments;
+        int _builtSegments;
         Material _road,_cyan,_magenta,_zq,_gold,_green;
 
         void Awake(){Instance=this;}
@@ -30,25 +32,39 @@ namespace Zoryq.Play.RushCity
             _zq = CreateMaterial(new Color(.45f,.18f,1f), 3.4f);
             _gold = CreateMaterial(new Color(1f,.55f,.08f),3f);
             _green = CreateMaterial(new Color(.08f,1f,.55f),2.6f);
-            for (var i = 0; i < visibleSegments; i++) SpawnSegment(i < 2 ? 0 : _rng.Next(0,8));
-            Debug.Log($"[Rush City] track seed={seed} mode={(mode?mode.Mode:RushRunMode.Standard)}");
+
+            var poolSize=Mathf.Max(visibleSegments+6,prewarmSegments);
+            for(var i=0;i<poolSize;i++)
+            {
+                var segment=CreateSegment(i<2?0:_rng.Next(0,8));
+                if(i<visibleSegments)ActivateSegment(segment);
+                else
+                {
+                    segment.SetActive(false);
+                    _reserveSegments.Enqueue(segment);
+                }
+            }
+            Debug.Log($"[Rush City] pooled track ready active={_activeSegments.Count} reserve={_reserveSegments.Count} seed={seed} mode={(mode?mode.Mode:RushRunMode.Standard)}");
         }
 
         void Update()
         {
-            if (!player || _segments.Count == 0) return;
-            while (_segments.Peek().transform.position.z + segmentLength < player.position.z - segmentLength)
+            if (!player || _activeSegments.Count == 0) return;
+            while (_activeSegments.Peek().transform.position.z + segmentLength < player.position.z - segmentLength)
             {
-                var old = _segments.Dequeue();
-                Destroy(old);
-                SpawnSegment(_rng.Next(0,8));
+                var old = _activeSegments.Dequeue();
+                old.SetActive(false);
+                _reserveSegments.Enqueue(old);
+
+                var next=_reserveSegments.Dequeue();
+                ActivateSegment(next);
             }
         }
 
         public void ShiftFutureSegments(float fromWorldZ,float deltaX)
         {
             if(Mathf.Abs(deltaX)<.01f)return;
-            foreach(var segment in _segments)
+            foreach(var segment in _activeSegments)
             {
                 if(!segment||segment.transform.position.z<fromWorldZ)continue;
                 segment.transform.position+=Vector3.right*deltaX;
@@ -64,12 +80,10 @@ namespace Zoryq.Play.RushCity
             }
         }
 
-        void SpawnSegment(int pattern)
+        GameObject CreateSegment(int pattern)
         {
-            var root = new GameObject($"RushSegment_{_nextZ:0000}");
+            var root = new GameObject($"RushSegmentPool_{_builtSegments:00}_P{pattern}");
             root.transform.SetParent(transform);
-            var centerX=RushCityRouteDirector.Instance ? RushCityRouteDirector.Instance.TargetCenterX : 0f;
-            root.transform.position = new Vector3(centerX,0,_nextZ);
 
             CreateCube(root.transform, "Road", new Vector3(0,-.2f,segmentLength*.5f), new Vector3(9,.35f,segmentLength), _road, true);
             CreateCube(root.transform, "RailL", new Vector3(-5.15f,.65f,segmentLength*.5f), new Vector3(.22f,1.4f,segmentLength), _cyan, false);
@@ -81,11 +95,21 @@ namespace Zoryq.Play.RushCity
             var secondLineChance=Mathf.Lerp(.35f,.78f,Mathf.InverseLerp(.65f,1.6f,density));
             if (_rng.NextDouble() < secondLineChance) BuildCoinLine(root.transform, _rng.Next(0,3), Mathf.Clamp(Mathf.RoundToInt(4*density),3,8), 3.2f, 14f);
             if (_rng.NextDouble() > .84) SpawnPowerUp(root.transform,_rng.Next(0,3),17.5f,(RushPowerUpType)_rng.Next(0,4));
-            if(_spawnedSegments>=5 && _spawnedSegments%7==0)BuildBranchGateway(root.transform);
+            if(_builtSegments>=5 && _builtSegments%7==0)BuildBranchGateway(root.transform);
 
-            _segments.Enqueue(root);
-            _nextZ += segmentLength;
-            _spawnedSegments++;
+            root.AddComponent<RushCityTrackSegmentRuntime>();
+            _builtSegments++;
+            return root;
+        }
+
+        void ActivateSegment(GameObject root)
+        {
+            var centerX=RushCityRouteDirector.Instance ? RushCityRouteDirector.Instance.TargetCenterX : 0f;
+            root.transform.position=new Vector3(centerX,0,_nextZ);
+            root.SetActive(true);
+            root.GetComponent<RushCityTrackSegmentRuntime>()?.ResetForReuse();
+            _activeSegments.Enqueue(root);
+            _nextZ+=segmentLength;
         }
 
         void BuildPattern(Transform root, int pattern)
