@@ -1,0 +1,34 @@
+name: ZORYQ Factory Dynamic Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-web/launch-studio.html'
+      - 'zoryq-web/project-launch.html'
+      - 'tools/factory-smoke/**'
+      - '.github/workflows/factory-dynamic-smoke.yml'
+  push:
+    branches:
+      - zoryq-evm-testnet-node
+    paths:
+      - 'zoryq-web/launch-studio.html'
+      - 'zoryq-web/project-launch.html'
+      - 'tools/factory-smoke/**'
+      - '.github/workflows/factory-dynamic-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify Factory dynamic runtime
+        run: node tools/factory-smoke/check.mjs
