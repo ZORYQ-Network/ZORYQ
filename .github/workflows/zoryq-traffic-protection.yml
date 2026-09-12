@@ -39,7 +39,9 @@ jobs:
           RESULT=$(curl -fsS -X POST http://127.0.0.1:8080/rpc \
             -H 'content-type: application/json' \
             -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}')
-          test "$(echo "$RESULT" | jq -r .result)" = "0x5a5159"
+          EXPECTED=$(node -e 'process.stdout.write("0x" + (5919065).toString(16))')
+          test "$EXPECTED" = "0x5a5159"
+          test "$(echo "$RESULT" | jq -r .result)" = "$EXPECTED"
 
       - name: Reject oversized JSON-RPC batch
         run: |
