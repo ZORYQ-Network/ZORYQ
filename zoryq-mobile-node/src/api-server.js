@@ -63,7 +63,8 @@ function errorStatus(message) {
  * Security properties:
  * - no XP route accepts a client-supplied public key;
  * - proof submission requires a signature from the key already registered for nodeId;
- * - server-owned ProofEngine still independently verifies the witness before XP;
+ * - server-owned ProofEngine independently verifies the witness before XP;
+ * - asynchronous RPC verification is awaited before any ledger write;
  * - body limits and a conservative per-client fixed-window rate limit are fail-closed;
  * - heartbeat is intentionally absent from XP issuance.
  */
@@ -118,7 +119,7 @@ export function createMobileNodeApi({
           witness: body.witness,
           signatureBase64: body.signatureBase64,
         });
-        const result = proofEngine.verifyAndCredit({
+        const result = await proofEngine.verifyAndCredit({
           challenge: body.challenge,
           nodeId: body.nodeId,
           witness: body.witness,
