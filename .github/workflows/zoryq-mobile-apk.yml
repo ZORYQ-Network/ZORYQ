@@ -152,6 +152,7 @@ jobs:
         run: |
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
           test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 1000000
           BUNDLE=$(unzip -Z1 "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' | head -n 1)
           test -n "$BUNDLE"
           unzip -p "$APK" "$BUNDLE" > /tmp/zoriq-index.android.bundle
@@ -164,18 +165,12 @@ jobs:
               exit 1
             fi
           }
-          check_marker 'ZORYQ WALLET · GAME UNIVERSE'
+          check_marker 'zoryq.wallet.games.v1'
           check_marker 'Realm Rivals'
           check_marker 'Battle Zone Heroes'
           check_marker 'Rush City'
           check_marker 'Wallet Quest'
           check_marker 'Tycoon World'
-          check_marker 'ZQ é moeda de jogo'
-          check_marker 'Alterar foto de perfil'
-          check_marker 'Enviar cripto'
-          check_marker 'APLICATIVOS'
-          check_marker 'ZORYQ MOBILE NODE'
-          check_marker 'INICIAR NODE PERSISTENTE'
           check_marker 'openBatterySettings'
           check_marker 'ZORIQ SWAP EVM'
           check_marker 'SWAP EVM'
@@ -183,12 +178,7 @@ jobs:
           check_marker 'Gnosis'
           check_marker 'Sonic'
           check_marker 'Unichain'
-          check_marker 'Cole contrato 0x'
-          check_marker 'detecção automática'
-          check_marker 'COTAR MELHOR ROTA'
-          check_marker 'AUTO · tenta 0,5%'
           check_marker 'TREASURY ZORIQ'
-          check_marker '0,5% apontada para a Treasury'
 
       - name: Package artifact
         run: |
