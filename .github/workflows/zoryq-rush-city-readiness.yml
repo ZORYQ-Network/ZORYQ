@@ -1,0 +1,58 @@
+name: ZORYQ Rush City Source Readiness
+
+'on':
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'zoryq-games-unity/**'
+      - 'zoryq-mobile/ZoryqPlayBridge.ts'
+      - 'zoryq-mobile/with-zoryq-game-bridge.js'
+      - '.github/workflows/zoryq-rush-city-readiness.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  source-readiness:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Unity vertical slice structure
+        run: |
+          test -f zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
+          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityGameManager.cs
+          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityPlayerController.cs
+          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityTrackManager.cs
+          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityCameraController.cs
+          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityProceduralCity.cs
+          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCitySceneBuilder.cs
+
+      - name: Verify gameplay mechanics are implemented
+        run: |
+          PLAYER=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityPlayerController.cs
+          GAME=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityGameManager.cs
+          TRACK=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityTrackManager.cs
+          grep -Fq 'ChangeLane' "$PLAYER"
+          grep -Fq 'Jump()' "$PLAYER"
+          grep -Fq 'Slide()' "$PLAYER"
+          grep -Fq 'WallRun()' "$PLAYER"
+          grep -Fq 'ChasePressure' "$GAME"
+          grep -Fq 'CollectZq' "$GAME"
+          grep -Fq 'RegisterCleanParkour' "$GAME"
+          grep -Fq 'BuildPattern' "$TRACK"
+          grep -Fq 'WallRunLeft' "$TRACK"
+          grep -Fq 'BuildCoinLine' "$TRACK"
+
+      - name: Verify wallet security boundary
+        run: |
+          BRIDGE=zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
+          MOBILE=zoryq-mobile/ZoryqPlayBridge.ts
+          NATIVE=zoryq-mobile/with-zoryq-game-bridge.js
+          grep -Fq 'client-untrusted' "$BRIDGE"
+          grep -Fq 'zoryq.play.run.v1' "$BRIDGE"
+          grep -Fq 'zoryq.play.launch.v1' "$MOBILE"
+          grep -Fq 'GAME_ENGINE_UNAVAILABLE' "$NATIVE"
+          grep -Fq 'zoryq_play_result' "$NATIVE"
+          ! grep -R -E 'eth_sendTransaction|personal_sign|eth_signTypedData|Wallet\.createRandom|fromPhrase|mnemonic' zoryq-games-unity/Assets/ZORYQ --include='*.cs'
+          echo 'Rush City source readiness verified.'
