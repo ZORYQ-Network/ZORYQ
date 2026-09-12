@@ -1,0 +1,8 @@
+[
+  {"id":"R-001","category":"compute","amount":17,"active":true},
+  {"id":"R-002","category":"storage","amount":31,"active":true},
+  {"id":"R-003","category":"compute","amount":23,"active":false},
+  {"id":"R-004","category":"verification","amount":19,"active":true},
+  {"id":"R-005","category":"storage","amount":11,"active":true},
+  {"id":"R-006","category":"verification","amount":29,"active":false}
+]
