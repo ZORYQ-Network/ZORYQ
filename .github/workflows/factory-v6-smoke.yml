@@ -1,0 +1,32 @@
+name: ZORYQ Factory v0.6 Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-evm-node/factory-v6-ui-preload.mjs'
+      - 'zoryq-evm-node/factory-v6-ui.test.mjs'
+      - 'zoryq-evm-node/server-with-factory.mjs'
+      - 'Dockerfile'
+      - '.github/workflows/factory-v6-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify Studio v0.6 routes and browser JavaScript
+        working-directory: zoryq-evm-node
+        run: node factory-v6-ui.test.mjs
+      - name: Verify packaging
+        run: |
+          grep -Fq "import './factory-v6-ui-preload.mjs'" zoryq-evm-node/server-with-factory.mjs
+          grep -Fq 'factory-v6-ui-preload.mjs' Dockerfile
+          grep -Fq 'factory-v6-ui-preload.mjs' Dockerfile
