@@ -28,7 +28,12 @@ namespace Zoryq.Play.RushCity
             else if (ram >= 4500 && vram >= 1500) Tier = RushCityQualityTier.Medium;
             else Tier = RushCityQualityTier.Low;
 
+#if UNITY_2022_2_OR_NEWER
             var refresh = Mathf.RoundToInt((float)Screen.currentResolution.refreshRateRatio.value);
+#else
+            var refresh = Screen.currentResolution.refreshRate;
+#endif
+            if(refresh<=0)refresh=60;
             TargetFps = refresh >= 120 && Tier >= RushCityQualityTier.High ? 120 : refresh >= 90 && Tier >= RushCityQualityTier.Medium ? 90 : 60;
             QualitySettings.vSyncCount = 0;
             Application.targetFrameRate = TargetFps;
