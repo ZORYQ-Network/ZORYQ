@@ -46,6 +46,11 @@ export PATH="/tmp/zoryq-bin:$PATH"
 
 # Prepare the effective chain spec before starting the native gateway.
 node /app/prepare-reth-genesis.mjs
+# Publish the exact non-secret effective chain spec + SHA-256 through the
+# existing public /network-maturity.json surface. This lets independently
+# controlled Node 2 operators reproduce the same chain without any mnemonic,
+# private key, discovery secret or infrastructure credential.
+node /app/publish-canonical-chain-spec.mjs
 
 # Canonical Autonomous Economy v0.1 bootstrap.
 if [ "${ZORYQ_AUTONOMOUS_DEMO_ENABLED:-true}" = "true" ] && [ -f /app/deploy-autonomous-economy.mjs ]; then

@@ -31,6 +31,7 @@ COPY zoryq-evm-node/ai-ceo.mjs ./ai-ceo.mjs
 COPY zoryq-evm-node/mainnet-guard.mjs ./mainnet-guard.mjs
 COPY zoryq-evm-node/predeploy-guard.mjs ./predeploy-guard.mjs
 COPY zoryq-evm-node/prepare-reth-genesis.mjs ./prepare-reth-genesis.mjs
+COPY zoryq-evm-node/publish-canonical-chain-spec.mjs ./publish-canonical-chain-spec.mjs
 COPY zoryq-evm-node/deploy-autonomous-economy.mjs ./deploy-autonomous-economy.mjs
 COPY zoryq-evm-node/deploy-one-prompt-company.mjs ./deploy-one-prompt-company.mjs
 COPY zoryq-evm-node/deploy-autonomous-company-v2.mjs ./deploy-autonomous-company-v2.mjs
