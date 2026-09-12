@@ -2,13 +2,13 @@
   "expo": {
     "name": "ZORYQ",
     "slug": "zoryq-super-app",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "icon": "./assets/zoryq-icon.png",
     "android": {
       "package": "com.zoryq.wallet",
-      "versionCode": 8,
+      "versionCode": 9,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./assets/zoryq-icon.png",
