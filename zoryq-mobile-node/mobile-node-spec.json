@@ -1,0 +1,17 @@
+{
+  "name": "ZORYQ Mobile Witness Node",
+  "version": "0.1.0",
+  "chainId": 5919065,
+  "roles": ["header-witness", "rpc-cross-check", "peer-health-observer"],
+  "validator": false,
+  "claims": {
+    "participatesInConsensus": false,
+    "producesBlocks": false,
+    "independentVerification": true
+  },
+  "modes": {
+    "eco": {"intervalSeconds": 60},
+    "balanced": {"intervalSeconds": 20},
+    "active": {"intervalSeconds": 8}
+  }
+}
