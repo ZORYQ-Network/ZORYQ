@@ -5,10 +5,12 @@ namespace Zoryq.Play.RushCity
 {
     public sealed class RushCityGhostRaceManager : MonoBehaviour
     {
+        public static RushCityGhostRaceManager Instance { get; private set; }
         const string BestGhostKey="zoryq.rush.ghost.best.v1";
         const string BestScoreKey="zoryq.rush.ghost.bestScore.v1";
         [SerializeField] RushCityGhostPlayback playback;
 
+        void Awake(){Instance=this;}
         void Start(){StartCoroutine(LoadPreviousGhost());}
 
         public void Configure(RushCityGhostPlayback ghostPlayback){playback=ghostPlayback;}
