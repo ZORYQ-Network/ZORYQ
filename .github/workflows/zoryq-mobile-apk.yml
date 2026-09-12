@@ -34,9 +34,6 @@ jobs:
       EXPO_PUBLIC_STAKE_CONTRACT: '0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1'
       EXPO_PUBLIC_TEST_TOKEN: '0xd2121E96C6af936c0496fDB499c1D0613d26c2B9'
       EXPO_PUBLIC_SWAP_CONTRACT: '0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE'
-      # Public LI.FI integrator identifier only. No partner/API secret is shipped in the APK.
-      EXPO_PUBLIC_LIFI_INTEGRATOR: '${{ vars.LIFI_INTEGRATOR }}'
-      EXPO_PUBLIC_LIFI_FEE: '0.005'
     steps:
       - uses: actions/checkout@v4
 
@@ -60,6 +57,24 @@ jobs:
       - name: TypeScript check
         working-directory: zoryq-mobile
         run: npm run typecheck
+
+      - name: Validate fee-first EVM swap model
+        run: |
+          CORE=zoryq-mobile/multichainWallet.ts
+          UI=zoryq-mobile/MultiChainWallet.tsx
+          HUB=zoryq-mobile/WalletHub.tsx
+          grep -Fq "ZORIQ_SWAP_FEE_BPS=50" "$CORE"
+          grep -Fq "partnerFeeBps:String(ZORIQ_SWAP_FEE_BPS)" "$CORE"
+          grep -Fq "partnerAddress:ZORIQ_TREASURY" "$CORE"
+          grep -Fq "isDirectFeeTransfer:'true'" "$CORE"
+          grep -Fq "excludeContractMethodsWithoutFeeModel:'true'" "$CORE"
+          grep -Fq "fee_route_unavailable" "$CORE"
+          ! grep -Fq 'li.quest' "$CORE"
+          grep -Fq 'findTokenAcrossNetworks' "$UI"
+          grep -Fq "setTimeout(()=>{lastAuto.current" "$UI"
+          grep -Fq 'ZORIQ SWAP EVM' "$UI"
+          grep -Fq 'SWAP EVM' "$HUB"
+          echo 'Fee-first EVM swap model verified.'
 
       - name: Generate ZORYQ chain app icon
         run: |
@@ -157,22 +172,26 @@ jobs:
           check_marker 'ZORYQ MOBILE NODE'
           check_marker 'INICIAR NODE PERSISTENTE'
           check_marker 'openBatterySettings'
-          check_marker 'WALLET MULTICHAIN'
+          check_marker 'ZORIQ SWAP EVM'
+          check_marker 'SWAP EVM'
           check_marker 'BNB Smart Chain'
-          check_marker 'Cole o contrato ERC-20'
+          check_marker 'Cole contrato 0x'
+          check_marker 'detecção automática'
           check_marker 'COTAR MELHOR ROTA'
-          check_marker 'SLIPPAGE'
+          check_marker 'AUTO · tenta 0,5%'
+          check_marker 'TREASURY ZORIQ'
+          check_marker '0,5% apontada para a Treasury'
 
       - name: Package artifact
         run: |
           mkdir -p dist
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
-          cp "$APK" dist/ZORIQ-Complete-Node-Games-Multichain-${{ github.run_number }}.apk
+          cp "$APK" dist/ZORIQ-Complete-Node-Games-SwapEVM-${{ github.run_number }}.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ZORIQ-Complete-Node-Games-Multichain-APK-${{ github.run_number }}
+          name: ZORIQ-Complete-Node-Games-SwapEVM-APK-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt
