@@ -39,6 +39,19 @@ jobs:
             exit 1
           fi
 
+      - name: Verify canonical public web bundle before deploy
+        run: |
+          set -euo pipefail
+          test -s home-v2.html
+          test -s vercel.json
+          test -s styles.css
+          grep -Fq '<title>ZORYQ' home-v2.html
+          grep -Fq 'Chain ID' home-v2.html
+          grep -Fq '5919065' home-v2.html
+          grep -Fq 'STATUS REAL' home-v2.html
+          grep -Fq 'zoryq-evm-node-live-production.up.railway.app' home-v2.html
+          node -e "const fs=require('fs'); const j=JSON.parse(fs.readFileSync('vercel.json','utf8')); const root=(j.rewrites||[]).find(x=>x.source==='/'); if(!root || root.destination!=='/home-v2.html') throw new Error('Root rewrite must target /home-v2.html');"
+
       - name: Verify advanced Genesis bundle before deploy
         run: |
           test -f start.html
@@ -69,20 +82,26 @@ jobs:
       - name: Deploy static web to existing production project
         run: npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
 
-      - name: Verify official live routes and ZORIQ Social
+      - name: Verify official live routes and canonical homepage
         run: |
+          set -euo pipefail
           sleep 8
           for route in / /start /lab /clock /explorer /docs /genesis-client.js /zoriq /social /zoriq-social; do
             code=$(curl -L -sS -o /tmp/zoryq-route -w '%{http_code}' "https://zoryq-testnet.vercel.app${route}")
             echo "$route -> HTTP $code"
             test "$code" = "200"
           done
+          curl -L -sS https://zoryq-testnet.vercel.app/ -o /tmp/zoryq-home
           curl -L -sS https://zoryq-testnet.vercel.app/start -o /tmp/zoryq-start
           curl -L -sS https://zoryq-testnet.vercel.app/genesis-client.js -o /tmp/zoryq-genesis-client
-          curl -L -sS https://zoryq-testnet.vercel.app/zoriq -o /tmp/zoriq-social
+          curl -L -sS https://zoryq-testnet.vercel.app/zoriq -o /tmp/zoryq-social
+          test "$(tr -d '\r\n[:space:]' < /tmp/zoryq-home)" != 'test'
+          grep -Fq '<title>ZORYQ' /tmp/zoryq-home
+          grep -Fq '5919065' /tmp/zoryq-home
+          grep -Fq 'STATUS REAL' /tmp/zoryq-home
           grep -Fq 'Genesis Score' /tmp/zoryq-start
           grep -Fq '@ZORIQNetwork' /tmp/zoryq-start
           grep -Fq 'Share Genesis' /tmp/zoryq-genesis-client
-          grep -Fq 'ZORIQ Social' /tmp/zoriq-social
-          grep -Fq 'Demo/local' /tmp/zoriq-social
-          echo 'Official production is serving the advanced Genesis UI and ZORIQ Social.'
+          grep -Fq 'ZORIQ Social' /tmp/zoryq-social
+          grep -Fq 'Demo/local' /tmp/zoryq-social
+          echo 'Official production is serving the canonical ZORYQ homepage, advanced Genesis UI, and ZORIQ Social.'
