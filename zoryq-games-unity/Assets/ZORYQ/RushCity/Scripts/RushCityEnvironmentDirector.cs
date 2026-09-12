@@ -27,7 +27,7 @@ namespace Zoryq.Play.RushCity
             _flash=Mathf.MoveTowards(_flash,0f,Time.deltaTime*7f);
             if(keyLight)
             {
-                var baseIntensity=storm?.72f:1.15f;
+                var baseIntensity=storm ? .72f : 1.15f;
                 keyLight.intensity=baseIntensity+_flash*3.6f;
             }
         }
