@@ -29,6 +29,11 @@ namespace Zoryq.Play.RushCity
         public bool ShieldActive => _shieldCharges > 0;
         public bool OverdriveActive => _overdriveUntil > Time.time;
         public int ScoreMultiplier => _multiplierUntil > Time.time ? 2 : 1;
+        public float MagnetSeconds => Mathf.Max(0f,_magnetUntil-Time.time);
+        public float OverdriveSeconds => Mathf.Max(0f,_overdriveUntil-Time.time);
+        public float MultiplierSeconds => Mathf.Max(0f,_multiplierUntil-Time.time);
+        public int ShieldCharges => _shieldCharges;
+        public int TotalZq => ZqCollected + _bonusZq;
 
         float _lastCollectTime, _magnetUntil, _overdriveUntil, _multiplierUntil;
         int _shieldCharges, _bonusScore, _bonusZq;
@@ -84,6 +89,7 @@ namespace Zoryq.Play.RushCity
             Combo = chained ? Mathf.Min(10, Combo + 1) : 1; _lastCollectTime = Time.time; ZqCollected += amount;
             SkillFlow = Mathf.Clamp01(SkillFlow + .008f * amount); ChasePressure = Mathf.Max(0f, ChasePressure - .025f * amount);
             RushCityMissionDirector.Instance?.OnZq(amount);
+            RushCityGameEvents.RaiseZq(amount,Combo);
         }
 
         public void RegisterCleanParkour()
@@ -100,6 +106,7 @@ namespace Zoryq.Play.RushCity
             Combo = Mathf.Min(10, Combo + 1); SkillFlow = Mathf.Clamp01(SkillFlow + .035f);
             Score += 220 * Combo * ScoreMultiplier; ChasePressure = Mathf.Max(0f, ChasePressure - .045f);
             RushCityMissionDirector.Instance?.OnNearMiss(); RushCityTelemetry.Instance?.NearMiss();
+            RushCityGameEvents.RaiseNearMiss();
         }
 
         public void RegisterRouteChoice(int direction,string district)
@@ -109,16 +116,18 @@ namespace Zoryq.Play.RushCity
             SkillFlow=Mathf.Clamp01(SkillFlow+.04f);
             Score+=300*Combo*ScoreMultiplier;
             ChasePressure=Mathf.Max(0f,ChasePressure-.035f);
+            RushCityGameEvents.RaiseRoute(direction,district);
             Debug.Log($"[Rush City] route branch={(direction<0?"LEFT":"RIGHT")} district={district}");
         }
 
         public void HitObstacle(float severity = .28f)
         {
             if (!IsRunning) return;
-            if (TryConsumeShield()) { ChasePressure = Mathf.Max(0f, ChasePressure - .05f); return; }
+            if (TryConsumeShield()) { ChasePressure = Mathf.Max(0f, ChasePressure - .05f); RushCityGameEvents.RaiseImpact(severity*.25f); return; }
             Combo = 1; SkillFlow = Mathf.Clamp01(SkillFlow - .18f);
             ChasePressure = Mathf.Clamp01(ChasePressure + Mathf.Max(.1f, severity)); Score = Mathf.Max(0, Score - 250);
-            RushCityTelemetry.Instance?.Hit(); if (ChasePressure >= .98f) EndRun("impact");
+            RushCityTelemetry.Instance?.Hit(); RushCityGameEvents.RaiseImpact(severity);
+            if (ChasePressure >= .98f) EndRun("impact");
         }
 
         public void ActivatePowerUp(RushPowerUpType type, float duration)
@@ -133,6 +142,7 @@ namespace Zoryq.Play.RushCity
                 case RushPowerUpType.Multiplier: _multiplierUntil = Mathf.Max(_multiplierUntil,Time.time+duration); break;
             }
             Score += 180;
+            RushCityGameEvents.RaisePowerUp(type,duration);
         }
 
         public bool TryConsumeShield(){if (_shieldCharges <= 0) return false; _shieldCharges--; return true;}
@@ -141,6 +151,7 @@ namespace Zoryq.Play.RushCity
         {
             if(!IsRunning)return;
             _bonusScore += Mathf.Max(0,rewardScore); _bonusZq += Mathf.Max(0,rewardZq); Score += Mathf.Max(0,rewardScore);
+            RushCityGameEvents.RaiseMission(rewardScore,rewardZq,mission);
             Debug.Log($"[Rush City] mission complete {mission}: +{rewardScore} score +{rewardZq} ZQ");
         }
 
@@ -148,23 +159,25 @@ namespace Zoryq.Play.RushCity
         {
             if (!IsRunning) return;
             IsRunning = false; CurrentSpeed = 0;
-            var totalZq = ZqCollected + _bonusZq;
-            var result = new GameRunResult { sessionId = SessionId, score = Score, zqCollected = totalZq, distanceMeters = DistanceMeters, durationSeconds = DurationSeconds };
+            var result = new GameRunResult { sessionId = SessionId, score = Score, zqCollected = TotalZq, distanceMeters = DistanceMeters, durationSeconds = DurationSeconds };
             RushCityGhostRaceManager.Instance?.FinishAndStoreCurrentRun();
+            RushCityGameEvents.RaiseRunEnded(reason);
             Debug.Log($"[Rush City] run ended: {reason} telemetry={RushCityTelemetry.Instance?.SnapshotJson()}");
             ZoryqPlayBridge.ReportAndReturn(result);
         }
 
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
         void OnGUI()
         {
             var scale = Mathf.Max(1f, Screen.width / 1080f); GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
             GUI.Box(new Rect(22, 22, 370, 202), "ZORYQ PLAY / RUSH CITY DEV HUD");
             GUI.Label(new Rect(40, 54, 335, 28), $"DIST {DistanceMeters:0}m  SPEED {CurrentSpeed:0.0}");
-            GUI.Label(new Rect(40, 82, 335, 28), $"ZQ {ZqCollected + _bonusZq}  COMBO x{Combo}  SCORE x{ScoreMultiplier}");
+            GUI.Label(new Rect(40, 82, 335, 28), $"ZQ {TotalZq}  COMBO x{Combo}  SCORE x{ScoreMultiplier}");
             GUI.Label(new Rect(40, 110, 335, 28), $"CHASE {ChasePressure * 100:0}%  FLOW {SkillFlow * 100:0}%");
             GUI.Label(new Rect(40, 138, 335, 28), $"MAG {(MagnetActive?"ON":"-")} SHIELD {_shieldCharges} BOOST {(OverdriveActive?"ON":"-")}");
             if(RushCityLiveOpsConfig.Instance)GUI.Label(new Rect(40,166,335,28),$"SEASON {RushCityLiveOpsConfig.Instance.Current.seasonId}");
             if(RushCityRouteDirector.Instance)GUI.Label(new Rect(40,194,335,28),$"DISTRICT {RushCityRouteDirector.Instance.District} BRANCH {RushCityRouteDirector.Instance.BranchCount}");
         }
+#endif
     }
 }
