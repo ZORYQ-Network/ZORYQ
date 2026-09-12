@@ -129,8 +129,10 @@ test('HTTP proof rejects client-forged witness even when node signature is valid
     witness: forged,
     signatureBase64,
   });
-  assert.equal(rejected.status, 500);
-  assert.equal(rejected.body.error, 'Internal server error');
+  // A forged client witness is invalid request data, not a server fault.
+  // Keep the rejection explicit so operators can distinguish attacks from outages.
+  assert.equal(rejected.status, 400);
+  assert.match(rejected.body.error, /server witness verification failed/i);
 
   const xpResponse = await fetch(`${base}/v1/xp/${nodeId}`);
   assert.equal((await xpResponse.json()).xp, 0);
