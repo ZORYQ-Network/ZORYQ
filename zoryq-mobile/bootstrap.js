@@ -1,5 +1,5 @@
 import 'react-native-get-random-values';
 import {registerRootComponent} from 'expo';
-import ZoriqRoot from './ZoriqRoot';
+import ZoriqCompleteRoot from './ZoriqCompleteRoot';
 
-registerRootComponent(ZoriqRoot);
+registerRootComponent(ZoriqCompleteRoot);
