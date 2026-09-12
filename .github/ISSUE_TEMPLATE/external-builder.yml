@@ -1,0 +1,73 @@
+name: External builder evidence
+description: Submit reproducible, non-secret evidence from an independent ZORYQ developer build/test
+title: "[External builder] "
+labels:
+  - help wanted
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing ZORYQ independently. Publish only non-secret evidence. Never include private keys, seed phrases, provider tokens, infrastructure credentials or signing secrets.
+  - type: dropdown
+    id: track
+    attributes:
+      label: Builder track
+      options:
+        - First transaction reproduction
+        - External contract deployment
+        - External dApp/application
+        - Independent Node 2
+        - Autonomous Company reproduction
+        - Other independent developer test
+    validations:
+      required: true
+  - type: input
+    id: utc
+    attributes:
+      label: UTC timestamp
+      placeholder: "2026-09-12T14:04:42Z"
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, runtime/toolchain and relevant versions.
+      placeholder: "Ubuntu 24.04, Node 22, ethers 6.x"
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Exact reproduction steps
+      description: Commands or steps another developer can repeat.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Non-secret evidence
+      description: Chain ID, public wallet/contract address, transaction hash, block, receipt status, source repository, peer evidence or other relevant public evidence.
+    validations:
+      required: true
+  - type: textarea
+    id: friction
+    attributes:
+      label: Friction, failures or limitations
+      description: Negative results are useful. Describe anything confusing, broken or undocumented.
+  - type: checkboxes
+    id: independence
+    attributes:
+      label: Independence confirmation
+      options:
+        - label: I am not using a ZORYQ private infrastructure credential, signing secret, mnemonic, faucet bypass or undocumented privileged endpoint for this evidence.
+          required: true
+        - label: I have not included any private key, seed phrase, provider token or infrastructure secret in this issue.
+          required: true
+  - type: checkboxes
+    id: claim
+    attributes:
+      label: Claim boundary
+      options:
+        - label: I understand that a successful testnet reproduction does not by itself prove decentralization, audited security, production readiness, token value or mainnet readiness.
+          required: true
