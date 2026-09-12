@@ -1,0 +1,70 @@
+name: Export reviewable mobile source
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/mobile-source-export.yml'
+      - 'zoryq-src.tgz'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-mobile-source-export-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  export-source:
+    name: Validate and export mobile source
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Validate archive before extraction
+        run: |
+          set -euo pipefail
+          test -f zoryq-src.tgz
+          tar -tzf zoryq-src.tgz > /tmp/zoryq-mobile-files.txt
+          test -s /tmp/zoryq-mobile-files.txt
+          if grep -E '(^|/)\.\./|^/' /tmp/zoryq-mobile-files.txt; then
+            echo 'Unsafe archive path detected' >&2
+            exit 1
+          fi
+
+      - name: Extract source
+        run: |
+          set -euo pipefail
+          rm -rf mobile-source
+          mkdir -p mobile-source
+          tar -xzf zoryq-src.tgz -C mobile-source
+          test -f mobile-source/package.json
+          test -f mobile-source/app.json
+
+      - name: Reject obvious secret material
+        run: |
+          set -euo pipefail
+          if find mobile-source -type f \( -name '*.pem' -o -name '*.p12' -o -name '*.pfx' -o -name '*.jks' -o -name '*.keystore' \) -print | grep -q .; then
+            echo 'Potential private key/keystore material found in packaged source' >&2
+            exit 1
+          fi
+
+      - name: Produce source inventory
+        run: |
+          set -euo pipefail
+          find mobile-source -type f -printf '%P\n' | LC_ALL=C sort > mobile-source/FILE_INVENTORY.txt
+          sha256sum zoryq-src.tgz > mobile-source/SOURCE_ARCHIVE_SHA256.txt
+          printf 'commit=%s\n' "$GITHUB_SHA" > mobile-source/SOURCE_EXPORT_PROVENANCE.txt
+          printf 'workflow_run=%s\n' "$GITHUB_RUN_ID" >> mobile-source/SOURCE_EXPORT_PROVENANCE.txt
+
+      - name: Upload reviewable source artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-mobile-source-${{ github.sha }}
+          path: mobile-source/
+          if-no-files-found: error
+          retention-days: 7
