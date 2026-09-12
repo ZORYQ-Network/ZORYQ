@@ -1,0 +1,84 @@
+name: ZORYQ Mobile Node Hardening
+
+'on':
+  workflow_dispatch:
+  push:
+    branches: [feat/mobile-node-apk]
+    paths:
+      - 'zoryq-mobile-node/**'
+      - '.github/workflows/zoryq-mobile-node-hardening.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mobile-node/**'
+      - '.github/workflows/zoryq-mobile-node-hardening.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-mobile-node-hardening-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protocol-and-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+
+      - name: Protocol adversarial tests
+        working-directory: zoryq-mobile-node
+        run: npm test
+
+      - name: Truth and security invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'CHAIN_ID = 5919065L' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          grep -q 'Unexpected chainId' zoryq-mobile-node/src/witness.js
+          grep -q 'independentAgreement' zoryq-mobile-node/src/witness.js
+          grep -q 'validatorClaim: false' zoryq-mobile-node/src/config.js
+          grep -q 'consensusClaim: false' zoryq-mobile-node/src/config.js
+          ! grep -R -E "(sk-[A-Za-z0-9_-]{20,}|private[_-]?key[[:space:]]*[:=][[:space:]]*['\"][0-9a-fA-F]{64}|seed[[:space:]]*phrase[[:space:]]*[:=])" zoryq-mobile-node --exclude-dir=build
+
+      - name: Require adversarial coverage
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'rejects wrong chain id' zoryq-mobile-node/test/witness.test.js
+          grep -q 'malicious block header' zoryq-mobile-node/test/witness.test.js
+          grep -q 'conflicting RPC hashes' zoryq-mobile-node/test/witness.test.js
+          grep -q 'duplicate endpoint cannot fake' zoryq-mobile-node/test/witness.test.js
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Android debug APK
+        working-directory: zoryq-mobile-node/android
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Verify APK exists and is non-empty
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=$(find zoryq-mobile-node/android/app/build/outputs/apk/debug -name '*.apk' | head -n 1)
+          test -n "$APK"
+          test -s "$APK"
+          sha256sum "$APK" | tee zoryq-mobile-node/android/APK-SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Mobile-Node-hardening-debug
+          path: |
+            zoryq-mobile-node/android/app/build/outputs/apk/debug/*.apk
+            zoryq-mobile-node/android/APK-SHA256.txt
+          if-no-files-found: error
+          retention-days: 14
