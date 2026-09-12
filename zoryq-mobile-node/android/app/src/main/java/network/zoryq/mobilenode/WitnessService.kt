@@ -55,6 +55,9 @@ class WitnessService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_PAUSE -> {
+                getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE).edit()
+                    .putString("mode", NodeMode.PAUSED.name)
+                    .apply()
                 stopWitness("Paused")
                 return START_NOT_STICKY
             }
@@ -74,10 +77,31 @@ class WitnessService : Service() {
     private fun startWitness() {
         if (witnessJob?.isActive == true) return
         val prefs = getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE)
+        val governor = ResourceGovernor(this)
         prefs.edit().putBoolean("running", true).apply()
         witnessJob = scope.launch {
             var previousBlock = prefs.getLong("lastBlock", -1)
             while (isActive) {
+                val mode = runCatching {
+                    NodeMode.valueOf(prefs.getString("mode", NodeMode.BALANCED.name) ?: NodeMode.BALANCED.name)
+                }.getOrDefault(NodeMode.BALANCED)
+                val policy = ResourceGovernor.Policy(
+                    mode = mode,
+                    minBatteryPct = prefs.getInt("minBatteryPct", 20).coerceIn(5, 80),
+                    chargingOnly = prefs.getBoolean("chargingOnly", false),
+                    wifiOnly = prefs.getBoolean("wifiOnly", false),
+                    mobileDataAllowed = prefs.getBoolean("mobileDataAllowed", true),
+                )
+                val decision = governor.evaluate(policy)
+                prefs.edit().putString("resourceDecision", decision.reason).apply()
+                if (!decision.allowed) {
+                    val state = "Resource governor • ${decision.reason}"
+                    prefs.edit().putString("state", state).putString("lastCheck", Instant.now().toString()).apply()
+                    getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(state))
+                    delay(decision.intervalMs.coerceAtMost(60_000L))
+                    continue
+                }
+
                 try {
                     val chainHex = rpc("eth_chainId", "[]")
                     val chainId = chainHex.removePrefix("0x").toLong(16)
@@ -90,10 +114,20 @@ class WitnessService : Service() {
                     require(block.has("parentHash") && block.getString("parentHash").startsWith("0x")) { "Missing parent hash" }
                     require(previousBlock < 0 || blockNumber >= previousBlock) { "Block height moved backwards" }
 
+                    val hash = block.getString("hash")
+                    val parentHash = block.getString("parentHash")
+                    val observedAt = Instant.now().toString()
+                    val proofPayload = "zoryq-mobile-observation-v1|$CHAIN_ID|$blockNumber|$hash|$parentHash|$observedAt"
+                    val proofSignature = nodeIdentity.signUtf8(proofPayload)
+
                     previousBlock = blockNumber
                     prefs.edit()
                         .putLong("lastBlock", blockNumber)
-                        .putString("lastCheck", Instant.now().toString())
+                        .putString("lastHash", hash)
+                        .putString("lastCheck", observedAt)
+                        .putString("lastLocalProofPayload", proofPayload)
+                        .putString("lastLocalProofSignature", proofSignature)
+                        .putInt("lastLocalProofXp", 0)
                         .putString("state", "Verified • block $blockNumber")
                         .apply()
                     val nm = getSystemService(NotificationManager::class.java)
@@ -106,7 +140,7 @@ class WitnessService : Service() {
                     getSystemService(NotificationManager::class.java)
                         .notify(NOTIFICATION_ID, notification("Verification warning • ${e.message ?: "RPC unavailable"}"))
                 }
-                delay(20_000)
+                delay(decision.intervalMs)
             }
         }
     }
@@ -170,6 +204,10 @@ class WitnessService : Service() {
             .setOnlyAlertOnce(true)
             .addAction(android.R.drawable.ic_media_pause, "Pause", pausePendingIntent)
             .build()
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        stopWitness("Android background time limit reached")
     }
 
     override fun onDestroy() {
