@@ -34,6 +34,15 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Ensure Android SDK 35 verification tools
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/zipalign"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/aapt2"
+
       - name: Setup Gradle 8.9
         uses: gradle/actions/setup-gradle@v4
         with:
