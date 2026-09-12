@@ -1,5 +1,6 @@
 import http from 'node:http';
 import { handleFactoryCloud } from './factory-cloud.mjs';
+import { compileFactoryPrompt, compilerStatus } from './factory-compiler.mjs';
 
 const originalCreateServer=http.createServer.bind(http);
 
@@ -12,36 +13,25 @@ async function readJson(req,max=2_000_000){
   return raw?JSON.parse(raw):{};
 }
 
-function sendJson(res,status,obj){
-  res.writeHead(status,{
-    'content-type':'application/json; charset=utf-8',
-    'cache-control':'no-store',
-    'access-control-allow-origin':'*',
-    'access-control-allow-headers':'content-type, authorization',
-    'access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS'
-  });
-  res.end(JSON.stringify(obj));
+function commonHeaders(type){return {'content-type':type,'cache-control':'no-store','access-control-allow-origin':'*','access-control-allow-headers':'content-type, authorization','access-control-allow-methods':'GET,POST,PATCH,DELETE,OPTIONS','x-zoryq-factory':'v0.3'};}
+function sendJson(res,status,obj){res.writeHead(status,commonHeaders('application/json; charset=utf-8'));res.end(JSON.stringify(obj));}
+function sendHtml(res,status,html){res.writeHead(status,{...commonHeaders('text/html; charset=utf-8'),'content-security-policy':"default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; frame-src 'self'; base-uri 'none'; form-action 'self'"});res.end(html);}
+
+function studioHtml(){return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#070a10"><title>ZORYQ Factory v0.3</title><style>
+:root{--bg:#070a10;--panel:#101827;--line:#293b53;--muted:#94a8bf;--ok:#48dc97;--cyan:#4bdff7}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 85% 5%,#351b5b55,transparent 30%),var(--bg);color:#fff;font-family:Inter,system-ui,Arial}.shell{width:min(1120px,calc(100% - 24px));margin:auto}.top{display:flex;justify-content:space-between;align-items:center;padding:20px 0}.brand{font-weight:950;font-size:20px}.pill{border:1px solid #40526b;border-radius:999px;padding:5px 9px;font-size:11px;color:#b8c9dd}.hero{padding:34px 0}.hero h1{font-size:clamp(42px,7vw,76px);line-height:.95;margin:10px 0}.hero p{color:var(--muted);max-width:850px;font-size:17px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:15px;padding-bottom:50px}.card{background:linear-gradient(145deg,#111a2a,#0a101a);border:1px solid var(--line);border-radius:20px;padding:18px}.input{width:100%;border:1px solid #32465f;background:#07101a;color:#fff;border-radius:12px;padding:12px;margin:6px 0}.prompt{min-height:150px;resize:vertical}.row{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid #3a4e68;background:#152238;color:#fff;border-radius:11px;padding:10px 13px;font-weight:800;cursor:pointer}.primary{border:0;background:linear-gradient(100deg,#814be8,#e43bb6,#ff9c38)}.success{border-color:#2d6d52;background:#0b2a20}.muted{color:var(--muted)}.chips{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}.chip{border:1px solid #38506c;border-radius:999px;padding:5px 8px;font-size:11px;color:#c5d7eb}.status{min-height:24px;color:#b5c7da;margin:10px 0}.ok{color:var(--ok)}pre{white-space:pre-wrap;max-height:430px;overflow:auto;background:#060b12;border:1px solid #283a52;border-radius:12px;padding:12px;font-size:11px}.cloud{display:grid;grid-template-columns:1fr 1fr;gap:8px}.switch{display:flex;gap:8px;align-items:center;margin:8px 0;color:#d6e3ef}.switch input{width:19px;height:19px}.proof{border:1px solid #345b50;background:#081711;border-radius:12px;padding:10px;margin-top:10px;font-size:12px}@media(max-width:800px){.grid{grid-template-columns:1fr}.cloud{grid-template-columns:1fr}}</style></head><body><div class="shell"><header class="top"><div class="brand">ZORYQ <span class="pill">AI APP FACTORY · v0.3</span></div><div class="pill">GENERALIZED COMPILER</div></header><section class="hero"><span class="pill">PROMPT → SPEC → CLOUD → APP → ANDROID → ZORYQ</span><h1>Descreva o software. Gere uma aplicação executável.</h1><p>v0.3 amplia a cobertura para dezenas de módulos reutilizáveis, domínios conhecidos e fallback genérico. Evoluções preservam a especificação e podem adicionar/remover módulos e campos.</p></section><section class="grid"><div class="card"><h2>1 · Requisito</h2><textarea id="prompt" class="input prompt" placeholder="Ex.: Crie um sistema para clínica com pacientes, consultas, financeiro, documentos e notificações."></textarea><div class="row"><button id="generate" class="btn primary">✨ Gerar aplicação</button><button id="evolve" class="btn" disabled>🧠 Evoluir atual</button></div><label class="switch"><input id="cloud" type="checkbox" checked>Cloud + login/perfis</label><label class="switch"><input id="chain" type="checkbox">Prova ZORYQ Testnet opcional</label><div id="cloudFields" class="cloud"><input id="email" class="input" type="email" placeholder="Owner e-mail"><input id="password" class="input" type="password" minlength="8" placeholder="Senha 8+ caracteres"></div><div id="status" class="status">Aguardando requisito.</div><div class="row"><button id="open" class="btn success" disabled>Abrir aplicativo</button><button id="provision" class="btn" disabled>Criar backend cloud</button></div><div id="proof" class="proof">Evidence-first: o compilador generalizado é voltado a CRUD/workflows comuns. Não é alegação de síntese universal de qualquer software.</div></div><div class="card"><h2>2 · Especificação executável</h2><div id="chips" class="chips"></div><pre id="spec">Nenhuma especificação ainda.</pre></div></section></div><script>
+let spec=null;const $=id=>document.getElementById(id);function enc(o){const b=new TextEncoder().encode(JSON.stringify(o));let s='';for(const x of b)s+=String.fromCharCode(x);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}function render(){if(!spec)return;$('spec').textContent=JSON.stringify(spec,null,2);$('chips').innerHTML=spec.modules.map(m=>'<span class="chip">'+m.icon+' '+m.label+'</span>').join('');$('open').disabled=false;$('evolve').disabled=false;$('provision').disabled=!$('cloud').checked;$('status').innerHTML='<span class="ok">✓ Especificação v'+spec.version+' · '+spec.modules.length+' módulos</span>'}async function post(path,body){const r=await fetch(path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw Error(j.error||('HTTP '+r.status));return j}$('generate').onclick=async()=>{try{$('status').textContent='Compilando requisito…';const j=await post('/factory/compile',{prompt:$('prompt').value,cloud:$('cloud').checked,chain:$('chain').checked});spec=j.spec;render()}catch(e){$('status').textContent='Erro: '+e.message}};$('evolve').onclick=async()=>{if(!spec)return;try{$('status').textContent='Evoluindo sem descartar o app anterior…';const j=await post('/factory/evolve',{prompt:$('prompt').value,baseSpec:spec});spec=j.spec;render()}catch(e){$('status').textContent='Erro: '+e.message}};$('open').onclick=()=>{if(spec)location.href='/project-launch#app='+enc(spec)};$('provision').onclick=async()=>{if(!spec)return;try{$('status').textContent='Criando backend persistente…';const j=await post('/factory/cloud/apps',{spec,ownerEmail:$('email').value,ownerPassword:$('password').value,provenance:'factory-v0.3-browser'});$('status').innerHTML='<span class="ok">✓ Cloud criado · revisão '+j.app.revision+'. Abra o app e entre com o owner.</span>';spec={...spec,cloud:true};render()}catch(e){$('status').textContent='Cloud: '+e.message}};$('cloud').onchange=()=>{$('cloudFields').style.display=$('cloud').checked?'grid':'none';$('provision').disabled=!spec||!$('cloud').checked};</script></body></html>`;}
+
+async function handleCompiler(req,res,url){
+  if(url.pathname==='/factory/studio-v3'&&req.method==='GET'){return sendHtml(res,200,studioHtml()),true;}
+  if(url.pathname==='/factory/compiler/status'&&req.method==='GET'){return sendJson(res,200,compilerStatus()),true;}
+  if(url.pathname==='/factory/compile'&&req.method==='POST'){const b=await readJson(req,100_000);const spec=compileFactoryPrompt(b.prompt,{chain:b.chain!==false,cloud:b.cloud!==false});return sendJson(res,200,{ok:true,spec,compiler:compilerStatus()}),true;}
+  if(url.pathname==='/factory/evolve'&&req.method==='POST'){const b=await readJson(req,250_000);if(!b.baseSpec||typeof b.baseSpec!=='object')return sendJson(res,400,{ok:false,error:'base_spec_required'}),true;const spec=compileFactoryPrompt(b.prompt,{baseSpec:b.baseSpec});return sendJson(res,200,{ok:true,spec,compiler:compilerStatus()}),true;}
+  return false;
 }
 
 http.createServer=function patchedCreateServer(...args){
-  let listenerIndex=-1;
-  for(let i=args.length-1;i>=0;i--){if(typeof args[i]==='function'){listenerIndex=i;break}}
-  if(listenerIndex<0)return originalCreateServer(...args);
-  const originalListener=args[listenerIndex];
-  args[listenerIndex]=async function factoryAwareListener(req,res){
-    try{
-      const url=new URL(req.url||'/','http://127.0.0.1');
-      if(url.pathname.startsWith('/factory/cloud/')){
-        if(req.method==='OPTIONS')return sendJson(res,204,{});
-        const handled=await handleFactoryCloud(req,res,{body:readJson,send:sendJson});
-        if(handled)return;
-      }
-    }catch(e){
-      return sendJson(res,500,{ok:false,error:String(e?.message||e).slice(0,300)});
-    }
-    return originalListener(req,res);
-  };
-  return originalCreateServer(...args);
+  let listenerIndex=-1;for(let i=args.length-1;i>=0;i--){if(typeof args[i]==='function'){listenerIndex=i;break}}if(listenerIndex<0)return originalCreateServer(...args);const originalListener=args[listenerIndex];
+  args[listenerIndex]=async function factoryAwareListener(req,res){try{const url=new URL(req.url||'/','http://127.0.0.1');if(url.pathname.startsWith('/factory/')){if(req.method==='OPTIONS')return sendJson(res,204,{});const compilerHandled=await handleCompiler(req,res,url);if(compilerHandled)return;}if(url.pathname.startsWith('/factory/cloud/')){const handled=await handleFactoryCloud(req,res,{body:readJson,send:sendJson});if(handled)return;}}catch(e){const msg=String(e?.message||e).slice(0,300);const status=/prompt_too_|base_spec_required|request_too_large|invalid/i.test(msg)?400:500;return sendJson(res,status,{ok:false,error:msg});}return originalListener(req,res);};return originalCreateServer(...args);
 };
 
-console.log('[zoryq-factory] cloud route preload enabled');
+console.log('[zoryq-factory] cloud + generalized compiler + v0.3 studio enabled');
