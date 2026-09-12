@@ -44,6 +44,7 @@ jobs:
           MODES=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeMode.kt
           MULTI=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/MultiRpcVerifier.kt
           REG=zoryq-mobile-node/src/registration-engine.js
+          HEART=zoryq-mobile-node/src/heartbeat-engine.js
           PROOF=zoryq-mobile-node/src/proof-engine.js
           grep -q 'CHAIN_ID = 5919065L' "$SERVICE"
           grep -q 'Unexpected chainId' zoryq-mobile-node/src/witness.js
@@ -69,6 +70,9 @@ jobs:
           grep -q 'MOBILE_NODE_CHAIN_ID = 5919065' "$REG"
           grep -q 'zoryq-node-registration-v1' "$REG"
           grep -q 'Registration replay rejected' "$REG"
+          grep -q 'zoryq-node-heartbeat-v1' "$HEART"
+          grep -q 'Heartbeat replay rejected' "$HEART"
+          grep -q 'xpAwarded:0' "$HEART"
           grep -q 'server-owned verifyWitness' "$PROOF"
           grep -q 'Independent RPC agreement required' "$PROOF"
           ! grep -R -E "(sk-[A-Za-z0-9_-]{20,}|private[_-]?key[[:space:]]*[:=][[:space:]]*['\"][0-9a-fA-F]{64}|seed[[:space:]]*phrase[[:space:]]*[:=])" zoryq-mobile-node --exclude-dir=build
@@ -86,6 +90,9 @@ jobs:
           grep -q 'rejects another public key claiming the same Node ID' zoryq-mobile-node/test/registration-engine.test.js
           grep -q 'bad signature' zoryq-mobile-node/test/registration-engine.test.js
           grep -q 'restart' zoryq-mobile-node/test/proof-engine.test.js
+          grep -q 'always awards zero XP' zoryq-mobile-node/test/heartbeat-engine.test.js
+          grep -q 'heartbeat replay is rejected' zoryq-mobile-node/test/heartbeat-engine.test.js
+          grep -q 'clock drift is rejected' zoryq-mobile-node/test/heartbeat-engine.test.js
 
       - uses: actions/setup-java@v4
         with:
