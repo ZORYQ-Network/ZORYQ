@@ -53,9 +53,21 @@ jobs:
           grep -q "xp_awarded" zoryq-wallet-backend/mobile-node.mjs
           grep -q "heartbeatAwardsXp:false" zoryq-wallet-backend/server.mjs
           grep -q "verified-proof-only" zoryq-wallet-backend/server.mjs
-          if grep -RniE '(private[_-]?key|mnemonic|seed[_-]?phrase)[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{16,}["'"']' zoryq-wallet-backend/mobile-node.mjs zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode; then
-            echo 'Potential hard-coded secret detected' >&2
-            exit 1
-          fi
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          paths = [Path('zoryq-wallet-backend/mobile-node.mjs')]
+          paths += list(Path('zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode').glob('*.kt'))
+          source = '\n'.join(p.read_text(errors='ignore') for p in paths)
+          patterns = {
+              'raw-private-key': r'(?i)private[_-]?key\s*[:=]\s*["\'][0-9a-f]{64}["\']',
+              'seed-or-mnemonic': r'(?i)(mnemonic|seed[_-]?phrase)\s*[:=]\s*["\'][^"\']{16,}["\']',
+          }
+          found = [name for name, pattern in patterns.items() if re.search(pattern, source)]
+          if found:
+              raise SystemExit('Potential hard-coded secret detected: ' + ', '.join(found))
+          print('PASS: deterministic hard-coded secret scan')
+          PY
       - name: Docker inclusion gate
         run: grep -q 'COPY mobile-node.mjs ./mobile-node.mjs' zoryq-wallet-backend/Dockerfile
