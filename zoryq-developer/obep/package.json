@@ -1,10 +1,10 @@
 {
   "name": "@zoryq/obep-verifier",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test obep.test.mjs",
+    "test": "node --test obep.test.mjs interop-profile.test.mjs",
     "verify:reference": "node verify-live-proof.mjs reference-live-proof.json"
   },
   "dependencies": {
