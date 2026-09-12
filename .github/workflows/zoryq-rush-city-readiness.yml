@@ -25,7 +25,7 @@ jobs:
           test -f zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           grep -Fq '6000.3.15f1' zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           test -f zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
-          for f in RushCityGameManager RushCityPlayerController RushCityCharacterAnimator RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRunModeDirector RushCityProgression RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityResultPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
+          for f in IRushCityReusable RushCityTrackSegmentRuntime RushCityGameManager RushCityPlayerController RushCityCharacterAnimator RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRunModeDirector RushCityProgression RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityResultPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
             test -f "$ROOT/Scripts/$f.cs"
           done
           test -f $ROOT/Editor/RushCitySceneBuilder.cs
@@ -53,6 +53,24 @@ jobs:
           grep -Fq 'CurrentCenterX' "$ROUTE"
           grep -Fq 'ChooseBranch' "$ROUTE"
           grep -Fq 'RushDistrict' "$ROUTE"
+
+      - name: Verify pooled runtime and district identity
+        run: |
+          ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
+          TRACK=$ROOT/RushCityTrackManager.cs
+          SEGMENT=$ROOT/RushCityTrackSegmentRuntime.cs
+          CITY=$ROOT/RushCityProceduralCity.cs
+          grep -Fq 'prewarmSegments = 30' "$TRACK"
+          grep -Fq '_reserveSegments' "$TRACK"
+          grep -Fq 'ActivateSegment' "$TRACK"
+          grep -Fq 'RushCityTrackSegmentRuntime' "$TRACK"
+          ! grep -Fq 'Destroy(old)' "$TRACK"
+          grep -Fq 'IRushCityReusable' "$SEGMENT"
+          grep -Fq 'ResetForReuse' "$SEGMENT"
+          for marker in HarborStack SkyTower MetroBlock NeoTower; do grep -Fq "$marker" "$CITY"; done
+          grep -Fq '_harborDark' "$CITY"
+          grep -Fq '_skyDark' "$CITY"
+          grep -Fq '_metroDark' "$CITY"
 
       - name: Verify premium gameplay systems
         run: |
