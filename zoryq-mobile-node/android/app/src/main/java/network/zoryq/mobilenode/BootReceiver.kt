@@ -30,21 +30,25 @@ class BootReceiver : BroadcastReceiver() {
                 }
             )
         }
-        val open = PendingIntent.getActivity(
-            context,
-            5919065,
-            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-        manager.notify(
-            5919066,
-            NotificationCompat.Builder(context, channelId)
-                .setSmallIcon(android.R.drawable.stat_notify_sync)
-                .setContentTitle("Resume ZORYQ Mobile Node")
-                .setContentText("Android requires you to reopen ZORYQ before background contribution resumes.")
-                .setContentIntent(open)
-                .setAutoCancel(true)
-                .build()
-        )
+
+        val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        val open = launchIntent?.let {
+            PendingIntent.getActivity(
+                context,
+                5919065,
+                it,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+        }
+
+        val builder = NotificationCompat.Builder(context, channelId)
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentTitle("Resume ZORYQ Mobile Node")
+            .setContentText("Android requires you to reopen ZORYQ before background contribution resumes.")
+            .setAutoCancel(true)
+        if (open != null) builder.setContentIntent(open)
+        manager.notify(5919066, builder.build())
     }
 }
