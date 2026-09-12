@@ -38,11 +38,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'CHAIN_ID = 5919065L' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          SERVICE=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          IDENTITY=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeIdentity.kt
+          GOVERNOR=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/ResourceGovernor.kt
+          MODES=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeMode.kt
+          grep -q 'CHAIN_ID = 5919065L' "$SERVICE"
           grep -q 'Unexpected chainId' zoryq-mobile-node/src/witness.js
           grep -q 'independentAgreement' zoryq-mobile-node/src/witness.js
           grep -q 'validatorClaim: false' zoryq-mobile-node/src/config.js
           grep -q 'consensusClaim: false' zoryq-mobile-node/src/config.js
+          grep -q 'AndroidKeyStore' "$IDENTITY"
+          grep -q 'SHA256withECDSA' "$IDENTITY"
+          grep -q 'signUtf8' "$SERVICE"
+          grep -q 'lastLocalProofXp", 0' "$SERVICE"
+          grep -q 'ACTION_PAUSE' "$SERVICE"
+          grep -q 'onTimeout' "$SERVICE"
+          grep -q 'ResourceGovernor' "$SERVICE"
+          grep -q 'THERMAL_STATUS_SEVERE' "$GOVERNOR"
+          grep -q 'mobileDataAllowed' "$GOVERNOR"
+          grep -q 'ECO' "$MODES"
+          grep -q 'BALANCED' "$MODES"
+          grep -q 'MAX_CONTRIBUTION' "$MODES"
+          grep -q 'PAUSED' "$MODES"
           ! grep -R -E "(sk-[A-Za-z0-9_-]{20,}|private[_-]?key[[:space:]]*[:=][[:space:]]*['\"][0-9a-fA-F]{64}|seed[[:space:]]*phrase[[:space:]]*[:=])" zoryq-mobile-node --exclude-dir=build
 
       - name: Require adversarial coverage
