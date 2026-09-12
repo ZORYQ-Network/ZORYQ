@@ -68,3 +68,5 @@ async function exclusiveApk(){
           git diff --cached --quiet && exit 0
           git commit -m 'feat(factory): generate signed APK from Factory button'
           git push origin HEAD:fix/factory-standalone-apk-install
+
+# trigger: 2026-09-12 automatic Factory wiring
