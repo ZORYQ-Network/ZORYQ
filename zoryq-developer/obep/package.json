@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test obep.test.mjs interop-profile.test.mjs",
-    "verify:reference": "node verify-live-proof.mjs reference-live-proof.json"
+    "test": "node --test obep.test.mjs interop-profile.test.mjs external-task.test.mjs",
+    "verify:reference": "node verify-live-proof.mjs reference-live-proof.json",
+    "task:compute": "node external-task/compute-task.mjs external-task/records.json",
+    "task:verify": "node external-task/verify-task.mjs external-task/records.json external-task/result.json"
   },
   "dependencies": {
     "ethers": "6.17.0"
