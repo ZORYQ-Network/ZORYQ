@@ -18,3 +18,12 @@ window.ZORYQ_CONFIG={
   adminTreasury:'0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33',
   scoreEpoch:1
 };
+
+// Keep Autonomous evidence verification isolated to its product surface.
+// The verifier reads only public testnet RPC state and never requests wallet secrets.
+if (/\/autonomous\.html$/.test(window.location.pathname)) {
+  const script=document.createElement('script');
+  script.src='./autonomous-evidence.js';
+  script.defer=true;
+  document.head.appendChild(script);
+}
