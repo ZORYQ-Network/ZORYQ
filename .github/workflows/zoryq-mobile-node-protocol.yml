@@ -7,6 +7,7 @@ name: ZORYQ Mobile Node Protocol
     paths:
       - 'zoryq-wallet-backend/mobile-node.mjs'
       - 'zoryq-wallet-backend/mobile-node.test.mjs'
+      - 'zoryq-wallet-backend/mobile-node-http-smoke.mjs'
       - 'zoryq-wallet-backend/server.mjs'
       - 'zoryq-wallet-backend/Dockerfile'
       - 'zoryq-mobile-node/android/**'
@@ -15,6 +16,7 @@ name: ZORYQ Mobile Node Protocol
     paths:
       - 'zoryq-wallet-backend/mobile-node.mjs'
       - 'zoryq-wallet-backend/mobile-node.test.mjs'
+      - 'zoryq-wallet-backend/mobile-node-http-smoke.mjs'
       - 'zoryq-wallet-backend/server.mjs'
       - 'zoryq-mobile-node/android/**'
       - '.github/workflows/zoryq-mobile-node-protocol.yml'
@@ -39,8 +41,24 @@ jobs:
         run: |
           node --check zoryq-wallet-backend/mobile-node.mjs
           node --check zoryq-wallet-backend/server.mjs
+          node --check zoryq-wallet-backend/mobile-node-http-smoke.mjs
       - name: Mobile protocol adversarial tests
         run: node --test zoryq-wallet-backend/mobile-node.test.mjs
+      - name: Live ZORYQ chain HTTP round-trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          STATE_FILE="$RUNNER_TEMP/zoryq-mobile-node-ci.jsonl"
+          PORT=18084 ZORYQ_MOBILE_STATE_FILE="$STATE_FILE" node zoryq-wallet-backend/server.mjs >/tmp/zoryq-mobile-http.log 2>&1 &
+          PID=$!
+          trap 'kill $PID 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            curl -s http://127.0.0.1:18084/health >/dev/null && break
+            sleep 1
+          done
+          node zoryq-wallet-backend/mobile-node-http-smoke.mjs | tee /tmp/zoryq-mobile-smoke.json
+          node -e "const r=JSON.parse(require('fs').readFileSync('/tmp/zoryq-mobile-smoke.json','utf8')); if(!(r.ok&&r.chainId===5919065&&r.xpAwarded===3&&r.totalXp===3&&r.replayRejected===true&&r.acceptedProofs===1)) process.exit(1)"
+          kill $PID; wait $PID || true; trap - EXIT
       - name: Security and truth invariants
         shell: bash
         run: |
