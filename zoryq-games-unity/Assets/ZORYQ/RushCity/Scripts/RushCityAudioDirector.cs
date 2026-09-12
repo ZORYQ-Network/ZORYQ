@@ -40,11 +40,11 @@ namespace Zoryq.Play.RushCity
 
         void OnEnable()
         {
-            RushCityGameEvents.Jumped+=()=>Play(jump,.82f);
-            RushCityGameEvents.Slid+=()=>Play(slide,.76f);
-            RushCityGameEvents.WallRan+=()=>Play(wallRun,.85f);
+            RushCityGameEvents.Jumped+=OnJump;
+            RushCityGameEvents.Slid+=OnSlide;
+            RushCityGameEvents.WallRan+=OnWallRun;
             RushCityGameEvents.ZqCollected+=OnZq;
-            RushCityGameEvents.NearMissed+=()=>Play(nearMiss,.92f);
+            RushCityGameEvents.NearMissed+=OnNearMiss;
             RushCityGameEvents.Impacted+=OnImpact;
             RushCityGameEvents.PowerUpActivated+=OnPower;
             RushCityGameEvents.RouteChosen+=OnRoute;
@@ -53,7 +53,11 @@ namespace Zoryq.Play.RushCity
 
         void OnDisable()
         {
+            RushCityGameEvents.Jumped-=OnJump;
+            RushCityGameEvents.Slid-=OnSlide;
+            RushCityGameEvents.WallRan-=OnWallRun;
             RushCityGameEvents.ZqCollected-=OnZq;
+            RushCityGameEvents.NearMissed-=OnNearMiss;
             RushCityGameEvents.Impacted-=OnImpact;
             RushCityGameEvents.PowerUpActivated-=OnPower;
             RushCityGameEvents.RouteChosen-=OnRoute;
@@ -69,6 +73,10 @@ namespace Zoryq.Play.RushCity
         }
 
         void Play(AudioClip clip,float volume=1f,float pitch=1f){if(!_oneShot||!clip)return;_oneShot.pitch=pitch;_oneShot.PlayOneShot(clip,volume);}
+        void OnJump()=>Play(jump,.82f);
+        void OnSlide()=>Play(slide,.76f);
+        void OnWallRun()=>Play(wallRun,.85f);
+        void OnNearMiss()=>Play(nearMiss,.92f);
         void OnZq(int amount,int combo)=>Play(zq,Mathf.Lerp(.45f,.9f,combo/10f),Mathf.Lerp(.95f,1.35f,combo/10f));
         void OnImpact(float severity)=>Play(impact,Mathf.Lerp(.5f,1f,severity),Mathf.Lerp(1.1f,.82f,severity));
         void OnPower(RushPowerUpType type,float duration)=>Play(powerUp,.9f,type==RushPowerUpType.Overdrive?1.25f:1f);
