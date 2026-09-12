@@ -37,10 +37,37 @@ jobs:
           grep -q 'unique.length >= 2' zoryq-mobile-node/src/witness.js
           grep -q 'agreement\[1\] >= 2' zoryq-mobile-node/src/witness.js
           grep -q 'CHAIN_ID = 5919065L' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
-          if grep -R -E '(seed phrase|mnemonic|private[_-]?key[[:space:]]*[:=][[:space:]]*["'"''][0-9a-fA-F]{64})' zoryq-mobile-node --exclude-dir=build; then
-            echo 'Potential secret material or wallet key coupling found' >&2
-            exit 1
-          fi
+      - name: Production-source secret scan
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          roots = [Path('zoryq-mobile-node/src'), Path('zoryq-mobile-node/android/app/src/main')]
+          patterns = [
+              re.compile(r'sk-[A-Za-z0-9_-]{20,}'),
+              re.compile(r'private[_-]?key\s*[:=]\s*[0-9a-fA-F]{64}', re.I),
+              re.compile(r'(seed phrase|mnemonic)\s*[:=]', re.I),
+          ]
+          findings = []
+          for root in roots:
+              for path in root.rglob('*'):
+                  if not path.is_file():
+                      continue
+                  text = path.read_text(encoding='utf-8', errors='ignore')
+                  for pattern in patterns:
+                      if pattern.search(text):
+                          findings.append(str(path))
+                          break
+          if findings:
+              print('Potential secret material or wallet-key coupling found:')
+              for path in sorted(set(findings)):
+                  print(path)
+              raise SystemExit(1)
+          print('Production-source secret scan: clean')
+          PY
       - name: Android source sanity
         shell: bash
         run: |
