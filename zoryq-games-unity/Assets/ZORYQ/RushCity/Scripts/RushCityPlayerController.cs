@@ -33,6 +33,10 @@ namespace Zoryq.Play.RushCity
         float _defaultHeight;
         Vector3 _defaultCenter;
 
+        public int Lane => _lane;
+        public bool IsSliding => _sliding;
+        public bool IsWallRunning => _wallRunning;
+
         void Awake()
         {
             _controller = GetComponent<CharacterController>();
@@ -79,13 +83,19 @@ namespace Zoryq.Play.RushCity
             else StartCoroutine(Slide());
         }
 
-        void ChangeLane(int direction) => _lane = Mathf.Clamp(_lane + direction, 0, 2);
+        void ChangeLane(int direction)
+        {
+            var before=_lane;
+            _lane = Mathf.Clamp(_lane + direction, 0, 2);
+            if(_lane!=before) RushCityTelemetry.Instance?.LaneChange();
+        }
 
         void Jump()
         {
             if (_controller.isGrounded)
             {
                 _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                RushCityTelemetry.Instance?.Jump();
                 return;
             }
             TryWallRun();
@@ -104,6 +114,7 @@ namespace Zoryq.Play.RushCity
         {
             _wallRunning = true;
             _verticalVelocity = 1.2f;
+            RushCityTelemetry.Instance?.WallRun();
             RushCityGameManager.Instance?.RegisterCleanParkour();
             yield return new WaitForSeconds(wallRunDuration);
             _wallRunning = false;
@@ -113,6 +124,7 @@ namespace Zoryq.Play.RushCity
         {
             if (_sliding || !_controller.isGrounded) yield break;
             _sliding = true;
+            RushCityTelemetry.Instance?.Slide();
             _controller.height = _defaultHeight * .48f;
             _controller.center = new Vector3(_defaultCenter.x, _defaultCenter.y * .48f, _defaultCenter.z);
             yield return new WaitForSeconds(slideDuration);
