@@ -1,19 +1,233 @@
 <!doctype html>
 <html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#070a10"><title>ZORYQ AI App Factory</title><meta name="description" content="Descreva um aplicativo e receba uma versão utilizável no PC e Android."><link rel="stylesheet" href="/styles.css"><style>
-:root{--bg:#070a10;--panel:#101827;--line:#263951;--muted:#91a5bd;--ok:#48dc97;--lime:#dfff00;--bad:#ff7474}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 88% 8%,rgba(166,43,255,.18),transparent 27%),radial-gradient(circle at 8% 92%,rgba(0,255,184,.08),transparent 24%),var(--bg);color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;min-height:100vh}.shell{width:min(1180px,calc(100% - 24px));margin:auto}.top{padding:22px 0;display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font-weight:900}.mark{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#5b5bff,#ef35c7,#ff9b37);box-shadow:0 0 28px rgba(198,52,255,.28)}.pill{display:inline-block;border:1px solid #33465f;border-radius:999px;padding:5px 9px;font-size:11px;color:#a9bdd4}.hero{padding:36px 0 22px}.hero h1{font-size:clamp(46px,7vw,78px);line-height:.96;max-width:960px;margin:10px 0}.hero p{color:var(--muted);font-size:18px;max-width:850px}.grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:16px;padding-bottom:48px}.card{border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,rgba(16,24,39,.97),rgba(8,14,23,.97));padding:20px}.card h2{font-size:30px;margin:0 0 12px}.input{width:100%;padding:13px;border:1px solid #2b3c54;border-radius:12px;background:#080f19;color:#fff;margin:6px 0}.textarea{min-height:145px;resize:vertical}.row{display:flex;gap:9px;flex-wrap:wrap}.btn{appearance:none;border:1px solid #33465f;background:#152033;color:#fff;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer;text-decoration:none}.btn.primary{border:0;background:linear-gradient(100deg,#8c4ee8,#e53eb4,#ff9f37);box-shadow:0 0 20px rgba(211,54,192,.18)}.btn.success{border-color:#2e6d54;background:#0b2a20}.btn:disabled{opacity:.45;cursor:not-allowed}.muted{color:var(--muted)}.ok{color:var(--ok)}.bad{color:var(--bad)}.steps{display:grid;gap:8px;margin:16px 0}.step{border:1px solid var(--line);border-radius:13px;background:#0a111b;padding:11px;display:flex;align-items:center;gap:10px}.dot{width:10px;height:10px;border-radius:50%;background:#506178}.dot.on{background:var(--ok);box-shadow:0 0 14px var(--ok)}.preview{border:1px solid #34445d;border-radius:18px;overflow:hidden;background:#05080d;height:590px}.preview iframe{border:0;width:100%;height:100%;background:#070a10}.result{border:1px solid #2d5f4e;border-radius:17px;background:#08130f;padding:16px;margin-top:14px}.result h3{margin:0 0 5px;font-size:24px}.output-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.output{border:1px solid #2d415b;border-radius:14px;padding:13px;background:#0a111b}.output small{display:block;color:#8195ae;margin-bottom:7px}.switch{display:flex;align-items:center;gap:9px;margin:14px 0;border:1px solid #2d3f57;border-radius:13px;padding:11px}.switch input{width:20px;height:20px}.advanced{margin-top:13px}.advanced summary{cursor:pointer;color:#9fb3c9}.code{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;border:1px solid #273951;background:#070c13;border-radius:12px;padding:12px;max-height:260px;overflow:auto}.notice{border:1px solid #4b4424;background:#17150b;border-radius:13px;padding:11px;color:#e6d99a;font-size:13px}.msg{min-height:24px;color:#a1b3c8;margin-top:8px}@media(max-width:900px){.grid{grid-template-columns:1fr}.preview{height:700px}}@media(max-width:560px){.output-grid{grid-template-columns:1fr}.top nav{display:none}.card{padding:16px}.hero{padding-top:16px}.preview{height:760px}}
-</style></head>
-<body><div class="shell"><header class="top"><a class="brand" href="/start"><span class="mark">Z</span><span>ZORYQ</span><span class="pill">AI APP FACTORY</span></a><nav class="row"><a class="btn" href="/start">Chain Console</a><a class="btn" href="/explorer">Explorer</a></nav></header><section class="hero"><span class="pill">PROMPT → APP WEB → ANDROID APK</span><h1>Descreva. A ZORYQ entrega o aplicativo.</h1><p>Não termina em código. Você descreve o que precisa e recebe uma aplicação utilizável, com link para PC e um APK Android. Quando fizer sentido, a aplicação também pode registrar uma prova resumida na ZORYQ Testnet.</p></section><section class="grid"><div class="card"><h2>1 · O que você quer criar?</h2><textarea id="prompt" class="input textarea" placeholder="Ex.: Crie um aplicativo de controle de estoque onde eu cadastro produto, quantidade e preço e vejo o total em estoque."></textarea><div class="row"><button id="generate" class="btn primary">✨ Criar aplicativo</button><button id="stockExample" class="btn">Exemplo estoque</button><button id="budgetExample" class="btn">Exemplo orçamento</button></div><label class="switch"><input id="chain" type="checkbox" checked><span><b>Adicionar prova on-chain ZORYQ</b><br><small class="muted">O app continua utilizável normalmente; a blockchain registra apenas um resumo numérico opcional.</small></span></label><div id="msg" class="msg">Aguardando sua ideia.</div><div class="steps"><div class="step"><i id="s1" class="dot"></i>Entender o objetivo</div><div class="step"><i id="s2" class="dot"></i>Montar interface e lógica</div><div class="step"><i id="s3" class="dot"></i>Preparar aplicação Web</div><div class="step"><i id="s4" class="dot"></i>Preparar experiência Android</div></div><div id="result" class="result" hidden><h3 id="resultName">App concluído</h3><p id="resultDesc" class="muted"></p><div class="output-grid"><div class="output"><small>💻 PC / WEB</small><button id="openPc" class="btn success">Abrir aplicativo</button></div><div class="output"><small>📱 ANDROID</small><button id="downloadApk" class="btn primary">Baixar APK</button></div><div class="output"><small>📲 ABRIR NO APP ZORYQ</small><button id="openAndroid" class="btn">Abrir no Android</button></div><div class="output"><small>🔗 COMPARTILHAR</small><button id="copyLink" class="btn">Copiar link</button></div></div><p id="apkInfo" class="muted" style="font-size:12px"></p><details class="advanced"><summary>Avançado · ver especificação</summary><pre id="specOut" class="code"></pre></details></div><div class="notice" style="margin-top:14px"><b>Versão atual:</b> o Factory escolhe modelos seguros de aplicação (orçamento, estoque, tarefas, CRM e registros gerais). Ele não afirma que qualquer código ou smart contract arbitrário gerado por IA foi auditado.</div></div><div class="card"><h2>2 · Preview utilizável</h2><div id="emptyPreview" class="muted">Crie um aplicativo para abrir a versão funcional aqui.</div><div id="preview" class="preview" hidden><iframe id="frame" title="Preview do aplicativo"></iframe></div></div></section></div>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070a10">
+<title>ZORYQ AI App Factory</title>
+<meta name="description" content="Descreva um aplicativo e receba uma experiência utilizável no PC e Android.">
+<link rel="stylesheet" href="/styles.css">
+<style>
+:root{--bg:#070a10;--panel:#101827;--line:#263951;--muted:#91a5bd;--ok:#48dc97;--lime:#dfff00;--bad:#ff7474;--cyan:#49dff7}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 88% 8%,rgba(166,43,255,.18),transparent 27%),radial-gradient(circle at 8% 92%,rgba(0,255,184,.08),transparent 24%),var(--bg);color:#fff;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;min-height:100vh}.shell{width:min(1220px,calc(100% - 24px));margin:auto}.top{padding:22px 0;display:flex;justify-content:space-between;align-items:center;gap:12px}.brand{display:flex;align-items:center;gap:10px;color:#fff;text-decoration:none;font-weight:900}.mark{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(135deg,#5b5bff,#ef35c7,#ff9b37);box-shadow:0 0 28px rgba(198,52,255,.28)}.pill{display:inline-block;border:1px solid #33465f;border-radius:999px;padding:5px 9px;font-size:11px;color:#a9bdd4}.hero{padding:34px 0 20px}.hero h1{font-size:clamp(46px,7vw,78px);line-height:.96;max-width:980px;margin:10px 0}.hero p{color:var(--muted);font-size:18px;max-width:900px}.grid{display:grid;grid-template-columns:.92fr 1.08fr;gap:16px;padding-bottom:48px}.card{border:1px solid var(--line);border-radius:22px;background:linear-gradient(145deg,rgba(16,24,39,.97),rgba(8,14,23,.97));padding:20px}.card h2{font-size:30px;margin:0 0 12px}.input{width:100%;padding:13px;border:1px solid #2b3c54;border-radius:12px;background:#080f19;color:#fff;margin:6px 0}.textarea{min-height:154px;resize:vertical}.row{display:flex;gap:9px;flex-wrap:wrap}.btn{appearance:none;border:1px solid #33465f;background:#152033;color:#fff;border-radius:12px;padding:11px 14px;font-weight:800;cursor:pointer;text-decoration:none}.btn.primary{border:0;background:linear-gradient(100deg,#8c4ee8,#e53eb4,#ff9f37);box-shadow:0 0 20px rgba(211,54,192,.18)}.btn.success{border-color:#2e6d54;background:#0b2a20}.btn:disabled{opacity:.45;cursor:not-allowed}.muted{color:var(--muted)}.ok{color:var(--ok)}.bad{color:var(--bad)}.cyan{color:var(--cyan)}.steps{display:grid;gap:8px;margin:16px 0}.step{border:1px solid var(--line);border-radius:13px;background:#0a111b;padding:11px;display:flex;align-items:center;gap:10px}.dot{width:10px;height:10px;border-radius:50%;background:#506178}.dot.on{background:var(--ok);box-shadow:0 0 14px var(--ok)}.preview{border:1px solid #34445d;border-radius:18px;overflow:hidden;background:#05080d;height:650px}.preview iframe{border:0;width:100%;height:100%;background:#070a10}.result{border:1px solid #2d5f4e;border-radius:17px;background:#08130f;padding:16px;margin-top:14px}.result h3{margin:0 0 5px;font-size:24px}.output-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}.output{border:1px solid #2d415b;border-radius:14px;padding:13px;background:#0a111b}.output small{display:block;color:#8195ae;margin-bottom:7px}.switch{display:flex;align-items:center;gap:9px;margin:14px 0;border:1px solid #2d3f57;border-radius:13px;padding:11px}.switch input{width:20px;height:20px}.advanced{margin-top:13px}.advanced summary{cursor:pointer;color:#9fb3c9}.code{white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;border:1px solid #273951;background:#070c13;border-radius:12px;padding:12px;max-height:300px;overflow:auto}.notice{border:1px solid #4b4424;background:#17150b;border-radius:13px;padding:11px;color:#e6d99a;font-size:13px}.msg{min-height:24px;color:#a1b3c8;margin-top:8px}.mode{border:1px solid #294864;background:#07141d;border-radius:13px;padding:11px;color:#a8dff0;font-size:13px;margin:10px 0}.chips{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.chip{border:1px solid #35506d;border-radius:999px;padding:5px 9px;font-size:11px;color:#bad0e6;background:#0b1420}@media(max-width:900px){.grid{grid-template-columns:1fr}.preview{height:760px}}@media(max-width:560px){.output-grid{grid-template-columns:1fr}.top nav{display:none}.card{padding:16px}.hero{padding-top:16px}.preview{height:820px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header class="top">
+  <a class="brand" href="/start"><span class="mark">Z</span><span>ZORYQ</span><span class="pill">AI APP FACTORY</span></a>
+  <nav class="row"><a class="btn" href="/start">Chain Console</a><a class="btn" href="/explorer">Explorer</a></nav>
+</header>
+
+<section class="hero">
+  <span class="pill">PROMPT → APP REAL → WEB → ANDROID</span>
+  <h1>Descreva. A ZORYQ monta a experiência utilizável.</h1>
+  <p>O resultado principal é um aplicativo funcionando. A versão experimental v0.1 já compila pedidos multi-módulo para uma especificação executável, gera preview, link Web e experiência Android. Blockchain continua opcional e só entra quando agrega valor.</p>
+</section>
+
+<section class="grid">
+<div class="card">
+  <h2>1 · O que você quer criar?</h2>
+  <div id="evolveBox" class="mode" hidden></div>
+  <textarea id="prompt" class="input textarea" placeholder="Ex.: Crie um sistema para condomínio com cadastro de moradores, encomendas, reservas, ocorrências e notificações."></textarea>
+  <div class="row">
+    <button id="generate" class="btn primary">✨ Criar aplicativo</button>
+    <button id="condoExample" class="btn">Exemplo condomínio</button>
+    <button id="stockExample" class="btn">Estoque</button>
+    <button id="budgetExample" class="btn">Orçamento</button>
+  </div>
+  <label class="switch"><input id="chain" type="checkbox" checked><span><b>Adicionar prova on-chain ZORYQ</b><br><small class="muted">Os dados detalhados permanecem no app; a Testnet registra apenas uma prova-resumo opcional.</small></span></label>
+  <div id="msg" class="msg">Aguardando sua ideia.</div>
+  <div class="steps">
+    <div class="step"><i id="s1" class="dot"></i>Entender objetivo e domínio</div>
+    <div class="step"><i id="s2" class="dot"></i>Compilar módulos, campos e regras</div>
+    <div class="step"><i id="s3" class="dot"></i>Montar aplicação e armazenamento</div>
+    <div class="step"><i id="s4" class="dot"></i>Preparar Web e Android</div>
+  </div>
+  <div id="result" class="result" hidden>
+    <h3 id="resultName">App concluído</h3>
+    <p id="resultDesc" class="muted"></p>
+    <div id="moduleChips" class="chips"></div>
+    <div class="output-grid">
+      <div class="output"><small>💻 PC / WEB</small><button id="openPc" class="btn success">Abrir aplicativo</button></div>
+      <div class="output"><small>📱 ANDROID</small><button id="downloadApk" class="btn primary">Baixar APK</button></div>
+      <div class="output"><small>📲 ABRIR NO ZORYQ APPS</small><button id="openAndroid" class="btn">Abrir no Android</button></div>
+      <div class="output"><small>🔗 COMPARTILHAR</small><button id="copyLink" class="btn">Copiar link</button></div>
+      <div class="output"><small>🧠 EVOLUIR</small><button id="evolveBtn" class="btn">Evoluir por novo prompt</button></div>
+    </div>
+    <p id="apkInfo" class="muted" style="font-size:12px"></p>
+    <details class="advanced"><summary>Avançado · ver especificação executável</summary><pre id="specOut" class="code"></pre></details>
+  </div>
+  <div class="notice" style="margin-top:14px"><b>Evidence-first:</b> esta versão é um compilador experimental de requisitos + runtime orientado por schema. Ela não afirma geração arbitrária universal, backend dinâmico, autenticação completa, APK exclusivo por prompt ou contratos auditados.</div>
+</div>
+
+<div class="card">
+  <h2>2 · Preview utilizável</h2>
+  <div id="emptyPreview" class="muted">Crie um aplicativo para abrir a versão funcional aqui.</div>
+  <div id="preview" class="preview" hidden><iframe id="frame" title="Preview do aplicativo"></iframe></div>
+</div>
+</section>
+</div>
+
 <script>
 const BASE='https://zoryq-evm-node-live-production.up.railway.app';
 const APK_B64='__APK_BASE64__';
 const APK_SHA='__APK_SHA256__';
-const $=id=>document.getElementById(id);let currentSpec=null,currentUrl='';
-function slugify(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,36)||'app'}
+const $=id=>document.getElementById(id);
+let currentSpec=null,currentUrl='',baseSpec=null;
+
+function slugify(s){return s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,42)||'app'}
 function titleCase(s){return s.replace(/\s+/g,' ').trim().split(' ').slice(0,7).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ')}
-function classify(p){const t=p.toLowerCase();if(/estoque|stock|invent[aá]rio|produto|mercadoria/.test(t))return{template:'inventory',name:'Controle de Estoque',description:'Cadastre produtos, quantidades e preços e acompanhe o estoque de forma simples.'};if(/orçament|orcament|budget|receita|despesa|financeir/.test(t))return{template:'budget',name:'Previsão Orçamentária',description:'Registre receitas, despesas e reserva e acompanhe o saldo projetado.'};if(/tarefa|to-?do|checklist|atividade|agenda/.test(t))return{template:'tasks',name:'Gestor de Tarefas',description:'Cadastre tarefas, defina prioridade e acompanhe o que já foi concluído.'};if(/crm|cliente|contato|lead|vendas/.test(t))return{template:'crm',name:'Mini CRM',description:'Cadastre clientes, contatos, status e observações em um painel simples.'};let words=p.replace(/[^\p{L}\p{N} ]/gu,' ').trim().split(/\s+/).filter(w=>w.length>3).slice(0,5).join(' ');return{template:'generic',name:words?titleCase(words):'Meu Aplicativo',description:'Aplicativo de registros criado a partir da sua descrição.'}}
-function encodeSpec(o){const bytes=new TextEncoder().encode(JSON.stringify(o));let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
-function build(){const prompt=$('prompt').value.trim();if(prompt.length<8){$('msg').innerHTML='<span class="bad">Descreva melhor o aplicativo que você quer criar.</span>';return}const c=classify(prompt);const id=slugify(c.name)+'-'+Date.now().toString(36);currentSpec={v:1,id,name:c.name,description:c.description,template:c.template,chain:$('chain').checked,prompt,generatedAt:new Date().toISOString(),runtime:'zoryq-universal-app-v1'};currentUrl=BASE+'/project-launch#app='+encodeSpec(currentSpec);$('msg').textContent='Construindo interface, lógica e runtime…';['s1','s2','s3','s4'].forEach((id,i)=>setTimeout(()=>$(id).classList.add('on'),120+i*110));setTimeout(()=>{ $('result').hidden=false;$('resultName').textContent='✅ '+currentSpec.name+' concluído';$('resultDesc').textContent=currentSpec.description;$('specOut').textContent=JSON.stringify(currentSpec,null,2);$('emptyPreview').hidden=true;$('preview').hidden=false;$('frame').src=currentUrl;$('msg').innerHTML='<span class="ok">Aplicativo pronto para usar.</span> Abra no PC ou instale o APK no Android.';$('apkInfo').textContent=APK_B64.startsWith('__')?'APK Runner: aguardando pacote da compilação atual.':'APK Runner verificado · SHA-256 '+APK_SHA;},600)}
-function downloadApk(){if(APK_B64.startsWith('__')){alert('O APK desta versão ainda está sendo publicado. Tente novamente em alguns instantes.');return}const raw=atob(APK_B64),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);const blob=new Blob([bytes],{type:'application/vnd.android.package-archive'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ZORYQ-App-Runner.apk';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)}
-$('generate').onclick=build;$('stockExample').onclick=()=>{$('prompt').value='Crie um aplicativo de controle de estoque onde eu cadastro produto, quantidade e preço e vejo o total em estoque.'};$('budgetExample').onclick=()=>{$('prompt').value='Crie um aplicativo de previsão orçamentária onde informo receitas, despesas fixas, variáveis e reserva planejada.'};$('openPc').onclick=()=>currentUrl&&window.open(currentUrl,'_blank','noopener');$('copyLink').onclick=async()=>{if(currentUrl){await navigator.clipboard.writeText(currentUrl);$('msg').innerHTML='<span class="ok">Link copiado.</span>'}};$('downloadApk').onclick=downloadApk;$('openAndroid').onclick=()=>{if(!currentUrl)return;location.href='zoryqapp://open?url='+encodeURIComponent(currentUrl);setTimeout(()=>{$('msg').textContent='Se o ZORYQ Apps ainda não estiver instalado, baixe o APK e instale-o primeiro.'},900)};const q=new URLSearchParams(location.search).get('prompt');if(q){$('prompt').value=q;setTimeout(build,200)}
-</script></body></html>
+function enc(o){const bytes=new TextEncoder().encode(JSON.stringify(o));let bin='';bytes.forEach(b=>bin+=String.fromCharCode(b));return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function dec(raw){try{const b64=raw.replace(/-/g,'+').replace(/_/g,'/'),pad='='.repeat((4-b64.length%4)%4),bytes=Uint8Array.from(atob(b64+pad),c=>c.charCodeAt(0));return JSON.parse(new TextDecoder().decode(bytes))}catch{return null}}
+const field=(id,label,type='text',extra={})=>({id,label,type,...extra});
+const moduleDef=(id,label,icon,fields,extra={})=>({id,label,icon,fields,...extra});
+
+function condoModules(){
+  return [
+    moduleDef('residents','Moradores','👤',[
+      field('name','Nome completo','text',{required:true}),
+      field('unit','Unidade / apartamento','text',{required:true}),
+      field('phone','Telefone','tel'),
+      field('email','E-mail','email'),
+      field('status','Status','select',{options:['Ativo','Inativo']})
+    ],{titleField:'name',subtitleFields:['unit','phone']}),
+    moduleDef('packages','Encomendas','📦',[
+      field('residentId','Morador','relation',{required:true,source:'residents',labelField:'name'}),
+      field('carrier','Transportadora / origem','text'),
+      field('code','Código / identificação','text'),
+      field('receivedAt','Recebida em','datetime-local',{required:true}),
+      field('status','Status','select',{options:['Aguardando retirada','Entregue']})
+    ],{titleField:'carrier',subtitleFields:['status','receivedAt']}),
+    moduleDef('reservations','Reservas','📅',[
+      field('residentId','Morador','relation',{required:true,source:'residents',labelField:'name'}),
+      field('resource','Local','select',{required:true,options:['Quiosque 01','Quiosque 02','Área de lazer','Outro']}),
+      field('date','Data','date',{required:true}),
+      field('time','Horário','time',{required:true}),
+      field('status','Status','select',{options:['Confirmada','Cancelada']})
+    ],{titleField:'resource',subtitleFields:['date','time'],uniqueTogether:['resource','date','time']}),
+    moduleDef('incidents','Ocorrências','⚠️',[
+      field('residentId','Morador relacionado','relation',{source:'residents',labelField:'name',allowEmpty:true}),
+      field('category','Categoria','select',{required:true,options:['Barulho','Estacionamento','Área comum','Segurança','Outros']}),
+      field('description','Descrição','textarea',{required:true}),
+      field('status','Status','select',{options:['Aberta','Em análise','Resolvida']}),
+      field('createdOn','Data','date',{required:true})
+    ],{titleField:'category',subtitleFields:['status','createdOn']}),
+    moduleDef('notifications','Notificações','🔔',[
+      field('residentId','Destinatário','relation',{source:'residents',labelField:'name',allowEmpty:true,emptyLabel:'Todos os moradores'}),
+      field('title','Título','text',{required:true}),
+      field('message','Mensagem','textarea',{required:true}),
+      field('status','Status','select',{options:['Rascunho','Pronta']})
+    ],{titleField:'title',subtitleFields:['status']})
+  ];
+}
+function stockModule(){return [moduleDef('inventory','Estoque','📦',[field('name','Produto','text',{required:true}),field('qty','Quantidade','number',{required:true,min:0}),field('price','Preço unitário','number',{min:0,step:'0.01'}),field('category','Categoria','text')],{titleField:'name',subtitleFields:['qty','price']})]}
+function budgetModule(){return [moduleDef('budget','Orçamento','💰',[field('name','Período / cenário','text',{required:true}),field('income','Receita','number',{required:true}),field('fixed','Despesas fixas','number',{required:true}),field('variable','Despesas variáveis','number',{required:true}),field('reserve','Reserva planejada','number')],{titleField:'name',subtitleFields:['income','fixed']})]}
+function taskModule(){return [moduleDef('tasks','Tarefas','✅',[field('title','Tarefa','text',{required:true}),field('priority','Prioridade','select',{options:['Baixa','Média','Alta']}),field('due','Prazo','date'),field('status','Status','select',{options:['Aberta','Em andamento','Concluída']})],{titleField:'title',subtitleFields:['priority','status']})]}
+function crmModule(){return [moduleDef('clients','Clientes','🤝',[field('name','Cliente','text',{required:true}),field('contact','Contato','text'),field('status','Status','select',{options:['Novo','Em contato','Ativo','Concluído']}),field('notes','Observações','textarea')],{titleField:'name',subtitleFields:['contact','status']})]}
+function vehiclesModule(){return moduleDef('vehicles','Veículos','🚗',[field('residentId','Morador','relation',{source:'residents',labelField:'name'}),field('plate','Placa','text',{required:true}),field('model','Modelo','text'),field('color','Cor','text'),field('space','Vaga','text')],{titleField:'plate',subtitleFields:['model','space']})}
+function visitorsModule(){return moduleDef('visitors','Visitantes','🪪',[field('residentId','Morador responsável','relation',{source:'residents',labelField:'name'}),field('name','Nome','text',{required:true}),field('document','Documento','text'),field('entryAt','Entrada prevista','datetime-local'),field('status','Status','select',{options:['Previsto','Entrou','Saiu']})],{titleField:'name',subtitleFields:['status','entryAt']})}
+function petsModule(){return moduleDef('pets','Pets','🐾',[field('residentId','Morador','relation',{source:'residents',labelField:'name'}),field('name','Nome do pet','text',{required:true}),field('species','Espécie','text'),field('notes','Observações','textarea')],{titleField:'name',subtitleFields:['species']})}
+
+function genericFromPrompt(p){
+  let words=p.replace(/[^\p{L}\p{N} ]/gu,' ').trim().split(/\s+/).filter(w=>w.length>3).slice(0,5).join(' ');
+  const name=words?titleCase(words):'Meu Aplicativo';
+  return {name,description:'Aplicativo experimental gerado a partir da sua descrição.',modules:[moduleDef('records','Registros','🗂️',[field('title','Título','text',{required:true}),field('value','Valor','text'),field('notes','Observação','textarea'),field('status','Status','select',{options:['Novo','Ativo','Concluído']})],{titleField:'title',subtitleFields:['status']})]};
+}
+
+function compileRequirements(prompt,previous){
+  const t=prompt.toLowerCase();
+  let result;
+  if(previous){
+    result=JSON.parse(JSON.stringify(previous));
+    result.version=(Number(result.version)||1)+1;
+    result.evolutionPrompt=prompt;
+    result.updatedAt=new Date().toISOString();
+    result.chain=$('chain').checked;
+    result.modules=Array.isArray(result.modules)?result.modules:[];
+    const has=id=>result.modules.some(m=>m.id===id);
+    if(/ve[ií]cul|carro|placa|vaga/.test(t)&&!has('vehicles'))result.modules.push(vehiclesModule());
+    if(/visitante|visita|convidado/.test(t)&&!has('visitors'))result.modules.push(visitorsModule());
+    if(/\bpet\b|animal|cachorro|gato/.test(t)&&!has('pets'))result.modules.push(petsModule());
+    if(/morador|encomenda|reserva|ocorr[eê]ncia|notifica/.test(t)&&!has('residents'))result.modules.push(...condoModules());
+    if(/tarefa|checklist|atividade/.test(t)&&!has('tasks'))result.modules.push(...taskModule());
+    if(/cliente|crm|lead/.test(t)&&!has('clients'))result.modules.push(...crmModule());
+    result.modules=result.modules.filter((m,i,a)=>a.findIndex(x=>x.id===m.id)===i);
+    result.description=`${result.description||'Aplicativo ZORYQ'} Evolução v${result.version}: ${prompt}`;
+    return result;
+  }
+
+  if(/condom[ií]nio|morador|encomenda|reserva|ocorr[eê]ncia/.test(t)){
+    result={name:'Gestão de Condomínio',description:'Sistema multi-módulo com moradores, encomendas, reservas, ocorrências e notificações.',modules:condoModules(),domain:'condominium'};
+  }else if(/estoque|stock|invent[aá]rio|produto|mercadoria/.test(t)){
+    result={name:'Controle de Estoque',description:'Cadastre produtos, quantidades e preços em um painel utilizável.',modules:stockModule(),domain:'inventory'};
+  }else if(/orçament|orcament|budget|receita|despesa|financeir/.test(t)){
+    result={name:'Previsão Orçamentária',description:'Registre cenários de receita e despesas e acompanhe projeções.',modules:budgetModule(),domain:'budget'};
+  }else if(/tarefa|to-?do|checklist|atividade|agenda/.test(t)){
+    result={name:'Gestor de Tarefas',description:'Organize tarefas, prioridades, prazos e status.',modules:taskModule(),domain:'tasks'};
+  }else if(/crm|cliente|contato|lead|vendas/.test(t)){
+    result={name:'Mini CRM',description:'Cadastre clientes, contatos, status e observações.',modules:crmModule(),domain:'crm'};
+  }else result=genericFromPrompt(prompt);
+
+  if(/ve[ií]cul|carro|placa|vaga/.test(t)&&result.modules.some(m=>m.id==='residents'))result.modules.push(vehiclesModule());
+  if(/visitante|visita|convidado/.test(t)&&result.modules.some(m=>m.id==='residents'))result.modules.push(visitorsModule());
+  if(/\bpet\b|animal|cachorro|gato/.test(t)&&result.modules.some(m=>m.id==='residents'))result.modules.push(petsModule());
+
+  return {
+    v:2,
+    version:1,
+    id:slugify(result.name)+'-'+Date.now().toString(36),
+    name:result.name,
+    description:result.description,
+    domain:result.domain||'generic',
+    modules:result.modules,
+    chain:$('chain').checked,
+    prompt,
+    generatedAt:new Date().toISOString(),
+    runtime:'zoryq-schema-runtime-v2',
+    status:'experimental'
+  };
+}
+
+function build(){
+  const prompt=$('prompt').value.trim();
+  if(prompt.length<8){$('msg').innerHTML='<span class="bad">Descreva melhor o aplicativo que você quer criar.</span>';return}
+  currentSpec=compileRequirements(prompt,baseSpec);
+  currentUrl=BASE+'/project-launch#app='+enc(currentSpec);
+  $('msg').textContent=baseSpec?'Evoluindo o aplicativo sem trocar o ID dos dados…':'Compilando requisitos em módulos, campos e regras…';
+  ['s1','s2','s3','s4'].forEach((id,i)=>setTimeout(()=>$(id).classList.add('on'),120+i*130));
+  setTimeout(()=>{
+    $('result').hidden=false;
+    $('resultName').textContent='✅ '+currentSpec.name+' pronto';
+    $('resultDesc').textContent=currentSpec.description;
+    $('moduleChips').innerHTML=currentSpec.modules.map(m=>`<span class="chip">${m.icon||'•'} ${m.label}</span>`).join('');
+    $('specOut').textContent=JSON.stringify(currentSpec,null,2);
+    $('emptyPreview').hidden=true;$('preview').hidden=false;$('frame').src=currentUrl;
+    $('msg').innerHTML=`<span class="ok">Aplicativo executável gerado.</span> <span class="cyan">${currentSpec.modules.length} módulo(s)</span> · runtime schema v2.`;
+    $('apkInfo').textContent=APK_B64.startsWith('__')?'APK Runner: aguardando pacote da compilação atual.':'APK Runner verificado · SHA-256 '+APK_SHA;
+    baseSpec=currentSpec;
+  },700);
+}
+function downloadApk(){
+  if(APK_B64.startsWith('__')){alert('O APK desta versão ainda está sendo publicado. Tente novamente em alguns instantes.');return}
+  const raw=atob(APK_B64),bytes=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)bytes[i]=raw.charCodeAt(i);
+  const blob=new Blob([bytes],{type:'application/vnd.android.package-archive'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ZORYQ-App-Runner.apk';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1500)
+}
+
+$('generate').onclick=build;
+$('condoExample').onclick=()=>{$('prompt').value='Crie um sistema para condomínio com cadastro de moradores, encomendas, reservas, ocorrências e notificações.'};
+$('stockExample').onclick=()=>{$('prompt').value='Crie um aplicativo de controle de estoque onde eu cadastro produto, quantidade e preço e vejo o total em estoque.'};
+$('budgetExample').onclick=()=>{$('prompt').value='Crie um aplicativo de previsão orçamentária onde informo receitas, despesas fixas, variáveis e reserva planejada.'};
+$('openPc').onclick=()=>currentUrl&&window.open(currentUrl,'_blank','noopener');
+$('copyLink').onclick=async()=>{if(currentUrl){await navigator.clipboard.writeText(currentUrl);$('msg').innerHTML='<span class="ok">Link copiado.</span>'}};
+$('downloadApk').onclick=downloadApk;
+$('openAndroid').onclick=()=>{if(!currentUrl)return;location.href='zoryqapp://open?url='+encodeURIComponent(currentUrl);setTimeout(()=>{$('msg').textContent='Se o ZORYQ Apps ainda não estiver instalado, baixe o APK primeiro.'},900)};
+$('evolveBtn').onclick=()=>{if(!currentSpec)return;const u=BASE+'/launch-studio?evolve='+encodeURIComponent(enc(currentSpec));location.href=u};
+
+const qs=new URLSearchParams(location.search);
+const q=qs.get('prompt'),e=qs.get('evolve');
+if(e){baseSpec=dec(e);if(baseSpec){$('evolveBox').hidden=false;$('evolveBox').innerHTML=`🧠 <b>Evoluindo:</b> ${baseSpec.name||'aplicativo'} · versão ${baseSpec.version||1}. Descreva o que deseja adicionar ou alterar.`;$('prompt').placeholder='Ex.: adicione cadastro de veículos e visitantes';$('chain').checked=!!baseSpec.chain}}
+if(q){$('prompt').value=q;setTimeout(build,200)}
+</script>
+</body>
+</html>
