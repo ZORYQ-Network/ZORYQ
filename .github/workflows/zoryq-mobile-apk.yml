@@ -112,11 +112,19 @@ jobs:
           NODE_ENV: 'production'
         run: ./gradlew :app:assembleRelease --no-daemon
 
-      - name: Verify JS bundle is packaged
+      - name: Verify correct social experience is packaged
         run: |
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
           test -n "$APK"
           unzip -l "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' >/dev/null
+          BUNDLE=$(unzip -Z1 "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' | head -n 1)
+          test -n "$BUNDLE"
+          unzip -p "$APK" "$BUNDLE" > /tmp/zoriq-index.android.bundle
+          grep -F 'Jogo da Velha' /tmp/zoriq-index.android.bundle >/dev/null
+          grep -F 'ZORIQ MINI GAMES' /tmp/zoriq-index.android.bundle >/dev/null
+          grep -F 'Alterar foto de perfil' /tmp/zoriq-index.android.bundle >/dev/null
+          grep -F '$ Enviar cripto' /tmp/zoriq-index.android.bundle >/dev/null
+          grep -F 'Acesse tudo por uma coluna simples e retrátil.' /tmp/zoriq-index.android.bundle >/dev/null
 
       - name: Package artifact
         run: |
