@@ -14,7 +14,7 @@ permissions:
 jobs:
   obep-proof:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
@@ -36,6 +36,23 @@ jobs:
         run: |
           node zoryq-developer/obep/proof-fixture.mjs > zoryq-evidence/obep/proof-pack.json
           node zoryq-developer/obep/verify-proof-pack.mjs zoryq-evidence/obep/proof-pack.json | tee zoryq-evidence/obep/verification.txt
+
+      - name: Install live-proof verification dependency
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --package-lock=false ethers@6.15.0
+
+      - name: Generate live ZORYQ Testnet OBEP economic proof
+        env:
+          ZORYQ_PUBLIC_BASE_URL: https://zoryq-evm-node-live-production.up.railway.app
+        run: |
+          set -o pipefail
+          node zoryq-developer/obep/live-proof.mjs zoryq-evidence/obep/live-proof.json | tee zoryq-evidence/obep/live-proof-generation.txt
+
+      - name: Independently re-verify live proof from public RPC
+        run: |
+          set -o pipefail
+          node zoryq-developer/obep/verify-live-proof.mjs zoryq-evidence/obep/live-proof.json | tee zoryq-evidence/obep/live-proof-verification.txt
 
       - name: Upload OBEP evidence
         if: always()
