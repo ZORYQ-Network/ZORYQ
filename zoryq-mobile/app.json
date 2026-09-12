@@ -3,10 +3,15 @@
     "name": "ZORIQ",
     "slug": "zoryq-wallet",
     "scheme": "zoriq",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/zoryq-icon.png",
+    "androidStatusBar": {
+      "backgroundColor": "#07080d",
+      "barStyle": "light-content",
+      "translucent": false
+    },
     "ios": {
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
@@ -21,7 +26,7 @@
     },
     "android": {
       "package": "com.zoryq.wallet",
-      "versionCode": 3,
+      "versionCode": 4,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./assets/zoryq-icon.png",
