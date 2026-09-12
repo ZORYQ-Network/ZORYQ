@@ -1,0 +1,33 @@
+{
+  "priceUsd": "1.99",
+  "chains": {
+    "zoryq": {
+      "chainId": 5919065,
+      "enabled": false,
+      "treasuryAddress": null,
+      "confirmations": 1,
+      "assets": []
+    },
+    "base": {
+      "chainId": 8453,
+      "enabled": false,
+      "treasuryAddress": null,
+      "confirmations": 2,
+      "assets": []
+    },
+    "arbitrum": {
+      "chainId": 42161,
+      "enabled": false,
+      "treasuryAddress": null,
+      "confirmations": 2,
+      "assets": []
+    },
+    "ethereum": {
+      "chainId": 1,
+      "enabled": false,
+      "treasuryAddress": null,
+      "confirmations": 3,
+      "assets": []
+    }
+  }
+}
