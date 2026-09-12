@@ -1,5 +1,6 @@
 import http from 'node:http';
 import {URL} from 'node:url';
+import {MobileNodeProtocol,ZORYQ_CHAIN_ID,registrationPayload} from './mobile-node.mjs';
 
 const PORT=Number(process.env.PORT||8080);
 const ZEROX_API_KEY=String(process.env.ZEROX_API_KEY||'').trim();
@@ -18,6 +19,8 @@ const windows=new Map();
 let inflight=0;
 const MAX_INFLIGHT=32;
 const LIMIT_PER_MINUTE=90;
+const ZORYQ_RPC=String(process.env.ZORYQ_MOBILE_RPC||'https://zoryq-evm-node-live-production.up.railway.app/rpc').trim();
+const MOBILE_STATE_FILE=String(process.env.ZORYQ_MOBILE_STATE_FILE||'/data/zoryq-mobile-node-state.jsonl').trim();
 
 function send(res,status,body){res.writeHead(status,{'content-type':'application/json; charset=utf-8','cache-control':'no-store','access-control-allow-origin':'*','access-control-allow-headers':'content-type','access-control-allow-methods':'GET,POST,OPTIONS'});res.end(JSON.stringify(body));}
 function validToken(v){return v===NATIVE||ADDRESS.test(v)}
@@ -28,6 +31,50 @@ async function readJson(req){let total=0;const chunks=[];for await(const chunk o
 async function jsonResponse(r){const raw=await r.text();try{return JSON.parse(raw)}catch{return {error:'UPSTREAM_INVALID_JSON',raw:raw.slice(0,256)}}}
 function sameAddress(a,b){return String(a||'').toLowerCase()===String(b||'').toLowerCase()}
 function feeAmount(sellAmount){return ((BigInt(sellAmount)*BigInt(FEE_BPS))/10000n).toString()}
+
+async function rpc(method,params){
+ const r=await fetch(ZORYQ_RPC,{method:'POST',headers:{'content-type':'application/json','accept':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params}),signal:AbortSignal.timeout(12_000)});
+ if(!r.ok)throw Error(`ZORYQ_RPC_HTTP_${r.status}`);
+ const j=await r.json();if(j.error)throw Error(`ZORYQ_RPC_${String(j.error.message||'ERROR').slice(0,80)}`);return j.result;
+}
+async function mobileChainReader(target){
+ const chainHex=await rpc('eth_chainId',[]);const chainId=Number.parseInt(String(chainHex).replace(/^0x/,''),16);
+ if(chainId!==ZORYQ_CHAIN_ID)throw Error('CHAIN_ID_MISMATCH');
+ const tag=target==='latest'?'latest':`0x${Number(target).toString(16)}`;
+ const block=await rpc('eth_getBlockByNumber',[tag,false]);if(!block)throw Error('BLOCK_NOT_FOUND');
+ return {chainId,blockNumber:Number.parseInt(String(block.number).replace(/^0x/,''),16),blockHash:String(block.hash||''),parentHash:String(block.parentHash||'')};
+}
+const mobileProtocol=new MobileNodeProtocol({stateFile:MOBILE_STATE_FILE,chainReader:mobileChainReader});
+
+function mobileErrorStatus(message){
+ if(message==='CHALLENGE_ALREADY_USED')return 409;
+ if(message==='NODE_NOT_REGISTERED')return 404;
+ if(message==='CHALLENGE_EXPIRED')return 410;
+ if(message?.startsWith('ZORYQ_RPC_')||message==='CHAIN_VERIFICATION_FAILED')return 503;
+ return 400;
+}
+async function handleMobileNode(req,res,u){
+ if(!u.pathname.startsWith('/mobile-node/'))return false;
+ if(!rateAllowed(ipOf(req))){send(res,429,{ok:false,error:'RATE_LIMITED'});return true}
+ try{
+  if(req.method==='POST'&&u.pathname==='/mobile-node/registration-challenge'){
+   const b=await readJson(req);const result=mobileProtocol.registrationChallenge({nodeId:String(b.nodeId||''),publicKey:String(b.publicKey||'')});send(res,200,{ok:true,...result,registrationPayload:registrationPayload({...result,publicKey:String(b.publicKey||'')})});return true;
+  }
+  if(req.method==='POST'&&u.pathname==='/mobile-node/register'){
+   const b=await readJson(req);const result=mobileProtocol.register({challengeId:String(b.challengeId||''),nodeId:String(b.nodeId||''),publicKey:String(b.publicKey||''),signature:String(b.signature||'')});send(res,200,result);return true;
+  }
+  if(req.method==='POST'&&u.pathname==='/mobile-node/challenge'){
+   const b=await readJson(req);const result=await mobileProtocol.taskChallenge(String(b.nodeId||''));send(res,200,{ok:true,...result});return true;
+  }
+  if(req.method==='POST'&&u.pathname==='/mobile-node/proof'){
+   const b=await readJson(req);const result=await mobileProtocol.submitProof(b);send(res,200,result);return true;
+  }
+  if(req.method==='GET'&&u.pathname==='/mobile-node/status'){
+   const nodeId=String(u.searchParams.get('nodeId')||'');send(res,200,mobileProtocol.status(nodeId));return true;
+  }
+  send(res,404,{ok:false,error:'MOBILE_NODE_ROUTE_NOT_FOUND'});return true;
+ }catch(e){const message=String(e?.message||'MOBILE_NODE_ERROR');console.warn('[zoryq-mobile-node]',message);send(res,mobileErrorStatus(message),{ok:false,error:message});return true}
+}
 
 async function quote0x({chainId,sellToken,buyToken,sellAmount,taker}){
  const q=new URL(ZEROX_URL);q.searchParams.set('chainId',String(chainId));q.searchParams.set('sellToken',sellToken);q.searchParams.set('buyToken',buyToken);q.searchParams.set('sellAmount',sellAmount);q.searchParams.set('taker',taker);q.searchParams.set('swapFeeRecipient',TREASURY);q.searchParams.set('swapFeeBps',String(FEE_BPS));q.searchParams.set('swapFeeToken',sellToken);
@@ -69,7 +116,8 @@ async function getQuote(args){
 const server=http.createServer(async(req,res)=>{
  if(req.method==='OPTIONS')return send(res,204,{});
  const u=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`);
- if(req.method==='GET'&&u.pathname==='/health')return send(res,configured()?200:503,{ok:configured(),service:'zoryq-wallet-swap-backend',providerPreference:ZEROX_API_KEY.length>10?'0x-then-kyber':'kyberswap-public',feeBps:FEE_BPS,treasury:ADDRESS.test(TREASURY)?TREASURY:null,treasuryConfigured:ADDRESS.test(TREASURY),zeroXApiConfigured:ZEROX_API_KEY.length>10,kyberPublicConfigured:true,supportedChainIds:[...SUPPORTED],protection:{limitPerMinute:LIMIT_PER_MINUTE,maxInflight:MAX_INFLIGHT}});
+ if(req.method==='GET'&&u.pathname==='/health')return send(res,configured()?200:503,{ok:configured(),service:'zoryq-wallet-swap-backend',providerPreference:ZEROX_API_KEY.length>10?'0x-then-kyber':'kyberswap-public',feeBps:FEE_BPS,treasury:ADDRESS.test(TREASURY)?TREASURY:null,treasuryConfigured:ADDRESS.test(TREASURY),zeroXApiConfigured:ZEROX_API_KEY.length>10,kyberPublicConfigured:true,supportedChainIds:[...SUPPORTED],protection:{limitPerMinute:LIMIT_PER_MINUTE,maxInflight:MAX_INFLIGHT},mobileNode:{protocol:'zoryq-mobile-node-v1',chainId:ZORYQ_CHAIN_ID,xpIssuance:'verified-proof-only',heartbeatAwardsXp:false,stateFileConfigured:Boolean(MOBILE_STATE_FILE)}});
+ if(await handleMobileNode(req,res,u))return;
  if(req.method==='POST'&&u.pathname==='/quote'){
   if(!configured())return send(res,503,{ok:false,error:'SWAP_BACKEND_NOT_CONFIGURED'});
   const ip=ipOf(req);if(!rateAllowed(ip))return send(res,429,{ok:false,error:'RATE_LIMITED'});
@@ -88,4 +136,4 @@ const server=http.createServer(async(req,res)=>{
  }
  return send(res,404,{ok:false,error:'NOT_FOUND'});
 });
-server.listen(PORT,'0.0.0.0',()=>console.log(`[zoryq-wallet-swap] listening on :${PORT}; configured=${configured()}; provider=${ZEROX_API_KEY.length>10?'0x-then-kyber':'kyberswap-public'}`));
+server.listen(PORT,'0.0.0.0',()=>console.log(`[zoryq-wallet-swap] listening on :${PORT}; configured=${configured()}; provider=${ZEROX_API_KEY.length>10?'0x-then-kyber':'kyberswap-public'}; mobileNode=verified-proof-only`));
