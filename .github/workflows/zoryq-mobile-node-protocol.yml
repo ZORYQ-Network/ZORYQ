@@ -1,0 +1,61 @@
+name: ZORYQ Mobile Node Protocol
+
+'on':
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-wallet-backend/mobile-node.mjs'
+      - 'zoryq-wallet-backend/mobile-node.test.mjs'
+      - 'zoryq-wallet-backend/server.mjs'
+      - 'zoryq-wallet-backend/Dockerfile'
+      - 'zoryq-mobile-node/android/**'
+      - '.github/workflows/zoryq-mobile-node-protocol.yml'
+  pull_request:
+    paths:
+      - 'zoryq-wallet-backend/mobile-node.mjs'
+      - 'zoryq-wallet-backend/mobile-node.test.mjs'
+      - 'zoryq-wallet-backend/server.mjs'
+      - 'zoryq-mobile-node/android/**'
+      - '.github/workflows/zoryq-mobile-node-protocol.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-mobile-node-protocol-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protocol-security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - name: Syntax gate
+        run: |
+          node --check zoryq-wallet-backend/mobile-node.mjs
+          node --check zoryq-wallet-backend/server.mjs
+      - name: Mobile protocol adversarial tests
+        run: node --test zoryq-wallet-backend/mobile-node.test.mjs
+      - name: Security and truth invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "ZORYQ_CHAIN_ID = 5919065" zoryq-wallet-backend/mobile-node.mjs
+          grep -q "CHALLENGE_ALREADY_USED" zoryq-wallet-backend/mobile-node.mjs
+          grep -q "CHALLENGE_EXPIRED" zoryq-wallet-backend/mobile-node.mjs
+          grep -q "INVALID_NODE_SIGNATURE" zoryq-wallet-backend/mobile-node.mjs
+          grep -q "BLOCK_PROOF_MISMATCH" zoryq-wallet-backend/mobile-node.mjs
+          grep -q "xp_awarded" zoryq-wallet-backend/mobile-node.mjs
+          grep -q "heartbeatAwardsXp:false" zoryq-wallet-backend/server.mjs
+          grep -q "verified-proof-only" zoryq-wallet-backend/server.mjs
+          if grep -RniE '(private[_-]?key|mnemonic|seed[_-]?phrase)[[:space:]]*[:=][[:space:]]*["'"'][^"'"']{16,}["'"']' zoryq-wallet-backend/mobile-node.mjs zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode; then
+            echo 'Potential hard-coded secret detected' >&2
+            exit 1
+          fi
+      - name: Docker inclusion gate
+        run: grep -q 'COPY mobile-node.mjs ./mobile-node.mjs' zoryq-wallet-backend/Dockerfile
