@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual, verify as verifySignature, createPublicKey } from 'node:crypto';
+import { MemoryRegistrationStore, registrationRecord } from './registration-store.js';
 
 export const MOBILE_NODE_CHAIN_ID = 5919065;
 export const MOBILE_NODE_PROTOCOL_VERSION = 1;
@@ -29,13 +30,15 @@ export function registrationSigningPayload(challengePayload) {
 }
 
 export class RegistrationEngine {
-  constructor({ secret, ttlMs = DEFAULT_TTL_MS, now = () => Date.now() } = {}) {
+  constructor({ secret, ttlMs = DEFAULT_TTL_MS, now = () => Date.now(), store = new MemoryRegistrationStore() } = {}) {
     if (!secret || String(secret).length < 32) throw new Error('RegistrationEngine requires a server secret');
+    if (!store || typeof store.hasNonce !== 'function' || typeof store.append !== 'function' || typeof store.get !== 'function') {
+      throw new Error('RegistrationEngine requires durable-capable registration store');
+    }
     this.secret = String(secret);
     this.ttlMs = ttlMs;
     this.now = now;
-    this.consumed = new Set();
-    this.registered = new Map();
+    this.store = store;
   }
 
   issueChallenge({ nodeId }) {
@@ -70,23 +73,35 @@ export class RegistrationEngine {
   register({ challenge, nodeId, publicKeyBase64, signatureBase64 }) {
     const payload = this.inspectChallenge(challenge);
     if (payload.nodeId !== nodeId) throw new Error('Registration node mismatch');
-    if (this.consumed.has(payload.nonce)) throw new Error('Registration replay rejected');
+    if (this.store.hasNonce(payload.nonce)) throw new Error('Registration replay rejected');
     const derivedNodeId = nodeIdFromPublicKeyBase64(publicKeyBase64);
     if (derivedNodeId !== nodeId) throw new Error('Public key does not match nodeId');
+    const existing = this.store.get(nodeId);
+    if (existing && existing.publicKeyBase64 !== publicKeyBase64) throw new Error('Node ID already registered to another public key');
     const key = createPublicKey({ key: Buffer.from(publicKeyBase64, 'base64'), format: 'der', type: 'spki' });
     const ok = verifySignature('sha256', Buffer.from(registrationSigningPayload(payload)), key, Buffer.from(signatureBase64, 'base64'));
     if (!ok) throw new Error('Invalid node registration signature');
-    this.consumed.add(payload.nonce);
-    const record = Object.freeze({
+    const registeredAt = new Date(this.now()).toISOString();
+    const record = registrationRecord({ nodeId, publicKeyBase64, nonce: payload.nonce, registeredAt });
+    if (!this.store.append(record)) throw new Error('Registration replay rejected');
+    return Object.freeze({
       nodeId,
       publicKeyBase64,
       chainId: MOBILE_NODE_CHAIN_ID,
       protocolVersion: MOBILE_NODE_PROTOCOL_VERSION,
-      registeredAt: new Date(this.now()).toISOString(),
+      registeredAt,
     });
-    this.registered.set(nodeId, record);
-    return record;
   }
 
-  get(nodeId) { return this.registered.get(nodeId) || null; }
+  get(nodeId) {
+    const record = this.store.get(nodeId);
+    if (!record) return null;
+    return Object.freeze({
+      nodeId: record.nodeId,
+      publicKeyBase64: record.publicKeyBase64,
+      chainId: record.chainId,
+      protocolVersion: record.protocolVersion,
+      registeredAt: record.registeredAt,
+    });
+  }
 }
