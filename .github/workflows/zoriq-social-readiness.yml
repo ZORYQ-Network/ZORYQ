@@ -3,19 +3,87 @@ name: ZORIQ Social Readiness
 on:
   pull_request:
     paths:
-      - 'zoryq-web/zoriq-social.html'
+      - 'zoryq-web/zoriq-social-v2.html'
+      - 'zoryq-web/zoriq-social-v2.css'
+      - 'zoryq-web/zoriq-social-v2.js'
+      - 'zoryq-web/zoriq-social-suite.css'
+      - 'zoryq-web/zoriq-social-suite.js'
+      - 'zoryq-web/zoriq-social-backend.js'
+      - 'zoryq-web/zoriq-social-sync.js'
+      - 'zoryq-web/zoriq-app-parity.css'
+      - 'zoryq-web/zoriq-app-parity.js'
+      - 'zoryq-web/zoriq-multichain-wallet.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
+      - 'zoryq-mobile/Social.tsx'
+      - 'zoryq-mobile/SocialSuite.tsx'
+      - 'zoryq-mobile/SocialSuite.native.js'
+      - 'zoryq-mobile/ZoriqSocialNative.tsx'
+      - 'zoryq-mobile/profilePreferences.ts'
+      - 'zoryq-mobile/MiniGames.tsx'
+      - 'zoryq-mobile/WalletGames.tsx'
+      - 'zoryq-mobile/SyncedFeed.tsx'
+      - 'zoryq-mobile/SocialPaymentSheet.tsx'
+      - 'zoryq-mobile/socialPayments.ts'
+      - 'zoryq-mobile/socialBackend.ts'
+      - 'zoryq-mobile/multichainWallet.ts'
+      - 'zoryq-mobile/MultiChainWallet.tsx'
+      - 'zoryq-mobile/WalletHub.tsx'
+      - 'zoryq-mobile/index.js'
+      - 'zoryq-mobile/package.json'
+      - 'zoryq-mobile/app.json'
+      - 'database/migrations/*zoriq_social*.sql'
+      - 'database/migrations/*zoriq_verified*.sql'
+      - 'supabase/functions/zoriq-verified-payment/**'
+      - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
+      - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-web-apk-parity.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-verified.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-mini-games.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   push:
     branches:
-      - zoryq-evm-testnet-node
+      - zoryq-p0-social-financial
     paths:
-      - 'zoryq-web/zoriq-social.html'
+      - 'zoryq-web/zoriq-social-v2.html'
+      - 'zoryq-web/zoriq-social-v2.css'
+      - 'zoryq-web/zoriq-social-v2.js'
+      - 'zoryq-web/zoriq-social-suite.css'
+      - 'zoryq-web/zoriq-social-suite.js'
+      - 'zoryq-web/zoriq-social-backend.js'
+      - 'zoryq-web/zoriq-social-sync.js'
+      - 'zoryq-web/zoriq-app-parity.css'
+      - 'zoryq-web/zoriq-app-parity.js'
+      - 'zoryq-web/zoriq-multichain-wallet.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
+      - 'zoryq-mobile/Social.tsx'
+      - 'zoryq-mobile/SocialSuite.tsx'
+      - 'zoryq-mobile/SocialSuite.native.js'
+      - 'zoryq-mobile/ZoriqSocialNative.tsx'
+      - 'zoryq-mobile/profilePreferences.ts'
+      - 'zoryq-mobile/MiniGames.tsx'
+      - 'zoryq-mobile/WalletGames.tsx'
+      - 'zoryq-mobile/SyncedFeed.tsx'
+      - 'zoryq-mobile/SocialPaymentSheet.tsx'
+      - 'zoryq-mobile/socialPayments.ts'
+      - 'zoryq-mobile/socialBackend.ts'
+      - 'zoryq-mobile/multichainWallet.ts'
+      - 'zoryq-mobile/MultiChainWallet.tsx'
+      - 'zoryq-mobile/WalletHub.tsx'
+      - 'zoryq-mobile/index.js'
+      - 'zoryq-mobile/package.json'
+      - 'zoryq-mobile/app.json'
+      - 'database/migrations/*zoriq_social*.sql'
+      - 'database/migrations/*zoriq_verified*.sql'
+      - 'supabase/functions/zoriq-verified-payment/**'
+      - 'docs/ZORIQ_SOCIAL_EVOLUTION_V1.md'
+      - 'docs/ZORIQ_SOCIAL_BACKEND.md'
       - 'zoryq-developer/scripts/check-zoriq-social-readiness.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-web-apk-parity.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-verified.mjs'
+      - 'zoryq-developer/scripts/check-zoriq-mini-games.mjs'
       - '.github/workflows/zoriq-social-readiness.yml'
   workflow_dispatch:
 
@@ -34,5 +102,17 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Check browser adapter syntax
+        run: |
+          node --check zoryq-web/zoriq-social-backend.js
+          node --check zoryq-web/zoriq-social-sync.js
+          node --check zoryq-web/zoriq-app-parity.js
+          node --check zoryq-web/zoriq-multichain-wallet.js
       - name: Validate ZORIQ Social deployment package
         run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs
+      - name: Validate Web DApp and APK parity
+        run: node zoryq-developer/scripts/check-zoriq-web-apk-parity.mjs
+      - name: Validate ZORIQ Verified annual ETH package
+        run: node zoryq-developer/scripts/check-zoriq-verified.mjs
+      - name: Validate ZORYQ Social + five-game ZQ Wallet universe
+        run: node zoryq-developer/scripts/check-zoriq-mini-games.mjs

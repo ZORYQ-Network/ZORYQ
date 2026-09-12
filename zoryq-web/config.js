@@ -16,5 +16,38 @@ window.ZORYQ_CONFIG={
   lendingContract:'0xA08d491c06a2B01bbe6866CA87302c794aD9fB77',
   projectRegistry:'0x180042c92A42f183A67005E8C0968a1F190aab33',
   adminTreasury:'0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33',
-  scoreEpoch:1
+  scoreEpoch:1,
+  // LI.FI integrator fee: configure this public identifier only after the
+  // ZORIQ Partner Portal account points fee forwarding to adminTreasury.
+  // Empty means swaps remain available but NO ZORIQ integrator fee is claimed.
+  lifiIntegrator:'',
+  lifiFee:0.005,
+  // Social Pay: the ZORYQ Testnet router below was deployed and validated by CI
+  // against chain 5919065, Treasury and feeBps=50. Mainnets stay null until
+  // their own router deployment is verified on the target chain.
+  socialPayRouters:{
+    '5919065':'0xBa50D695D9d82f275973d332a75b16434Bc86344',
+    '1':null,
+    '8453':null,
+    '42161':null,
+    '10':null,
+    '137':null,
+    '43114':null,
+    '56':null,
+    '59144':null,
+    '324':null,
+    '534352':null,
+    '130':null
+  }
 };
+
+// Load the multichain wallet as an additive layer. It waits for the Wallet/Web
+// parity view before rendering, so it is safe even though config.js loads first.
+(()=>{
+  if(document.querySelector('script[data-zoriq-multichain]'))return;
+  const s=document.createElement('script');
+  s.src='/zoriq-multichain-wallet.js';
+  s.defer=true;
+  s.dataset.zoriqMultichain='1';
+  document.head.appendChild(s);
+})();

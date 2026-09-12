@@ -1,0 +1,209 @@
+name: ZORYQ Rush City Unity Build
+
+'on':
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'zoryq-games-unity/**'
+      - 'zoryq-mobile/**'
+      - '.github/workflows/zoryq-rush-city-unity-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-rush-city-unity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unity-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+      EXPO_PUBLIC_ZORYQ_BASE: 'https://zoryq-evm-node-live-production.up.railway.app'
+      EXPO_PUBLIC_ZORYQ_RPC: 'https://zoryq-evm-node-live-production.up.railway.app/rpc'
+      EXPO_PUBLIC_ZORYQ_EXPLORER: 'https://zoryq-testnet.vercel.app/explorer.html'
+      EXPO_PUBLIC_REOWN_PROJECT_ID: '${{ vars.REOWN_PROJECT_ID }}'
+      EXPO_PUBLIC_REWARD_REGISTRY: '0xAB1Dd21c529b182191ED84f00A4dF1917652CB10'
+      EXPO_PUBLIC_QUEST_REGISTRY: '0x85747F9BdCd758fcfB562c929236CCA6eEB025a9'
+      EXPO_PUBLIC_QUEST_COMPLETION_REGISTRY: '0xD371eb7863cA000fF5039e2Db613F2094ba46b15'
+      EXPO_PUBLIC_STAKE_CONTRACT: '0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1'
+      EXPO_PUBLIC_TEST_TOKEN: '0xd2121E96C6af936c0496fDB499c1D0613d26c2B9'
+      EXPO_PUBLIC_SWAP_CONTRACT: '0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Verify production build inputs
+        run: |
+          test -f zoryq-games-unity/ProjectSettings/ProjectVersion.txt
+          grep -Fq '6000.3.15f1' zoryq-games-unity/ProjectSettings/ProjectVersion.txt
+          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCityCiBuild.cs
+          grep -Fq 'BuildAll' zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCityCiBuild.cs
+          grep -Fq 'unityLibrary' zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCityCiBuild.cs
+          grep -Fq 'integrateUnity' zoryq-mobile/with-zoryq-game-bridge.js
+
+      - name: Require Unity credentials
+        shell: bash
+        run: |
+          if [ -z "$UNITY_EMAIL" ] || [ -z "$UNITY_PASSWORD" ]; then
+            echo '::error::UNITY_EMAIL and UNITY_PASSWORD are required for the Rush City binary build.'
+            exit 1
+          fi
+          if [ -n "$UNITY_LICENSE" ]; then
+            echo 'ZORYQ_UNITY_LICENSE_MODE=personal' >> "$GITHUB_ENV"
+            echo 'Unity Personal license detected.'
+          elif [ -n "$UNITY_SERIAL" ]; then
+            echo 'ZORYQ_UNITY_LICENSE_MODE=professional' >> "$GITHUB_ENV"
+            echo 'Unity Professional serial detected.'
+          else
+            echo '::error::No Unity license configured. Add UNITY_LICENSE for Unity Personal or UNITY_SERIAL for Unity Pro/paid licensing.'
+            exit 1
+          fi
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: zoryq-games-unity/Library
+          key: rush-city-unity-6000.3.15f1-android-${{ hashFiles('zoryq-games-unity/Packages/**', 'zoryq-games-unity/ProjectSettings/**') }}
+          restore-keys: |
+            rush-city-unity-6000.3.15f1-android-
+
+      - name: Build Rush City APK and unityLibrary
+        uses: game-ci/unity-builder@v5
+        with:
+          projectPath: zoryq-games-unity
+          unityVersion: auto
+          targetPlatform: Android
+          buildMethod: Zoryq.Play.RushCity.Editor.RushCityCiBuild.BuildAll
+
+      - name: Verify Unity outputs
+        run: |
+          APK=zoryq-games-unity/build/ZORYQ-Rush-City-Vertical-Slice.apk
+          LIB=zoryq-games-unity/build/RushCity-AndroidStudio/unityLibrary
+          INFO=zoryq-games-unity/build/BUILD_INFO.txt
+          test -f "$APK"
+          test -d "$LIB"
+          test -f "$INFO"
+          test "$(stat -c%s "$APK")" -gt 1000000
+          test -f "$LIB/build.gradle" || test -f "$LIB/build.gradle.kts"
+          find "$LIB" -type f | grep -Eq 'libunity\.so|libil2cpp\.so|classes\.jar|unity-classes\.jar'
+          echo "Unity binary outputs verified ($(stat -c%s "$APK") bytes)."
+
+      - name: Upload Rush City standalone Unity build
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Rush-City-Unity-${{ github.run_number }}
+          path: |
+            zoryq-games-unity/build/ZORYQ-Rush-City-Vertical-Slice.apk
+            zoryq-games-unity/build/RushCity-AndroidStudio/unityLibrary/**
+            zoryq-games-unity/build/BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install ZORYQ mobile dependencies
+        working-directory: zoryq-mobile
+        run: npm install --no-audit --no-fund
+
+      - name: Align Expo dependencies
+        working-directory: zoryq-mobile
+        run: npx expo install --fix
+
+      - name: TypeScript check
+        working-directory: zoryq-mobile
+        run: npm run typecheck
+
+      - name: Generate ZORYQ app icon when absent
+        run: |
+          if [ -f zoryq-mobile/assets/zoryq-icon.png ]; then exit 0; fi
+          python -m pip install --quiet pillow
+          mkdir -p zoryq-mobile/assets
+          python - <<'PY'
+          from PIL import Image, ImageDraw
+          S=1024
+          im=Image.new('RGB',(S,S),(5,6,12)); d=ImageDraw.Draw(im)
+          d.rounded_rectangle((90,90,934,934),120,fill=(9,12,30),outline=(55,120,255),width=24)
+          d.polygon([(270,250),(770,250),(620,425),(460,425),(730,425),(420,785),(245,785),(395,610),(555,610),(335,610),(650,250)],fill=(78,74,255))
+          im.save('zoryq-mobile/assets/zoryq-icon.png')
+          PY
+
+      - name: Expo doctor
+        working-directory: zoryq-mobile
+        run: npx expo-doctor@latest
+
+      - name: Generate Android project with embedded Rush City
+        working-directory: zoryq-mobile
+        env:
+          CI: '1'
+          ZORYQ_UNITY_LIBRARY_PATH: '${{ github.workspace }}/zoryq-games-unity/build/RushCity-AndroidStudio/unityLibrary'
+        run: npx expo prebuild --platform android --clean
+
+      - name: Verify Unity integration survived Expo prebuild
+        run: |
+          ROOT=zoryq-mobile/android
+          test -f "$ROOT/ZORYQ_UNITY_INTEGRATED.txt"
+          test -d "$ROOT/unityLibrary"
+          grep -Fq "include ':unityLibrary'" "$ROOT/settings.gradle"
+          grep -Fq "implementation project(':unityLibrary')" "$ROOT/app/build.gradle"
+          grep -Fq 'com.zoryq.games.RushCityActivity' "$ROOT/app/src/main/AndroidManifest.xml"
+          test -f "$ROOT/app/src/main/java/com/zoryq/games/RushCityActivity.kt"
+          grep -Fq 'UnityPlayerActivity' "$ROOT/app/src/main/java/com/zoryq/games/RushCityActivity.kt"
+          GAME_NATIVE=$(find "$ROOT/app/src/main/java" -name 'ZoryqGameBridgeNative.kt' | head -n 1)
+          test -n "$GAME_NATIVE" && grep -Fq 'RushCityActivity' "$GAME_NATIVE"
+          echo 'Rush City unityLibrary is wired into the Expo Android project.'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build integrated ZORYQ Play release APK
+        working-directory: zoryq-mobile/android
+        env:
+          NODE_ENV: 'production'
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Verify final APK contains Unity runtime
+        run: |
+          APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          test -n "$APK"
+          test "$(stat -c%s "$APK")" -gt 1000000
+          unzip -Z1 "$APK" | grep -Eq '^lib/arm64-v8a/libunity\.so$'
+          unzip -Z1 "$APK" | grep -Eq '^lib/arm64-v8a/libil2cpp\.so$|^lib/arm64-v8a/libgame\.so$'
+          BUNDLE=$(unzip -Z1 "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' | head -n 1)
+          test -n "$BUNDLE"
+          unzip -p "$APK" "$BUNDLE" > /tmp/zoryq-index.android.bundle
+          grep -aFq 'Rush City' /tmp/zoryq-index.android.bundle
+          grep -aFq 'zoryq.play.launch.v1' /tmp/zoryq-index.android.bundle
+          echo "Integrated ZORYQ + Rush City APK verified ($(stat -c%s "$APK") bytes)."
+
+      - name: Package final ZORYQ Play APK
+        run: |
+          mkdir -p dist
+          APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          cp "$APK" "dist/ZORYQ-Play-Rush-City-FINAL-${{ github.run_number }}.apk"
+          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
+          cp zoryq-games-unity/build/BUILD_INFO.txt dist/UNITY_BUILD_INFO.txt
+
+      - name: Upload final integrated APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Play-Rush-City-FINAL-APK-${{ github.run_number }}
+          path: |
+            dist/ZORYQ-Play-Rush-City-FINAL-*.apk
+            dist/SHA256SUMS.txt
+            dist/UNITY_BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 30

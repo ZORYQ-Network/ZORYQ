@@ -7,9 +7,11 @@
     { "source": "/clock", "destination": "/network-clock.html" },
     { "source": "/explorer", "destination": "/explorer.html" },
     { "source": "/faucet", "destination": "/faucet.html" },
-    { "source": "/zoriq", "destination": "/zoriq-social.html" },
-    { "source": "/social", "destination": "/zoriq-social.html" },
-    { "source": "/zoriq-social", "destination": "/zoriq-social.html" },
+    { "source": "/quests", "destination": "/x-quests.html" },
+    { "source": "/x-quests", "destination": "/x-quests.html" },
+    { "source": "/zoriq", "destination": "/zoriq-social-v2.html" },
+    { "source": "/social", "destination": "/zoriq-social-v2.html" },
+    { "source": "/zoriq-social", "destination": "/zoriq-social-v2.html" },
     { "source": "/proof", "destination": "/proof.html" },
     { "source": "/developer", "destination": "/developer.html" },
     { "source": "/swap", "destination": "/swap.html" },
@@ -28,7 +30,7 @@
         { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), payment=()" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "Cross-Origin-Opener-Policy", "value": "same-origin-allow-popups" },
-        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://zoryq-evm-node-live-production.up.railway.app; upgrade-insecure-requests" }
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: blob:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self' https://zoryq-evm-node-live-production.up.railway.app https://juordakzclqefpuauzjq.supabase.co wss://juordakzclqefpuauzjq.supabase.co https://li.quest https://ethereum-rpc.publicnode.com https://mainnet.base.org https://arb1.arbitrum.io https://mainnet.optimism.io https://polygon-rpc.com https://api.avax.network https://bsc-dataseed.binance.org https://rpc.linea.build https://mainnet.era.zksync.io https://rpc.scroll.io https://mainnet.unichain.org; upgrade-insecure-requests" }
       ]
     }
   ]

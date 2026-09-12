@@ -57,6 +57,28 @@ Allow ZORYQ admins to create, activate, pause and retire quests without releasin
 10. manual_review
    - Admin approves completion.
 
+## Official X growth quests
+The official X identity used by ZORIQ quests is **@ZORIQNetwork**.
+
+### `x_follow_zoriq` — Follow ZORIQ on X
+- Display reward: **+100 XP**.
+- Verification type: `external_proof`.
+- User opens the official follow intent and submits their X username while authenticated with the ZORIQ wallet/SIWE session.
+- Submission state starts as `pending_review`.
+- Clicking the link, checking a local box or merely claiming that the account was followed must never award XP.
+- Final approval requires trusted X verification (OAuth/API) or an authorized review process.
+
+### `x_post_mention_zoriq` — Publish a post tagging ZORIQ
+- Display reward: **+250 XP**.
+- Verification type: `external_proof`.
+- The post must be public and tag **@ZORIQNetwork**.
+- User submits a canonical `x.com/<user>/status/<id>` (or legacy `twitter.com`) URL while authenticated with the ZORIQ wallet/SIWE session.
+- Submission state starts as `pending_review`.
+- The client cannot set approval, reward amount, awarded state or reward transaction hash.
+- Final approval requires trusted X verification (OAuth/API) or an authorized review process that confirms ownership and the required mention.
+
+The current database queue is `public.x_quest_submissions`. Reward values are backend-authoritative (100/250), each user has at most one record per X quest, and the authenticated client receives read-only access to its own status plus the hardened `submit_x_quest_proof(...)` RPC. Approval/finalization remains privileged.
+
 ## Points model
 - Quest completion creates PENDING points first.
 - Pending points are not transferable tokens and have no guaranteed monetary value.
@@ -64,6 +86,8 @@ Allow ZORYQ admins to create, activate, pause and retire quests without releasin
 - At epoch close, eligible totals are committed on-chain.
 - Recommended design: Merkle root per epoch + ZoryqPointsClaim smart contract.
 - Each successful on-chain claim emits indexed events for the Explorer.
+
+The UI may label campaign rewards as **XP**. XP shown on a quest is a target reward; it is not considered finalized score until the trusted verification/finalization path succeeds.
 
 ## Admin capabilities
 The admin panel must allow:
@@ -125,5 +149,7 @@ Quest descriptive copy can remain off-chain and be versioned by content hash. Fi
 - Use ZORYQ Swap: +250 points
 - 7-day check-in streak: +700 points
 - Hold a campaign NFT: +300 points
+- Follow @ZORIQNetwork on X: +100 XP, external proof
+- Publish on X tagging @ZORIQNetwork: +250 XP, external proof
 
 All point values are configurable by admins and must be versioned/auditable.

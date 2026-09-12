@@ -1,0 +1,21 @@
+{
+  "schema": "zoriq.quest.v1",
+  "id": "x_follow_zoriq",
+  "title": "Siga a ZORIQ no X",
+  "shortDescription": "Siga @ZORIQNetwork no X.",
+  "category": "growth",
+  "platform": "x",
+  "officialHandle": "@ZORIQNetwork",
+  "actionUrl": "https://x.com/intent/follow?screen_name=ZORIQNetwork",
+  "xp": 100,
+  "verificationType": "external_proof",
+  "maxCompletionsPerWallet": 1,
+  "requiresWalletSignature": true,
+  "requiresOnChainProof": false,
+  "proof": {
+    "requiresXUsername": true,
+    "initialStatus": "pending_review",
+    "trustedVerificationRequired": true,
+    "clientConfirmationAwardsXp": false
+  }
+}

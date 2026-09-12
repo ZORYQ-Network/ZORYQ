@@ -1,20 +1,57 @@
 {
   "expo": {
-    "name": "ZORYQ Wallet",
+    "name": "ZORYQ",
     "slug": "zoryq-wallet",
-    "version": "0.1.0",
+    "scheme": "zoryq",
+    "version": "0.4.1",
     "orientation": "portrait",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "automatic",
     "icon": "./assets/zoryq-icon.png",
+    "androidStatusBar": {
+      "backgroundColor": "#07080d",
+      "barStyle": "light-content",
+      "translucent": false
+    },
+    "ios": {
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "metamask",
+          "trust",
+          "safe",
+          "rainbow",
+          "uniswap",
+          "zerion"
+        ]
+      }
+    },
     "android": {
       "package": "com.zoryq.wallet",
-      "versionCode": 1,
+      "versionCode": 6,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./assets/zoryq-icon.png",
         "backgroundColor": "#050609"
       }
     },
-    "plugins": ["expo-secure-store"]
+    "plugins": [
+      "expo-secure-store",
+      "./queries.js",
+      "./with-zoryq-mobile-node.js",
+      "./with-zoryq-game-bridge.js",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permitir que o ZORYQ use Face ID para desbloquear o aplicativo e proteger o acesso à wallet."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permitir que o ZORYQ acesse suas fotos para você escolher uma foto de perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }
