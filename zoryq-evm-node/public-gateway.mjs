@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { JsonRpcProvider } from 'ethers';
+import { Interface, JsonRpcProvider } from 'ethers';
 
 const PUBLIC_PORT=Number(process.env.PORT||8080);
 const INTERNAL_PORT=8081;
@@ -11,6 +11,10 @@ const WEB_ROOT='/app/web';
 const SCORE_FILE=process.env.ZORYQ_GENESIS_SCORE_STATE||'/data/genesis-score.json';
 const ENS_SEPOLIA_RPC=process.env.ENS_SEPOLIA_RPC||'https://ethereum-sepolia-rpc.publicnode.com';
 const ENS_PROVIDER=new JsonRpcProvider(ENS_SEPOLIA_RPC,11155111,{staticNetwork:true});
+const ENS_UNIVERSAL_RESOLVER='0xeEeEEEeE14D718C2B47D9923Deab1335E144EeEe';
+const ENS_UNIVERSAL_IFACE=new Interface([
+  'function reverse(bytes lookupAddress,uint256 coinType) view returns(string primary,address resolver,address reverseResolver)'
+]);
 const SWAP='0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE'.toLowerCase();
 const STAKE='0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1'.toLowerCase();
 const ACTION_POINTS=Object.freeze({x_follow:50,faucet:100,swap:250,stake:300,x_share:200,ens_identity:150});
@@ -38,13 +42,31 @@ const mime={'.html':'text/html; charset=utf-8','.js':'application/javascript; ch
 function sendJson(res,status,obj){res.writeHead(status,{'content-type':'application/json; charset=utf-8','access-control-allow-origin':'*','access-control-allow-headers':'content-type','access-control-allow-methods':'GET,POST,OPTIONS','cache-control':'no-store'});res.end(JSON.stringify(obj))}
 function serveStatic(res,file){const full=path.join(WEB_ROOT,file);if(!full.startsWith(WEB_ROOT)||!fs.existsSync(full)||!fs.statSync(full).isFile())return false;const headers={'content-type':mime[path.extname(full)]||'application/octet-stream','cache-control':path.extname(full)==='.html'?'no-cache':'public, max-age=300','x-zoryq-surface':'railway-web-fallback'};if(file==='start.html'){let html=fs.readFileSync(full,'utf8');if(!html.includes('/genesis-client.js'))html=html.replace('</body>','<script src="/genesis-client.js"></script></body>');res.writeHead(200,headers);res.end(html);return true}res.writeHead(200,headers);fs.createReadStream(full).pipe(res);return true}
 function loadScore(){try{const s=JSON.parse(fs.readFileSync(SCORE_FILE,'utf8'));s.version=3;s.wallets ||= {};s.usedProofs ||= {};return s}catch{return {version:3,wallets:{},usedProofs:{}}}}
-function saveScore(s){const tmp=SCORE_FILE+'.tmp';fs.writeFileSync(tmp,JSON.stringify(s,null,2));fs.renameSync(tmp,SCORE_FILE)}
+function saveScore(s){const tmp=SCORE_FILE+'.tmp';fs.writeFileSync(tmp,JSON.stringify(s,null,2));fs.renameSync(tmp,file)}
 function normAddress(a){const s=String(a||'').toLowerCase();return /^0x[0-9a-f]{40}$/.test(s)?s:null}
 function txHash(v){const s=String(v||'').toLowerCase();return /^0x[0-9a-f]{64}$/.test(s)?s:null}
 function digest(v){return '0x'+createHash('sha256').update(String(v)).digest('hex')}
 function campaign(v){const s=String(v||'').toLowerCase();return /^[a-z0-9][a-z0-9._-]{0,63}$/.test(s)?s:null}
 function xShareProof(v){try{const u=new URL(String(v||'').trim());if(!['x.com','www.x.com'].includes(u.hostname.toLowerCase()))return null;const m=u.pathname.match(/^\/([A-Za-z0-9_]+)\/status\/(\d+)/);return m?`x-status:${m[2]}`:null}catch{return null}}
-async function resolveEnsIdentity(address){try{const reverse=await ENS_PROVIDER.lookupAddress(address);if(!reverse)return {ok:true,address,ensName:null,verified:false,network:'ethereum-sepolia',ensVersion:'v2-beta'};const forward=await ENS_PROVIDER.resolveName(reverse);const verified=String(forward||'').toLowerCase()===address;return {ok:true,address,ensName:reverse,forwardAddress:forward||null,verified,network:'ethereum-sepolia',ensVersion:'v2-beta'}}catch(e){return {ok:false,address,error:'ens_lookup_unavailable',detail:e?.message||String(e),network:'ethereum-sepolia',ensVersion:'v2-beta'}}}
+async function resolveEnsIdentity(address){
+  const base={address,network:'ethereum-sepolia',chainId:11155111,ensVersion:'v2-beta',universalResolver:ENS_UNIVERSAL_RESOLVER,verification:'universal-resolver-v2'};
+  try{
+    await ENS_PROVIDER.getBlockNumber();
+    const data=ENS_UNIVERSAL_IFACE.encodeFunctionData('reverse',[address,60n]);
+    const raw=await ENS_PROVIDER.call({to:ENS_UNIVERSAL_RESOLVER,data,enableCcipRead:true});
+    const [primary,resolver,reverseResolver]=ENS_UNIVERSAL_IFACE.decodeFunctionResult('reverse',raw);
+    const ensName=String(primary||'').trim()||null;
+    if(!ensName)return {ok:true,...base,ensName:null,verified:false,reason:'primary_name_not_set'};
+    return {ok:true,...base,ensName,forwardAddress:address,verified:true,resolver:String(resolver),reverseResolver:String(reverseResolver)};
+  }catch(e){
+    const code=String(e?.code||'');
+    const detail=e?.shortMessage||e?.reason||e?.message||String(e);
+    if(code==='CALL_EXCEPTION'||/revert|reverseaddressmismatch|resolvernotfound|resolvernotcontract/i.test(String(detail))){
+      return {ok:true,...base,ensName:null,verified:false,reason:'primary_name_not_set_or_forward_mismatch'};
+    }
+    return {ok:false,...base,error:'ensv2_lookup_unavailable',detail:String(detail)};
+  }
+}
 function walletStatus(address){const state=loadScore(),w=state.wallets[address]||{actions:{}};const actions=Object.values(w.actions||{}).sort((a,b)=>a.createdAt-b.createdAt);const pendingTotal=actions.reduce((n,a)=>n+Number(a.points||0),0);const verifiedOnchain=actions.filter(a=>a.verification==='onchain').reduce((n,a)=>n+Number(a.points||0),0);const verifiedExternal=actions.filter(a=>a.verification==='external-ensv2').reduce((n,a)=>n+Number(a.points||0),0);const socialPending=actions.filter(a=>a.verification==='self-attested').reduce((n,a)=>n+Number(a.points||0),0);const genesisRequired=['x_follow','faucet','swap','stake'];const completed=genesisRequired.filter(k=>actions.some(a=>a.action===k)).length;return {ok:true,address,pendingScore:pendingTotal,verifiedOnchainScore:verifiedOnchain,verifiedExternalScore:verifiedExternal,socialPendingScore:socialPending,finalizedOnchainScore:0,genesis:{completed,total:genesisRequired.length,eligible:completed===genesisRequired.length,status:completed===genesisRequired.length?'pending-finalization':'in-progress'},actions}}
 function networkIntelligence(){const state=loadScore();const wallets=Object.entries(state.wallets||{});const byAction={};let total=0,onchain=0,external=0,socialPending=0,eligibleWallets=0;for(const [address,w] of wallets){const actions=Object.values(w.actions||{});const kinds=new Set();for(const a of actions){total++;kinds.add(a.action);byAction[a.action]=(byAction[a.action]||0)+1;if(a.verification==='onchain')onchain++;else if(a.verification==='external-ensv2')external++;else if(a.verification==='self-attested')socialPending++;}if(['x_follow','faucet','swap','stake'].every(k=>kinds.has(k)))eligibleWallets++;}return {ok:true,generatedAt:new Date().toISOString(),wallets:wallets.length,actions:{total,onchain,external,socialPending},byAction,genesis:{eligibleWallets,finalizedOnchainScore:0},disclosure:'Metrics are derived from ZORYQ Genesis records. On-chain actions are receipt-verified; external identity and self-attested social actions are separated. No score finalization is live.'}}
 function record(address,action,{proofRef='',txHash='',campaignId='genesis-v1',verification='server',metadata={}}={}){const state=loadScore();const w=state.wallets[address] ||= {actions:{}};w.actions ||= {};let key;if(action==='x_share'){if(!campaignId)return {error:'campaign_required'};key=`x_share:${campaignId}`}else key=action;if(w.actions[key])return {duplicate:true,status:walletStatus(address)};const points=ACTION_POINTS[action];if(!points)return {error:'unsupported_action'};const proofHash=proofRef?digest(proofRef):null;const proofOwner=proofHash?state.usedProofs[proofHash]:null;if(proofOwner&&proofOwner!==`${address}:${key}`)return {error:'proof_already_used'};const entry={action,points,verification,campaignId,proofRef:proofHash,txHash:txHash||null,metadata,createdAt:Date.now()};w.actions[key]=entry;if(proofHash)state.usedProofs[proofHash]=`${address}:${key}`;saveScore(state);return {ok:true,entry,status:walletStatus(address)}}
@@ -59,7 +81,7 @@ if(req.method==='GET'&&url.pathname==='/identity/ens'){const address=normAddress
 if(req.method==='GET'&&url.pathname==='/genesis/network')return sendJson(res,200,networkIntelligence());
 if(req.method==='GET'&&url.pathname==='/genesis/status'){const address=normAddress(url.searchParams.get('address'));if(!address)return sendJson(res,400,{ok:false,error:'invalid_address'});return sendJson(res,200,walletStatus(address))}
 if(req.method==='POST'&&url.pathname==='/genesis/action'){const raw=await readReq(req),b=raw?JSON.parse(raw):{},address=normAddress(b.address),action=String(b.action||'');if(!address)return sendJson(res,400,{ok:false,error:'invalid_address'});if(!ACTION_POINTS[action])return sendJson(res,400,{ok:false,error:'unsupported_action'});
-if(action==='ens_identity'){const identity=await resolveEnsIdentity(address);if(!identity.ok)return sendJson(res,503,identity);if(!identity.verified||!identity.ensName)return sendJson(res,400,{ok:false,error:'verified_ensv2_primary_name_required',identity});const r=record(address,action,{proofRef:`ensv2:${identity.ensName.toLowerCase()}:${address}`,verification:'external-ensv2',metadata:{ensName:identity.ensName,network:identity.network,ensVersion:identity.ensVersion}});if(r.error)return sendJson(res,409,{ok:false,error:r.error});return sendJson(res,200,{...r,identity,notice:'ENSv2 identity verified on Ethereum Sepolia. Score is not finalized on ZORYQ until an on-chain finalization step exists.'})}
+if(action==='ens_identity'){const identity=await resolveEnsIdentity(address);if(!identity.ok)return sendJson(res,503,identity);if(!identity.verified||!identity.ensName)return sendJson(res,400,{ok:false,error:'verified_ensv2_primary_name_required',identity});const r=record(address,action,{proofRef:`ensv2:${identity.ensName.toLowerCase()}:${address}`,verification:'external-ensv2',metadata:{ensName:identity.ensName,network:identity.network,ensVersion:identity.ensVersion,verification:identity.verification,universalResolver:identity.universalResolver}});if(r.error)return sendJson(res,409,{ok:false,error:r.error});return sendJson(res,200,{...r,identity,notice:'ENSv2 primary name verified by the canonical Universal Resolver on Ethereum Sepolia. Score is not finalized on ZORYQ until an on-chain finalization step exists.'})}
 if(SOCIAL_ACTIONS.has(action)){const campaignId=campaign(b.campaignId||'genesis-v1');if(!campaignId)return sendJson(res,400,{ok:false,error:'invalid_campaign'});if(action==='x_follow'&&String(b.xHandle||'').replace(/^@/,'').toLowerCase()!=='zoriqnetwork')return sendJson(res,400,{ok:false,error:'official_x_handle_required'});let proofRef=b.proofRef||`${action}:${address}`;if(action==='x_share'){proofRef=xShareProof(b.proofRef);if(!proofRef)return sendJson(res,400,{ok:false,error:'valid_x_post_url_required'})}const r=record(address,action,{proofRef,campaignId,verification:'self-attested'});if(r.error)return sendJson(res,409,{ok:false,error:r.error});return sendJson(res,200,{...r,notice:'Social points are pending until X OAuth/API verification is enabled.'})}
 if(ONCHAIN_ACTIONS.has(action)){const hash=txHash(b.txHash);if(!hash)return sendJson(res,400,{ok:false,error:'tx_hash_required'});const v=await verifyOnchain(address,action,hash);if(!v.ok)return sendJson(res,400,v);const r=record(address,action,{proofRef:hash,txHash:hash,verification:'onchain'});if(r.error)return sendJson(res,409,{ok:false,error:r.error});return sendJson(res,200,r)}return sendJson(res,400,{ok:false,error:'action_not_directly_recordable'})}
 if(req.method==='POST'&&url.pathname==='/faucet')return proxyFaucet(req,res);return proxy(req,res)}catch(e){console.error('public gateway error',e);return sendJson(res,500,{ok:false,error:e?.message||'internal_error'})}});
