@@ -1,0 +1,13 @@
+{
+  "name": "@zoryq/external-first-transaction-proof",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "External reproduction tool for ZORYQ fresh-wallet -> faucet -> signed transaction -> receipt evidence",
+  "scripts": {
+    "prove": "node prove.mjs"
+  },
+  "dependencies": {
+    "ethers": "6.15.0"
+  }
+}
