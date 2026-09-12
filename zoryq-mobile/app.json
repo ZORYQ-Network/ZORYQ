@@ -5,15 +5,10 @@
     "version": "1.5.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "icon": "./assets/zoryq-icon.png",
     "android": {
       "package": "com.zoryq.wallet",
       "versionCode": 9,
-      "permissions": [],
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/zoryq-icon.png",
-        "backgroundColor": "#050609"
-      }
+      "permissions": []
     },
     "ios": {
       "bundleIdentifier": "com.zoryq.wallet",
