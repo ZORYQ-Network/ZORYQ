@@ -27,29 +27,35 @@ jobs:
             echo "runner_os=${RUNNER_OS}"
           } | tee zoryq-evidence/obep/environment.txt
 
+      - name: Install OBEP verifier dependencies
+        working-directory: zoryq-developer/obep
+        run: npm install --package-lock=false
+
       - name: Run OBEP lifecycle and adversarial tests
+        working-directory: zoryq-developer/obep
         run: |
           set -o pipefail
-          node --test zoryq-developer/obep/obep.test.mjs | tee zoryq-evidence/obep/test-output.txt
+          npm test | tee ../../zoryq-evidence/obep/test-output.txt
+
+      - name: Verify versioned live reference exactly as an external developer would
+        working-directory: zoryq-developer/obep
+        run: |
+          set -o pipefail
+          npm run verify:reference | tee ../../zoryq-evidence/obep/reference-verification.txt
 
       - name: Generate independently-verifiable local Proof Pack fixture
         run: |
           node zoryq-developer/obep/proof-fixture.mjs > zoryq-evidence/obep/proof-pack.json
           node zoryq-developer/obep/verify-proof-pack.mjs zoryq-evidence/obep/proof-pack.json | tee zoryq-evidence/obep/verification.txt
 
-      - name: Install live-proof verification dependency
-        run: |
-          npm init -y >/dev/null 2>&1
-          npm install --no-save --package-lock=false ethers@6.17.0
-
-      - name: Generate live ZORYQ Testnet OBEP economic proof
+      - name: Generate fresh live ZORYQ Testnet OBEP economic proof
         env:
           ZORYQ_PUBLIC_BASE_URL: https://zoryq-evm-node-live-production.up.railway.app
         run: |
           set -o pipefail
           node zoryq-developer/obep/live-proof.mjs zoryq-evidence/obep/live-proof.json | tee zoryq-evidence/obep/live-proof-generation.txt
 
-      - name: Independently re-verify live proof from public RPC
+      - name: Independently re-verify fresh live proof from public RPC
         run: |
           set -o pipefail
           node zoryq-developer/obep/verify-live-proof.mjs zoryq-evidence/obep/live-proof.json | tee zoryq-evidence/obep/live-proof-verification.txt
