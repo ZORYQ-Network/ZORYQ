@@ -25,19 +25,22 @@ jobs:
           test -f zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           grep -Fq '6000.3.15f1' zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           test -f zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
-          for f in RushCityGameManager RushCityPlayerController RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
+          for f in RushCityGameManager RushCityPlayerController RushCityCharacterAnimator RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
             test -f "$ROOT/Scripts/$f.cs"
           done
           test -f $ROOT/Editor/RushCitySceneBuilder.cs
           test -f $ROOT/Editor/RushCityCiBuild.cs
 
-      - name: Verify movement physics and branching routes
+      - name: Verify responsive movement physics and branching routes
         run: |
           ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
           PLAYER=$ROOT/RushCityPlayerController.cs
           TRACK=$ROOT/RushCityTrackManager.cs
           ROUTE=$ROOT/RushCityRouteDirector.cs
           grep -Fq 'wallProbeDistance = 1.75f' "$PLAYER"
+          grep -Fq 'coyoteTime = .105f' "$PLAYER"
+          grep -Fq 'jumpBufferTime = .12f' "$PLAYER"
+          grep -Fq 'ResolveJumpBuffer' "$PLAYER"
           grep -Fq 'CharacterController' "$PLAYER"
           grep -Fq 'WallRun()' "$PLAYER"
           grep -Fq 'RushCityRouteDirector.Instance.CurrentCenterX' "$PLAYER"
@@ -107,7 +110,7 @@ jobs:
           grep -Fq 'WorldEventStarted' "$TELEMETRY"
           grep -Fq 'WorldEventCompleted' "$TELEMETRY"
 
-      - name: Verify presentation game feel and HUD
+      - name: Verify presentation game feel and character adapter
         run: |
           ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
           CAMERA=$ROOT/RushCityCameraController.cs
@@ -116,6 +119,7 @@ jobs:
           HUD=$ROOT/RushCityHudPresenter.cs
           VFX=$ROOT/RushCityVfxDirector.cs
           ENV=$ROOT/RushCityEnvironmentDirector.cs
+          CHARACTER=$ROOT/RushCityCharacterAnimator.cs
           grep -Fq 'Impulse' "$CAMERA"
           grep -Fq 'FovKick' "$CAMERA"
           grep -Fq 'RollKick' "$CAMERA"
@@ -133,14 +137,19 @@ jobs:
           grep -Fq 'WorldEventChanged' "$VFX"
           grep -Fq 'StormActive' "$ENV"
           grep -Fq 'RenderSettings.fogColor' "$ENV"
+          for marker in Speed VerticalVelocity Grounded Slide WallRun WallSide Boost Hit RouteTurn; do grep -Fq "$marker" "$CHARACTER"; done
+          grep -Fq 'runtimeAnimatorController' "$CHARACTER"
+          grep -Fq 'ApplyFallback' "$CHARACTER"
 
       - name: Verify scene assembles production systems
         run: |
           SCENE=zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCitySceneBuilder.cs
-          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityChaseDirector RushCityWorldEventDirector RushCityWorldEventGameplay; do
+          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityChaseDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityCharacterAnimator; do
             grep -Fq "$marker" "$SCENE"
           done
-          grep -Fq 'EngineeringRig' "$SCENE"
+          grep -Fq 'Runner_GameplayRoot' "$SCENE"
+          grep -Fq 'RunnerVisual_Placeholder' "$SCENE"
+          ! grep -Fq 'Runner_EngineeringRig' "$SCENE"
 
       - name: Verify reproducible Unity Android export
         run: |
