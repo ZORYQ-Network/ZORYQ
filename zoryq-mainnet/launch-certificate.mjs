@@ -69,7 +69,8 @@ if (!isImageDigest(manifest.imageDigest)) blockers.push('image_digest_invalid');
 const requiredEvidenceHashes = [
   ['auditReportSha256', 'audit_report_hash_invalid'],
   ['incidentRunbookSha256', 'incident_runbook_hash_invalid'],
-  ['recoveryDrillSha256', 'recovery_drill_hash_invalid'],
+  ['recoveryEvidenceSha256', 'recovery_evidence_hash_invalid'],
+  ['redundancyEvidenceSha256', 'network_redundancy_hash_invalid'],
   ['validatorRegistrySha256', 'validator_registry_hash_invalid'],
   ['consensusEvidenceSha256', 'consensus_evidence_hash_invalid'],
   ['keyCustodyEvidenceSha256', 'key_custody_evidence_hash_invalid'],

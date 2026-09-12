@@ -26,7 +26,8 @@ const manifest = {
   imageDigest: `sha256:${'3'.repeat(64)}`,
   auditReportSha256: '4'.repeat(64),
   incidentRunbookSha256: '5'.repeat(64),
-  recoveryDrillSha256: '6'.repeat(64),
+  recoveryEvidenceSha256: '6'.repeat(64),
+  redundancyEvidenceSha256: '7'.repeat(64),
   validatorRegistrySha256: 'a'.repeat(64),
   consensusEvidenceSha256: 'b'.repeat(64),
   keyCustodyEvidenceSha256: 'c'.repeat(64),
@@ -75,7 +76,7 @@ function run(expectedCode) {
 }
 
 const accepted = run(0);
-if (!accepted.ok || accepted.validApprovals.length !== 3 || accepted.validRoles.length !== 3 || !accepted.evidence?.validatorRegistrySha256) {
+if (!accepted.ok || accepted.validApprovals.length !== 3 || accepted.validRoles.length !== 3 || !accepted.evidence?.validatorRegistrySha256 || !accepted.evidence?.recoveryEvidenceSha256 || !accepted.evidence?.redundancyEvidenceSha256) {
   throw new Error('valid evidence-bound 3-role threshold certificate was not accepted');
 }
 
@@ -100,6 +101,24 @@ write('approvals', approvalsFor(missingEvidence));
 const rejectedEvidence = run(79);
 if (rejectedEvidence.ok || !rejectedEvidence.blockers.includes('consensus_evidence_hash_invalid')) {
   throw new Error('missing consensus evidence was not rejected');
+}
+
+const missingRecovery = { ...manifest };
+delete missingRecovery.recoveryEvidenceSha256;
+write('manifest', missingRecovery);
+write('approvals', approvalsFor(missingRecovery));
+const rejectedRecovery = run(79);
+if (rejectedRecovery.ok || !rejectedRecovery.blockers.includes('recovery_evidence_hash_invalid')) {
+  throw new Error('missing recovery evidence was not rejected');
+}
+
+const missingRedundancy = { ...manifest };
+delete missingRedundancy.redundancyEvidenceSha256;
+write('manifest', missingRedundancy);
+write('approvals', approvalsFor(missingRedundancy));
+const rejectedRedundancy = run(79);
+if (rejectedRedundancy.ok || !rejectedRedundancy.blockers.includes('network_redundancy_hash_invalid')) {
+  throw new Error('missing network redundancy evidence was not rejected');
 }
 
 const expiredManifest = {
@@ -135,6 +154,8 @@ process.stdout.write(`${JSON.stringify({
   requiredRoles: roles,
   evidenceBound: true,
   missingEvidenceRejected: true,
+  missingRecoveryRejected: true,
+  missingRedundancyRejected: true,
   tamperRejected: true,
   belowThresholdRejected: true,
   expiredCertificateRejected: true,

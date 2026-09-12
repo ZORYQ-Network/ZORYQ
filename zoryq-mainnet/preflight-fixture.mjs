@@ -61,13 +61,15 @@ runNode(new URL('./validator-registry.mjs', import.meta.url).pathname, ['--confi
 const audit = path.join(out, 'audit-report.txt');
 const runbook = path.join(out, 'incident-runbook.txt');
 const recovery = path.join(out, 'recovery-evidence.txt');
+const redundancy = path.join(out, 'redundancy-evidence.txt');
 const consensus = path.join(out, 'consensus-evidence.txt');
 const keyCustody = path.join(out, 'key-custody-evidence.json');
 const governance = path.join(out, 'release-governance.txt');
 const observability = path.join(out, 'observability-evidence.txt');
 fs.writeFileSync(audit, 'CI PREFLIGHT FIXTURE — not a production audit\n');
 fs.writeFileSync(runbook, 'CI PREFLIGHT FIXTURE — not a production incident runbook\n');
-fs.writeFileSync(recovery, 'CI PREFLIGHT FIXTURE — not production recovery evidence\n');
+fs.writeFileSync(recovery, 'CI PREFLIGHT FIXTURE — not production disaster-recovery evidence\nfixtureOnly=true\nproductionEvidence=false\nrestoreTest=pass\n');
+fs.writeFileSync(redundancy, 'CI PREFLIGHT FIXTURE — not production network-redundancy evidence\nfixtureOnly=true\nproductionEvidence=false\noperators=4\nregions=3\n');
 fs.writeFileSync(consensus, 'CI PREFLIGHT FIXTURE — not production consensus evidence\n');
 fs.writeFileSync(keyCustody, JSON.stringify({
   formatVersion: 1,
@@ -116,7 +118,8 @@ const manifest = {
   imageDigest,
   auditReportSha256: sha(audit),
   incidentRunbookSha256: sha(runbook),
-  recoveryDrillSha256: sha(recovery),
+  recoveryEvidenceSha256: sha(recovery),
+  redundancyEvidenceSha256: sha(redundancy),
   validatorRegistrySha256: sha(path.join(out, 'validator-registry.json')),
   consensusEvidenceSha256: sha(consensus),
   keyCustodyEvidenceSha256: sha(keyCustody),
@@ -153,6 +156,8 @@ fs.writeFileSync(path.join(out, 'fixture-meta.json'), JSON.stringify({
   genesisSha256: manifest.genesisSha256,
   validatorRegistrySha256: manifest.validatorRegistrySha256,
   keyCustodyEvidenceSha256: manifest.keyCustodyEvidenceSha256,
+  redundancyEvidenceSha256: manifest.redundancyEvidenceSha256,
+  recoveryEvidenceSha256: manifest.recoveryEvidenceSha256,
   releaseCommit,
   imageDigest,
   ceremonyId: manifest.ceremonyId,
@@ -167,7 +172,10 @@ console.log(JSON.stringify({
   genesisSha256: manifest.genesisSha256,
   validatorRegistrySha256: manifest.validatorRegistrySha256,
   keyCustodyEvidenceSha256: manifest.keyCustodyEvidenceSha256,
+  redundancyEvidenceSha256: manifest.redundancyEvidenceSha256,
+  recoveryEvidenceSha256: manifest.recoveryEvidenceSha256,
   evidenceBound: true,
+  productionEvidence: false,
   ceremonyId: manifest.ceremonyId,
   validFrom,
   expiresAt,

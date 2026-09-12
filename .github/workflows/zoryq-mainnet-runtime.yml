@@ -64,7 +64,7 @@ jobs:
           set -euo pipefail
           node zoryq-mainnet/preflight-fixture.mjs --out /tmp/zoryq-mainnet-fixture | tee /tmp/preflight-fixture.json
           jq -e '.ok == true and .fixtureOnly == true and .evidenceBound == true' /tmp/preflight-fixture.json
-          jq -e '.productionEvidence == false and .fixtureOnly == true and (.validatorRegistrySha256 | length == 64) and (.keyCustodyEvidenceSha256 | length == 64)' /tmp/zoryq-mainnet-fixture/fixture-meta.json
+          jq -e '.productionEvidence == false and .fixtureOnly == true and (.validatorRegistrySha256 | length == 64) and (.keyCustodyEvidenceSha256 | length == 64) and (.redundancyEvidenceSha256 | length == 64) and (.recoveryEvidenceSha256 | length == 64)' /tmp/zoryq-mainnet-fixture/fixture-meta.json
           node zoryq-mainnet/key-custody-evidence.mjs --input /tmp/zoryq-mainnet-fixture/key-custody-evidence.json --allow-fixture
 
       - name: Run fail-closed mainnet image preflight
@@ -87,6 +87,7 @@ jobs:
             -e ZORYQ_MAINNET_AUDIT_REPORT_PATH=/fixture/audit-report.txt \
             -e ZORYQ_MAINNET_INCIDENT_RUNBOOK_PATH=/fixture/incident-runbook.txt \
             -e ZORYQ_MAINNET_RECOVERY_EVIDENCE_PATH=/fixture/recovery-evidence.txt \
+            -e ZORYQ_MAINNET_REDUNDANCY_EVIDENCE_PATH=/fixture/redundancy-evidence.txt \
             -e ZORYQ_MAINNET_VALIDATOR_REGISTRY_PATH=/fixture/validator-registry.json \
             -e ZORYQ_MAINNET_CONSENSUS_EVIDENCE_PATH=/fixture/consensus-evidence.txt \
             -e ZORYQ_MAINNET_KEY_CUSTODY_EVIDENCE_PATH=/fixture/key-custody-evidence.json \
@@ -97,6 +98,8 @@ jobs:
             -e ZORYQ_MAINNET_LAUNCH_APPROVALS=/fixture/launch-approvals.json \
             -e ZORYQ_MAINNET_EXTERNAL_SIGNER_READY=true \
             -e ZORYQ_MAINNET_CONSENSUS_READY=true \
+            -e ZORYQ_MAINNET_REDUNDANCY_READY=true \
+            -e ZORYQ_MAINNET_RECOVERY_READY=true \
             -e ZORYQ_MAINNET_AUDIT_READY=true \
             -e ZORYQ_MAINNET_INCIDENT_RUNBOOK_READY=true \
             zoryq-mainnet-preflight | tee /tmp/mainnet-image-preflight.log
