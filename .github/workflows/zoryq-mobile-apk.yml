@@ -116,15 +116,23 @@ jobs:
         run: |
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
           test -n "$APK"
-          unzip -l "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' >/dev/null
           BUNDLE=$(unzip -Z1 "$APK" | grep -E 'index\.android\.bundle|assets/.*\.bundle' | head -n 1)
           test -n "$BUNDLE"
           unzip -p "$APK" "$BUNDLE" > /tmp/zoriq-index.android.bundle
-          grep -F 'Jogo da Velha' /tmp/zoriq-index.android.bundle >/dev/null
-          grep -F 'ZORIQ MINI GAMES' /tmp/zoriq-index.android.bundle >/dev/null
-          grep -F 'Alterar foto de perfil' /tmp/zoriq-index.android.bundle >/dev/null
-          grep -F '$ Enviar cripto' /tmp/zoriq-index.android.bundle >/dev/null
-          grep -F 'Acesse tudo por uma coluna simples e retrátil.' /tmp/zoriq-index.android.bundle >/dev/null
+          check_marker() {
+            marker="$1"
+            if grep -aFq "$marker" /tmp/zoriq-index.android.bundle; then
+              echo "FOUND: $marker"
+            else
+              echo "::error::APK bundle missing required feature marker: $marker"
+              exit 1
+            fi
+          }
+          check_marker 'Jogo da Velha'
+          check_marker 'ZORIQ MINI GAMES'
+          check_marker 'Alterar foto de perfil'
+          check_marker 'Enviar cripto'
+          check_marker 'APLICATIVOS'
 
       - name: Package artifact
         run: |
