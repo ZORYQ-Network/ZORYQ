@@ -21,6 +21,7 @@ namespace Zoryq.Play.RushCity.Editor
 
             new GameObject("AdaptiveQuality").AddComponent<RushCityQualityManager>();
             new GameObject("Telemetry").AddComponent<RushCityTelemetry>();
+            new GameObject("LiveOps").AddComponent<RushCityLiveOpsConfig>();
             new GameObject("MissionDirector").AddComponent<RushCityMissionDirector>();
             new GameObject("RushCityGameManager").AddComponent<RushCityGameManager>();
 
@@ -33,7 +34,7 @@ namespace Zoryq.Play.RushCity.Editor
             var ghost=GameObject.CreatePrimitive(PrimitiveType.Capsule); ghost.name="GhostRunner_EngineeringRig"; ghost.transform.position=player.transform.position;
             Object.DestroyImmediate(ghost.GetComponent<CapsuleCollider>()); ghost.GetComponent<Renderer>().sharedMaterial=NewTransparentMat(new Color(.1f,.92f,1f,.28f),2f);
             var ghostSystem=new GameObject("GhostRaceSystem");
-            var recorder=ghostSystem.AddComponent<RushCityGhostRecorder>();
+            ghostSystem.AddComponent<RushCityGhostRecorder>();
             var playback=ghostSystem.AddComponent<RushCityGhostPlayback>(); playback.Configure(ghost.transform);
             ghostSystem.AddComponent<RushCityGhostRaceManager>().Configure(playback);
 
