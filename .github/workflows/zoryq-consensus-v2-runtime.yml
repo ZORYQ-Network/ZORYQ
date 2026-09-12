@@ -1,0 +1,62 @@
+name: ZORYQ Consensus V2 Runtime Proof
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'infra/consensus-v2/**'
+      - '.github/workflows/zoryq-consensus-v2-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-consensus-v2-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  consensus-runtime-proof:
+    name: Launch 3-node EL+CL devnet and prove consensus
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout ZORYQ
+        uses: actions/checkout@v4
+
+      - name: Static topology guard
+        run: node infra/consensus-v2/verify-topology.mjs
+
+      - name: Launch ZORYQ Consensus V2 with Kurtosis + Assertoor
+        uses: ethpandaops/kurtosis-assertoor-github-action@f64942cbc780df731a731ea9f45765b161d2c8df
+        with:
+          ethereum_package_url: 'github.com/ethpandaops/ethereum-package'
+          ethereum_package_args: 'infra/consensus-v2/network_params.yaml'
+          enclave_name: 'zoryq-consensus-v2-${{ github.run_id }}'
+          persistent_logs: 'true'
+          enclave_dump: 'true'
+
+      - name: Record successful runtime evidence marker
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p evidence/consensus-v2
+          cat > evidence/consensus-v2/runtime-proof.txt <<EOF
+          ZORYQ Consensus V2 runtime proof passed
+          commit=${GITHUB_SHA}
+          run_id=${GITHUB_RUN_ID}
+          topology=3x Reth + 3x Lighthouse
+          network_id=5919065
+          static_guard=passed
+          kurtosis_assertoor=passed
+          EOF
+          cat evidence/consensus-v2/runtime-proof.txt
+
+      - name: Upload ZORYQ runtime evidence marker
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-consensus-v2-runtime-proof-${{ github.run_id }}
+          path: evidence/consensus-v2/runtime-proof.txt
+          retention-days: 30
