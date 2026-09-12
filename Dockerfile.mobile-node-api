@@ -1,0 +1,11 @@
+FROM node:22-bookworm-slim
+WORKDIR /app
+ENV NODE_ENV=production \
+    PORT=8080 \
+    ZORYQ_MOBILE_NODE_DATA_DIR=/data/mobile-node
+COPY zoryq-mobile-node/package.json ./zoryq-mobile-node/package.json
+COPY zoryq-mobile-node/src ./zoryq-mobile-node/src
+RUN mkdir -p /data/mobile-node && chown -R node:node /app /data
+USER node
+EXPOSE 8080
+CMD ["node", "zoryq-mobile-node/src/server.mjs"]
