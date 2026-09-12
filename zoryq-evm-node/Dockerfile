@@ -20,9 +20,10 @@ COPY mainnet-guard.mjs ./
 COPY prepare-reth-genesis.mjs ./
 COPY publish-canonical-chain-spec.mjs ./
 COPY zoryq-reth-genesis.json ./
-COPY network-maturity.json ./web/network-maturity.json
+RUN mkdir -p /data/reth /app/web /app/protocol-out
+COPY network-maturity.json /app/web/network-maturity.json
 COPY entrypoint.sh ./
-RUN chmod +x /app/entrypoint.sh /usr/local/bin/zoryq-gateway && mkdir -p /data/reth /app/web /app/protocol-out
+RUN chmod +x /app/entrypoint.sh /usr/local/bin/zoryq-gateway
 ENV PORT=8080
 EXPOSE 8080
 CMD ["/app/entrypoint.sh"]
