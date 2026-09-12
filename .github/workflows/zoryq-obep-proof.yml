@@ -40,7 +40,7 @@ jobs:
       - name: Install live-proof verification dependency
         run: |
           npm init -y >/dev/null 2>&1
-          npm install --no-save --package-lock=false ethers@6.15.0
+          npm install --no-save --package-lock=false ethers@6.17.0
 
       - name: Generate live ZORYQ Testnet OBEP economic proof
         env:
