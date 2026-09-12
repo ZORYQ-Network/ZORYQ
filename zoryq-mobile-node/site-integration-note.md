@@ -1,0 +1,1 @@
+The official website should link the APK CTA to the rolling testnet release asset only after the APK workflow succeeds. Until then, surface the feature as beta-coming-online rather than linking a nonexistent binary.
