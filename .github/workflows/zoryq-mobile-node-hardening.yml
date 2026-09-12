@@ -42,6 +42,9 @@ jobs:
           IDENTITY=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeIdentity.kt
           GOVERNOR=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/ResourceGovernor.kt
           MODES=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeMode.kt
+          MULTI=zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/MultiRpcVerifier.kt
+          REG=zoryq-mobile-node/src/registration-engine.js
+          PROOF=zoryq-mobile-node/src/proof-engine.js
           grep -q 'CHAIN_ID = 5919065L' "$SERVICE"
           grep -q 'Unexpected chainId' zoryq-mobile-node/src/witness.js
           grep -q 'independentAgreement' zoryq-mobile-node/src/witness.js
@@ -60,6 +63,14 @@ jobs:
           grep -q 'BALANCED' "$MODES"
           grep -q 'MAX_CONTRIBUTION' "$MODES"
           grep -q 'PAUSED' "$MODES"
+          grep -q 'distinct()' "$MULTI"
+          grep -q 'unique.size >= 2 && votes >= 2' "$MULTI"
+          grep -q 'independentRpcAgreement' "$SERVICE"
+          grep -q 'MOBILE_NODE_CHAIN_ID = 5919065' "$REG"
+          grep -q 'zoryq-node-registration-v1' "$REG"
+          grep -q 'Registration replay rejected' "$REG"
+          grep -q 'server-owned verifyWitness' "$PROOF"
+          grep -q 'Independent RPC agreement required' "$PROOF"
           ! grep -R -E "(sk-[A-Za-z0-9_-]{20,}|private[_-]?key[[:space:]]*[:=][[:space:]]*['\"][0-9a-fA-F]{64}|seed[[:space:]]*phrase[[:space:]]*[:=])" zoryq-mobile-node --exclude-dir=build
 
       - name: Require adversarial coverage
@@ -70,6 +81,11 @@ jobs:
           grep -q 'malicious block header' zoryq-mobile-node/test/witness.test.js
           grep -q 'conflicting RPC hashes' zoryq-mobile-node/test/witness.test.js
           grep -q 'duplicate endpoint cannot fake' zoryq-mobile-node/test/witness.test.js
+          grep -q 'rejects replayed registration challenge' zoryq-mobile-node/test/registration-engine.test.js
+          grep -q 'rejects expired registration challenge' zoryq-mobile-node/test/registration-engine.test.js
+          grep -q 'rejects another public key claiming the same Node ID' zoryq-mobile-node/test/registration-engine.test.js
+          grep -q 'bad signature' zoryq-mobile-node/test/registration-engine.test.js
+          grep -q 'restart' zoryq-mobile-node/test/proof-engine.test.js
 
       - uses: actions/setup-java@v4
         with:
