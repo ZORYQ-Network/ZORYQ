@@ -10,6 +10,7 @@ on:
       - 'zoryq-evm-node/factory-cloud.test.mjs'
       - 'zoryq-evm-node/factory-cloud-preload.mjs'
       - 'zoryq-evm-node/server-with-factory.mjs'
+      - 'tools/factory-apk-worker/**'
       - '.github/workflows/factory-v03-smoke.yml'
   push:
     branches:
@@ -20,6 +21,7 @@ on:
       - 'zoryq-evm-node/factory-cloud.mjs'
       - 'zoryq-evm-node/factory-cloud-preload.mjs'
       - 'zoryq-evm-node/server-with-factory.mjs'
+      - 'tools/factory-apk-worker/**'
       - '.github/workflows/factory-v03-smoke.yml'
   workflow_dispatch:
 
@@ -41,6 +43,7 @@ jobs:
           node --check zoryq-evm-node/factory-cloud.mjs
           node --check zoryq-evm-node/factory-cloud-preload.mjs
           node --check zoryq-evm-node/server-with-factory.mjs
+          node --check tools/factory-apk-worker/build-next.mjs
       - name: Verify production image wiring
         run: |
           set -euo pipefail
@@ -51,5 +54,5 @@ jobs:
           grep -Fq 'test -f /app/factory-compiler.mjs' Dockerfile
       - name: Generalized compiler tests
         run: node --test zoryq-evm-node/factory-compiler.test.mjs
-      - name: Durable cloud tests
+      - name: Durable cloud and APK queue tests
         run: node --test zoryq-evm-node/factory-cloud.test.mjs
