@@ -1,0 +1,89 @@
+name: ZORYQ Rush City Unity Build
+
+'on':
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'zoryq-games-unity/**'
+      - '.github/workflows/zoryq-rush-city-unity-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-rush-city-unity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unity-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+      UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+      UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Verify production build inputs
+        run: |
+          test -f zoryq-games-unity/ProjectSettings/ProjectVersion.txt
+          grep -Fq '6000.3.15f1' zoryq-games-unity/ProjectSettings/ProjectVersion.txt
+          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCityCiBuild.cs
+          grep -Fq 'BuildAll' zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCityCiBuild.cs
+          grep -Fq 'unityLibrary' zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCityCiBuild.cs
+
+      - name: Detect Unity credentials
+        run: |
+          if [ -n "$UNITY_LICENSE" ] && [ -n "$UNITY_EMAIL" ] && [ -n "$UNITY_PASSWORD" ]; then
+            echo 'ZORYQ_HAS_UNITY_LICENSE=1' >> "$GITHUB_ENV"
+          else
+            echo 'ZORYQ_HAS_UNITY_LICENSE=0' >> "$GITHUB_ENV"
+            echo '::notice::Unity credentials are not configured. Source gates remain active; binary Unity build is skipped.'
+          fi
+
+      - name: Cache Unity Library
+        if: env.ZORYQ_HAS_UNITY_LICENSE == '1'
+        uses: actions/cache@v4
+        with:
+          path: zoryq-games-unity/Library
+          key: rush-city-unity-6000.3.15f1-android-${{ hashFiles('zoryq-games-unity/Packages/**', 'zoryq-games-unity/ProjectSettings/**') }}
+          restore-keys: |
+            rush-city-unity-6000.3.15f1-android-
+
+      - name: Build Rush City APK and unityLibrary
+        if: env.ZORYQ_HAS_UNITY_LICENSE == '1'
+        uses: game-ci/unity-builder@v5
+        with:
+          projectPath: zoryq-games-unity
+          unityVersion: auto
+          targetPlatform: Android
+          buildMethod: Zoryq.Play.RushCity.Editor.RushCityCiBuild.BuildAll
+
+      - name: Verify Unity outputs
+        if: env.ZORYQ_HAS_UNITY_LICENSE == '1'
+        run: |
+          test -f zoryq-games-unity/build/ZORYQ-Rush-City-Vertical-Slice.apk
+          test -d zoryq-games-unity/build/RushCity-AndroidStudio/unityLibrary
+          test -f zoryq-games-unity/build/BUILD_INFO.txt
+          test "$(stat -c%s zoryq-games-unity/build/ZORYQ-Rush-City-Vertical-Slice.apk)" -gt 1000000
+
+      - name: Upload Rush City Unity build
+        if: env.ZORYQ_HAS_UNITY_LICENSE == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Rush-City-Unity-${{ github.run_number }}
+          path: |
+            zoryq-games-unity/build/ZORYQ-Rush-City-Vertical-Slice.apk
+            zoryq-games-unity/build/RushCity-AndroidStudio/unityLibrary/**
+            zoryq-games-unity/build/BUILD_INFO.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Unity binary build status
+        if: env.ZORYQ_HAS_UNITY_LICENSE != '1'
+        run: |
+          echo 'Unity source is ready for CI, but UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD must be configured as repository secrets before binary export can run.'
