@@ -21,7 +21,7 @@ on:
       - 'zoryq-mobile/ZoriqSocialNative.tsx'
       - 'zoryq-mobile/profilePreferences.ts'
       - 'zoryq-mobile/MiniGames.tsx'
-      - 'zoryq-mobile/PremiumArcade.tsx'
+      - 'zoryq-mobile/WalletGames.tsx'
       - 'zoryq-mobile/SyncedFeed.tsx'
       - 'zoryq-mobile/SocialPaymentSheet.tsx'
       - 'zoryq-mobile/socialPayments.ts'
@@ -64,7 +64,7 @@ on:
       - 'zoryq-mobile/ZoriqSocialNative.tsx'
       - 'zoryq-mobile/profilePreferences.ts'
       - 'zoryq-mobile/MiniGames.tsx'
-      - 'zoryq-mobile/PremiumArcade.tsx'
+      - 'zoryq-mobile/WalletGames.tsx'
       - 'zoryq-mobile/SyncedFeed.tsx'
       - 'zoryq-mobile/SocialPaymentSheet.tsx'
       - 'zoryq-mobile/socialPayments.ts'
@@ -114,5 +114,5 @@ jobs:
         run: node zoryq-developer/scripts/check-zoriq-web-apk-parity.mjs
       - name: Validate ZORIQ Verified annual ETH package
         run: node zoryq-developer/scripts/check-zoriq-verified.mjs
-      - name: Validate ZORYQ Social + Premium Arcade package
+      - name: Validate ZORYQ Social + five-game ZQ Wallet universe
         run: node zoryq-developer/scripts/check-zoriq-mini-games.mjs
