@@ -3,6 +3,8 @@ FROM ghcr.io/cirruslabs/android-sdk:35
 USER root
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN yes | sdkmanager --licenses >/dev/null 2>&1 || true \
+ && sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0" "build-tools;34.0.0"
 RUN curl -fsSL https://services.gradle.org/distributions/gradle-8.9-bin.zip -o /tmp/gradle.zip \
  && unzip -q /tmp/gradle.zip -d /opt/gradle \
  && rm /tmp/gradle.zip
@@ -13,7 +15,7 @@ COPY factory-apk-builder/package.json ./package.json
 COPY factory-apk-builder/server.mjs ./server.mjs
 COPY apps/budget-dapp-android ./template
 RUN printf '%s\n' \
- 'org.gradle.jvmargs=-Xmx256m -XX:MaxMetaspaceSize=256m -XX:ReservedCodeCacheSize=64m -Xss512k -Dfile.encoding=UTF-8 -Dorg.gradle.vfs.watch=false' \
+ 'org.gradle.jvmargs=-Xmx256m -XX:MaxMetaspaceSize=192m -XX:ReservedCodeCacheSize=48m -Xss512k -Dfile.encoding=UTF-8 -Dorg.gradle.vfs.watch=false' \
  'org.gradle.daemon=false' \
  'org.gradle.parallel=false' \
  'org.gradle.workers.max=1' \
