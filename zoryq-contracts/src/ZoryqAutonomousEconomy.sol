@@ -337,10 +337,11 @@ contract ZoryqAutonomousEconomy {
         Task storage t = tasks[taskId];
         require(t.status == TaskStatus.Open || t.status == TaskStatus.Assigned, "cannot cancel");
         require(_canManageTask(t, msg.sender), "task manager only");
+        TaskStatus previousStatus = t.status;
         uint256 refund = t.escrowed;
         t.escrowed = 0;
         t.status = TaskStatus.Cancelled;
-        if (t.status == TaskStatus.Assigned && t.worker != address(0)) {
+        if (previousStatus == TaskStatus.Assigned && t.worker != address(0)) {
             agents[t.worker].failedTasks += 1;
         }
         if (t.organizationId != 0) {
