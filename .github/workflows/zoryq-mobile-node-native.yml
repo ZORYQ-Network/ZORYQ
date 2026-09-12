@@ -21,7 +21,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -36,12 +36,17 @@ jobs:
           root = Path('zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode')
           witness = (root/'WitnessService.kt').read_text()
           identity = (root/'NodeIdentity.kt').read_text()
+          api = (root/'MobileNodeApi.kt').read_text()
           checks = {
               'chain-id': 'CHAIN_ID = 5919065L' in witness,
               'android-keystore': 'AndroidKeyStore' in identity,
               'ecdsa-signing': 'SHA256withECDSA' in identity,
               'resource-governor-wired': 'ResourceGovernor.evaluate' in witness,
-              'truthful-proof-status': 'not server-verified' in witness and 'no XP' in witness,
+              'server-proof-submit': 'MobileNodeApi.submitProof' in witness,
+              'verified-xp-receipt': 'receipt.xpAwarded' in witness and 'receipt.totalXp' in witness,
+              'failure-awards-zero-xp': 'No XP' in witness,
+              'registration-challenge': '/mobile-node/registration-challenge' in api,
+              'proof-endpoint': '/mobile-node/proof' in api,
               'pause-action': 'ACTION_PAUSE' in witness,
           }
           failed = [name for name, ok in checks.items() if not ok]
