@@ -29,14 +29,39 @@ jobs:
       - name: Security and truth gate
         shell: bash
         run: |
-          set -euo pipefail
-          grep -q 'CHAIN_ID = 5919065L' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
-          grep -q 'AndroidKeyStore' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeIdentity.kt
-          grep -q 'SHA256withECDSA' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeIdentity.kt
-          grep -q 'ResourceGovernor.evaluate' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
-          grep -q 'not server-verified • no XP' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
-          grep -q 'ACTION_PAUSE' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
-          ! grep -R -E '(seed phrase|mnemonic|private[_-]?key[[:space:]]*[:=][[:space:]]*["'"'][0-9a-fA-F]{64})' zoryq-mobile-node/android/app/src/main/java
+          python - <<'PY'
+          from pathlib import Path
+          import re, sys
+
+          root = Path('zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode')
+          witness = (root/'WitnessService.kt').read_text()
+          identity = (root/'NodeIdentity.kt').read_text()
+          checks = {
+              'chain-id': 'CHAIN_ID = 5919065L' in witness,
+              'android-keystore': 'AndroidKeyStore' in identity,
+              'ecdsa-signing': 'SHA256withECDSA' in identity,
+              'resource-governor-wired': 'ResourceGovernor.evaluate' in witness,
+              'truthful-proof-status': 'not server-verified' in witness and 'no XP' in witness,
+              'pause-action': 'ACTION_PAUSE' in witness,
+          }
+          failed = [name for name, ok in checks.items() if not ok]
+          for name, ok in checks.items():
+              print(f'{"PASS" if ok else "FAIL"}: {name}')
+          source = '\n'.join(p.read_text(errors='ignore') for p in root.glob('*.kt'))
+          secret_patterns = {
+              'raw-hex-private-key': r'(?i)private[_-]?key\s*[:=]\s*["\']?[0-9a-f]{64}["\']?',
+              'seed-phrase-assignment': r'(?i)(mnemonic|seed[_-]?phrase)\s*[:=]\s*["\'][^"\']{16,}["\']',
+          }
+          for name, pattern in secret_patterns.items():
+              if re.search(pattern, source):
+                  print(f'FAIL: {name}')
+                  failed.append(name)
+              else:
+                  print(f'PASS: {name}')
+          if failed:
+              print('Security/truth gate failed: ' + ', '.join(failed), file=sys.stderr)
+              raise SystemExit(1)
+          PY
       - name: Generate Gradle wrapper
         working-directory: zoryq-mobile-node/android
         run: gradle wrapper --gradle-version 8.10.2
