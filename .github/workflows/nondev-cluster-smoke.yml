@@ -1,0 +1,61 @@
+name: ZORYQ Non-Dev Cluster Smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'infra/nondev/**'
+      - '.github/workflows/nondev-cluster-smoke.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  two-node-nondev:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl
+          echo 'deb [trusted=yes] https://sdk.kurtosis.com/kurtosis-cli-release-artifacts/ /' | sudo tee /etc/apt/sources.list.d/kurtosis.list
+          sudo apt-get update
+          sudo apt-get install -y kurtosis-cli
+          kurtosis version
+
+      - name: Start Kurtosis engine
+        run: kurtosis engine start
+
+      - name: Launch two-node Reth + Lighthouse network
+        run: |
+          kurtosis run --enclave zoryq-nondev github.com/ethpandaops/ethereum-package --args-file infra/nondev/network_params.yaml
+          kurtosis enclave inspect zoryq-nondev
+
+      - name: Verify convergence, finality and peers
+        run: |
+          chmod +x infra/nondev/verify-cluster.sh
+          infra/nondev/verify-cluster.sh zoryq-nondev | tee /tmp/zoryq-nondev-evidence.json
+
+      - name: Upload non-secret evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-nondev-evidence
+          path: /tmp/zoryq-nondev-evidence.json
+          if-no-files-found: error
+
+      - name: Dump enclave on failure
+        if: failure()
+        run: |
+          kurtosis enclave inspect zoryq-nondev || true
+          kurtosis service logs zoryq-nondev el-1-reth-lighthouse || true
+          kurtosis service logs zoryq-nondev el-2-reth-lighthouse || true
+          kurtosis service logs zoryq-nondev cl-1-lighthouse-reth || true
+          kurtosis service logs zoryq-nondev cl-2-lighthouse-reth || true
+
+      - name: Cleanup
+        if: always()
+        run: kurtosis enclave rm -f zoryq-nondev || true
