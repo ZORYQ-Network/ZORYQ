@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using UnityEngine;
 using Zoryq.Play;
 
@@ -14,6 +15,7 @@ namespace Zoryq.Play.RushCity
         [SerializeField] float speedGainPerSecond = 0.16f;
         [SerializeField] float chasePressureGain = 0.018f;
         [SerializeField] float chasePressureRecovery = 0.11f;
+        [SerializeField] float resultScreenSeconds = 3.2f;
 
         public bool IsRunning { get; private set; }
         public float CurrentSpeed { get; private set; }
@@ -25,6 +27,7 @@ namespace Zoryq.Play.RushCity
         public int Score { get; private set; }
         public int Combo { get; private set; } = 1;
         public string SessionId { get; private set; }
+        public string LastEndReason { get; private set; }
         public bool MagnetActive => _magnetUntil > Time.time;
         public bool ShieldActive => _shieldCharges > 0;
         public bool OverdriveActive => _overdriveUntil > Time.time;
@@ -81,7 +84,9 @@ namespace Zoryq.Play.RushCity
 
         public void BeginRun()
         {
+            StopAllCoroutines();
             SessionId = Guid.NewGuid().ToString("N");
+            LastEndReason=string.Empty;
             IsRunning = true; CurrentSpeed = baseSpeed; DistanceMeters = 0; DurationSeconds = 0; ChasePressure = .15f; SkillFlow = .25f;
             ZqCollected = 0; Score = 0; Combo = 1; _bonusScore = 0; _bonusZq = 0; _shieldCharges = 0;
             _magnetUntil = _overdriveUntil = _multiplierUntil = -1f; _lastCollectTime = -99f; Time.timeScale = 1f;
@@ -181,11 +186,21 @@ namespace Zoryq.Play.RushCity
         public void EndRun(string reason)
         {
             if (!IsRunning) return;
-            IsRunning = false; CurrentSpeed = 0;
+            IsRunning = false;
+            CurrentSpeed = 0;
+            LastEndReason=reason;
             var result = new GameRunResult { sessionId = SessionId, score = Score, zqCollected = TotalZq, distanceMeters = DistanceMeters, durationSeconds = DurationSeconds };
             RushCityGhostRaceManager.Instance?.FinishAndStoreCurrentRun();
             RushCityGameEvents.RaiseRunEnded(reason);
             Debug.Log($"[Rush City] run ended: {reason} telemetry={RushCityTelemetry.Instance?.SnapshotJson()}");
+            StartCoroutine(ReturnAfterResults(result));
+        }
+
+        IEnumerator ReturnAfterResults(GameRunResult result)
+        {
+            Time.timeScale=.18f;
+            yield return new WaitForSecondsRealtime(Mathf.Clamp(resultScreenSeconds,1.5f,8f));
+            Time.timeScale=1f;
             ZoryqPlayBridge.ReportAndReturn(result);
         }
 
