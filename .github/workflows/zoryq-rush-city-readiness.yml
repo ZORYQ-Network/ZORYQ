@@ -20,29 +20,74 @@ jobs:
 
       - name: Verify Unity vertical slice structure
         run: |
+          ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity
           test -f zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
-          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityGameManager.cs
-          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityPlayerController.cs
-          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityTrackManager.cs
-          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityCameraController.cs
-          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityProceduralCity.cs
-          test -f zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCitySceneBuilder.cs
+          test -f $ROOT/Scripts/RushCityGameManager.cs
+          test -f $ROOT/Scripts/RushCityPlayerController.cs
+          test -f $ROOT/Scripts/RushCityTrackManager.cs
+          test -f $ROOT/Scripts/RushCityCameraController.cs
+          test -f $ROOT/Scripts/RushCityProceduralCity.cs
+          test -f $ROOT/Scripts/RushCityQualityManager.cs
+          test -f $ROOT/Scripts/RushCityMissionDirector.cs
+          test -f $ROOT/Scripts/RushCityPowerUp.cs
+          test -f $ROOT/Scripts/RushCityTelemetry.cs
+          test -f $ROOT/Scripts/RushCityChaseDirector.cs
+          test -f $ROOT/Scripts/RushCityNearMissZone.cs
+          test -f $ROOT/Scripts/RushCityGhostRecorder.cs
+          test -f $ROOT/Scripts/RushCityGhostPlayback.cs
+          test -f $ROOT/Scripts/RushCityGhostRaceManager.cs
+          test -f $ROOT/Scripts/RushCityLiveOpsConfig.cs
+          test -f $ROOT/Editor/RushCitySceneBuilder.cs
 
-      - name: Verify gameplay mechanics are implemented
+      - name: Verify premium gameplay systems
         run: |
-          PLAYER=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityPlayerController.cs
-          GAME=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityGameManager.cs
-          TRACK=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts/RushCityTrackManager.cs
+          ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
+          PLAYER=$ROOT/RushCityPlayerController.cs
+          GAME=$ROOT/RushCityGameManager.cs
+          TRACK=$ROOT/RushCityTrackManager.cs
+          QUALITY=$ROOT/RushCityQualityManager.cs
+          MISSION=$ROOT/RushCityMissionDirector.cs
+          POWER=$ROOT/RushCityPowerUp.cs
+          GHOST=$ROOT/RushCityGhostRecorder.cs
+          PLAYBACK=$ROOT/RushCityGhostPlayback.cs
+          LIVEOPS=$ROOT/RushCityLiveOpsConfig.cs
           grep -Fq 'ChangeLane' "$PLAYER"
           grep -Fq 'Jump()' "$PLAYER"
           grep -Fq 'Slide()' "$PLAYER"
           grep -Fq 'WallRun()' "$PLAYER"
-          grep -Fq 'ChasePressure' "$GAME"
-          grep -Fq 'CollectZq' "$GAME"
-          grep -Fq 'RegisterCleanParkour' "$GAME"
+          grep -Fq 'SkillFlow' "$GAME"
+          grep -Fq 'RegisterNearMiss' "$GAME"
+          grep -Fq 'ActivatePowerUp' "$GAME"
+          grep -Fq 'RushCityLiveOpsConfig.Instance' "$GAME"
           grep -Fq 'BuildPattern' "$TRACK"
-          grep -Fq 'WallRunLeft' "$TRACK"
-          grep -Fq 'BuildCoinLine' "$TRACK"
+          grep -Fq 'SpawnPowerUp' "$TRACK"
+          grep -Fq 'RushCityNearMissZone' "$TRACK"
+          grep -Fq 'TargetFps' "$QUALITY"
+          grep -Fq '120' "$QUALITY"
+          grep -Fq 'RushMissionType' "$MISSION"
+          grep -Fq 'NearMiss' "$MISSION"
+          grep -Fq 'RushPowerUpType' "$POWER"
+          grep -Fq 'Magnet' "$POWER"
+          grep -Fq 'Shield' "$POWER"
+          grep -Fq 'Overdrive' "$POWER"
+          grep -Fq 'Multiplier' "$POWER"
+          grep -Fq 'zoryq.rush.ghost.v1' "$GHOST"
+          grep -Fq 'sampleInterval' "$GHOST"
+          grep -Fq 'LoadJson' "$PLAYBACK"
+          grep -Fq 'zoryq.rush.liveops.v1' "$LIVEOPS"
+          grep -Fq 'seasonId' "$LIVEOPS"
+
+      - name: Verify scene assembles advanced systems
+        run: |
+          SCENE=zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCitySceneBuilder.cs
+          grep -Fq 'RushCityQualityManager' "$SCENE"
+          grep -Fq 'RushCityTelemetry' "$SCENE"
+          grep -Fq 'RushCityMissionDirector' "$SCENE"
+          grep -Fq 'RushCityChaseDirector' "$SCENE"
+          grep -Fq 'RushCityGhostRecorder' "$SCENE"
+          grep -Fq 'RushCityGhostPlayback' "$SCENE"
+          grep -Fq 'RushCityGhostRaceManager' "$SCENE"
+          grep -Fq 'EngineeringRig' "$SCENE"
 
       - name: Verify wallet security boundary
         run: |
@@ -54,5 +99,5 @@ jobs:
           grep -Fq 'zoryq.play.launch.v1' "$MOBILE"
           grep -Fq 'GAME_ENGINE_UNAVAILABLE' "$NATIVE"
           grep -Fq 'zoryq_play_result' "$NATIVE"
-          ! grep -R -E 'eth_sendTransaction|personal_sign|eth_signTypedData|Wallet\.createRandom|fromPhrase|mnemonic' zoryq-games-unity/Assets/ZORYQ --include='*.cs'
-          echo 'Rush City source readiness verified.'
+          ! grep -R -E 'eth_sendTransaction|personal_sign|eth_signTypedData|Wallet\.createRandom|fromPhrase|mnemonic|privateKey|seedPhrase' zoryq-games-unity/Assets/ZORYQ --include='*.cs'
+          echo 'Rush City advanced source readiness verified.'
