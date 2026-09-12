@@ -21,6 +21,8 @@ namespace Zoryq.Play.RushCity
 
         void Start()
         {
+            var mode=RushCityRunModeDirector.Instance;
+            if(mode)seed=mode.TrackSeed;
             _rng = new System.Random(seed);
             _road = CreateMaterial(new Color(.018f,.024f,.05f), 0f);
             _cyan = CreateMaterial(new Color(.02f,.74f,1f), 2.4f);
@@ -29,6 +31,7 @@ namespace Zoryq.Play.RushCity
             _gold = CreateMaterial(new Color(1f,.55f,.08f),3f);
             _green = CreateMaterial(new Color(.08f,1f,.55f),2.6f);
             for (var i = 0; i < visibleSegments; i++) SpawnSegment(i < 2 ? 0 : _rng.Next(0,8));
+            Debug.Log($"[Rush City] track seed={seed} mode={(mode?mode.Mode:RushRunMode.Standard)}");
         }
 
         void Update()
