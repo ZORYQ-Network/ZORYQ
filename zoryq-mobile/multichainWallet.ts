@@ -118,8 +118,10 @@ export async function executeSwapQuote(quote:SwapQuote){
  if(Date.now()-quote.createdAt>55000)throw new Error('quote_expired');
  const privateKey=await SecureStore.getItemAsync(WALLET_KEY);if(!privateKey)throw new Error('wallet_missing');
  const p=await providerFor(quote.fromNetwork);const signer=new Wallet(privateKey,p);
- const action=quote.raw?.action||{};if(String(action.fromAddress||'').toLowerCase()!==signer.address.toLowerCase())throw new Error('quote_wallet_changed');
- const required=BigInt(String(action.fromAmount||'0'));
+ const action=quote.raw?.action||{};
+ if(String(action.fromAddress||'').toLowerCase()!==signer.address.toLowerCase())throw new Error('quote_wallet_changed');
+ if(Number(action.fromChainId||quote.fromNetwork.chainId)!==quote.fromNetwork.chainId)throw new Error('quote_chain_mismatch');
+ const required=BigInt(String(action.fromAmount||'0'));if(required<=0n)throw new Error('quote_amount_invalid');
  let approvalHash:string|null=null;
  if(!quote.fromToken.native){
   const spender=String(quote.raw?.estimate?.approvalAddress||'');if(!isAddress(spender))throw new Error('approval_address_missing');
@@ -133,7 +135,9 @@ export async function executeSwapQuote(quote:SwapQuote){
    }
   }
  }else{const bal=await p.getBalance(signer.address);if(bal<=required)throw new Error('insufficient_funds')}
- const tr=quote.raw.transactionRequest;if(Number(tr.chainId||quote.fromNetwork.chainId)!==quote.fromNetwork.chainId)throw new Error('quote_chain_mismatch');
+ const tr=quote.raw.transactionRequest;
+ if(Number(tr.chainId||quote.fromNetwork.chainId)!==quote.fromNetwork.chainId)throw new Error('quote_chain_mismatch');
+ if(!isAddress(String(tr.to||'')))throw new Error('quote_destination_invalid');
  const tx:any={to:String(tr.to),data:String(tr.data||'0x'),value:BigInt(String(tr.value||'0x0'))};
  if(tr.gasLimit)tx.gasLimit=BigInt(String(tr.gasLimit));if(tr.gasPrice)tx.gasPrice=BigInt(String(tr.gasPrice));if(tr.maxFeePerGas)tx.maxFeePerGas=BigInt(String(tr.maxFeePerGas));if(tr.maxPriorityFeePerGas)tx.maxPriorityFeePerGas=BigInt(String(tr.maxPriorityFeePerGas));
  const sent=await signer.sendTransaction(tx);const receipt=await sent.wait(1);if(!receipt||receipt.status!==1)throw new Error('swap_source_failed');
