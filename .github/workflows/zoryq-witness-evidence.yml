@@ -1,0 +1,37 @@
+name: ZORYQ Witness Evidence
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-mainnet/witness-node.mjs'
+      - 'zoryq-mainnet/verify-witness-evidence.mjs'
+      - 'docs/ZORYQ_WITNESS_RUNBOOK.md'
+      - '.github/workflows/zoryq-witness-evidence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  public-testnet-witness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Observe public ZORYQ testnet
+        env:
+          ZORYQ_WITNESS_OPERATOR_ID: github-actions-core-witness
+          ZORYQ_WITNESS_REGION: github-hosted-runner
+          ZORYQ_WITNESS_CORE_CONTROLLED: 'true'
+          ZORYQ_WITNESS_KEY_FILE: /tmp/zoryq-witness-ed25519.pem
+          ZORYQ_WITNESS_EVIDENCE: /tmp/zoryq-witness-evidence.json
+        run: node zoryq-mainnet/witness-node.mjs
+      - name: Verify signed witness bundle
+        env:
+          ZORYQ_WITNESS_EVIDENCE: /tmp/zoryq-witness-evidence.json
+        run: node zoryq-mainnet/verify-witness-evidence.mjs /tmp/zoryq-witness-evidence.json
+      - name: Claim boundary
+        run: echo 'CI witness validates the public evidence path only; it is core-controlled and does not count as an independent operator or decentralized consensus.'
