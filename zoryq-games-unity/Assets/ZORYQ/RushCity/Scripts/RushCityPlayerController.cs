@@ -49,7 +49,8 @@ namespace Zoryq.Play.RushCity
             var gm = RushCityGameManager.Instance;
             if (gm == null || !gm.IsRunning) return;
             ReadInput();
-            var targetX = (_lane - 1) * laneWidth;
+            var routeCenter=RushCityRouteDirector.Instance ? RushCityRouteDirector.Instance.CurrentCenterX : 0f;
+            var targetX = routeCenter + (_lane - 1) * laneWidth;
             var x = Mathf.SmoothDamp(transform.position.x, targetX, ref _laneVelocity, laneSnapTime, lateralMaxSpeed);
             var lateral = (x - transform.position.x) / Mathf.Max(Time.deltaTime, .0001f);
             if (_controller.isGrounded && _verticalVelocity < 0) _verticalVelocity = -2f;
