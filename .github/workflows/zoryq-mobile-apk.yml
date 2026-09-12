@@ -104,6 +104,24 @@ jobs:
           CI: '1'
         run: npx expo prebuild --platform android --clean
 
+      - name: Verify persistent Android node integration
+        run: |
+          MANIFEST=zoryq-mobile/android/app/src/main/AndroidManifest.xml
+          NATIVE=$(find zoryq-mobile/android/app/src/main/java -name 'ZoryqNodeNative.kt' | head -n 1)
+          MAIN=$(find zoryq-mobile/android/app/src/main/java -name 'MainApplication.kt' | head -n 1)
+          test -f "$MANIFEST"
+          test -n "$NATIVE" && test -f "$NATIVE"
+          test -n "$MAIN" && test -f "$MAIN"
+          grep -Fq 'ZoryqNodeService' "$MANIFEST"
+          grep -Fq 'ZoryqNodeBootReceiver' "$MANIFEST"
+          grep -Fq 'FOREGROUND_SERVICE_SPECIAL_USE' "$MANIFEST"
+          grep -Fq 'BOOT_COMPLETED' "$MANIFEST"
+          grep -Fq 'START_STICKY' "$NATIVE"
+          grep -Fq 'AndroidKeyStore' "$NATIVE"
+          grep -Fq 'scheduleWithFixedDelay' "$NATIVE"
+          grep -Fq 'ZoryqNodePackage()' "$MAIN"
+          echo 'Persistent Mobile Node native integration verified.'
+
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build standalone release APK
@@ -112,7 +130,7 @@ jobs:
           NODE_ENV: 'production'
         run: ./gradlew :app:assembleRelease --no-daemon
 
-      - name: Verify correct social experience is packaged
+      - name: Verify correct complete experience is packaged
         run: |
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
           test -n "$APK"
@@ -133,17 +151,20 @@ jobs:
           check_marker 'Alterar foto de perfil'
           check_marker 'Enviar cripto'
           check_marker 'APLICATIVOS'
+          check_marker 'ZORYQ MOBILE NODE'
+          check_marker 'INICIAR NODE PERSISTENTE'
+          check_marker 'Otimização de bateria'
 
       - name: Package artifact
         run: |
           mkdir -p dist
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
-          cp "$APK" dist/ZORIQ-Social-ZORYQ-Wallet-${{ github.run_number }}.apk
+          cp "$APK" dist/ZORIQ-Complete-Node-Games-${{ github.run_number }}.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ZORIQ-Social-ZORYQ-Wallet-APK-${{ github.run_number }}
+          name: ZORIQ-Complete-Node-Games-APK-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt
