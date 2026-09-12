@@ -4,7 +4,7 @@ namespace Zoryq.Play.RushCity
 {
     public enum RushPowerUpType { Magnet, Shield, Overdrive, Multiplier }
 
-    public sealed class RushCityPowerUp : MonoBehaviour
+    public sealed class RushCityPowerUp : MonoBehaviour, IRushCityReusable
     {
         [SerializeField] RushPowerUpType type = RushPowerUpType.Magnet;
         [SerializeField] float duration = 8f;
@@ -19,5 +19,7 @@ namespace Zoryq.Play.RushCity
             RushCityGameManager.Instance?.ActivatePowerUp(type,duration);
             gameObject.SetActive(false);
         }
+
+        public void ResetForReuse()=>gameObject.SetActive(true);
     }
 }
