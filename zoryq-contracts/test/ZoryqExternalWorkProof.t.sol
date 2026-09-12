@@ -30,17 +30,12 @@ contract ZoryqExternalWorkProofTest {
         payer.pay{value: 1 wei}(proof, id);
         require(address(this).balance == beforeBalance + 1 wei, "treasury did not receive payment");
 
-        (
-            , address owner, address treasury, bytes32 storedCompanyRef, bytes32 storedSpec,
-            bytes32 storedDelivery, address storedPayer, uint256 revenue,,,, bool delivered, bool paid, bool cancelled
-        ) = proof.workOrders(id);
-        require(owner == address(this), "owner mismatch");
-        require(treasury == address(this), "treasury mismatch");
-        require(storedCompanyRef == companyRef && storedSpec == specHash, "work binding mismatch");
-        require(storedDelivery == deliveryHash, "delivery mismatch");
+        (address storedPayer, uint256 revenue, bool delivered, bool paid, bool cancelled) = proof.paymentProof(id);
         require(storedPayer == address(payer), "payer mismatch");
         require(revenue == 1 wei, "revenue mismatch");
         require(delivered && paid && !cancelled, "invalid final state");
+        require(proof.usedSpecHashes(specHash), "spec hash not reserved");
+        require(proof.usedDeliveryHashes(deliveryHash), "delivery hash not reserved");
         require(proof.proofDigest(id) != bytes32(0), "proof digest missing");
     }
 
