@@ -105,5 +105,26 @@ if [ "${ZORYQ_AUTONOMOUS_COMPANY_V3_ENABLED:-true}" = "true" ] && [ -f /app/depl
   ) &
 fi
 
+# External-work proof upgrades the demo from synthetic accounting to a receipt-
+# backed native-ZQ payment bound to public work evidence. Owner and payer are
+# deliberately separate testnet addresses, but both remain operator-controlled;
+# this is not represented as independent third-party demand.
+if [ "${ZORYQ_EXTERNAL_WORK_PROOF_ENABLED:-true}" = "true" ] && [ -f /app/deploy-external-work-proof.mjs ]; then
+  (
+    sleep 21
+    attempt=0
+    until node /app/deploy-external-work-proof.mjs; do
+      attempt=$((attempt + 1))
+      if [ "$attempt" -ge 60 ]; then
+        echo "[zoryq-external-work-proof] bootstrap gave up after ${attempt} attempts; node remains online"
+        exit 0
+      fi
+      echo "[zoryq-external-work-proof] bootstrap attempt ${attempt} failed; retrying in 5s"
+      sleep 5
+    done
+    echo "[zoryq-external-work-proof] canonical receipt-backed testnet proof complete"
+  ) &
+fi
+
 # Native Rust edge gateway with the Node chain backend kept internal only.
 exec /usr/local/bin/zoryq-gateway
