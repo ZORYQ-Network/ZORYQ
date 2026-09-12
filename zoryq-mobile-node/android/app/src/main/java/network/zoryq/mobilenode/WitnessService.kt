@@ -33,6 +33,7 @@ class WitnessService : Service() {
         private const val RPC = "https://zoryq-evm-node-live-production.up.railway.app/rpc"
         private const val CHAIN_ID = 5919065L
         private const val HEARTBEAT_INTERVAL_MS = 5 * 60_000L
+        private const val DEFAULT_DAILY_MOBILE_DATA_LIMIT_BYTES = 250L * 1024L * 1024L
     }
 
     private val scope = CoroutineScope(Dispatchers.IO)
@@ -74,6 +75,7 @@ class WitnessService : Service() {
         if (!prefs.contains("allowMobileData")) prefs.edit().putBoolean("allowMobileData", true).apply()
         if (!prefs.contains("wifiOnly")) prefs.edit().putBoolean("wifiOnly", false).apply()
         if (!prefs.contains("chargingOnly")) prefs.edit().putBoolean("chargingOnly", false).apply()
+        if (!prefs.contains("dailyMobileDataLimitBytes")) prefs.edit().putLong("dailyMobileDataLimitBytes", DEFAULT_DAILY_MOBILE_DATA_LIMIT_BYTES).apply()
         prefs.edit().putBoolean("running", true).putBoolean("paused", false).putBoolean("userEnabled", true)
             .putBoolean("resumeRequired", false).putString("nodeId", nodeId).putString("state", "Starting").apply()
 
@@ -81,7 +83,8 @@ class WitnessService : Service() {
             var registered = false
             while (isActive) {
                 val decision = ResourceGovernor.evaluate(this@WitnessService)
-                prefs.edit().putString("effectiveNodeMode", decision.mode.name).putLong("effectiveIntervalMs", decision.intervalMs).apply()
+                prefs.edit().putString("effectiveNodeMode", decision.mode.name).putLong("effectiveIntervalMs", decision.intervalMs)
+                    .putLong("mobileDataBytesToday", decision.mobileDataBytesToday).apply()
                 if (!decision.allowed) {
                     prefs.edit().putString("lastCheck", Instant.now().toString()).putString("state", decision.reason)
                         .putString("proofStatus", "No XP • ${decision.reason}").apply()
