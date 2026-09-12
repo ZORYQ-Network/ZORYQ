@@ -1,0 +1,23 @@
+{
+  "schema": "zoriq.quest.v1",
+  "id": "x_post_mention_zoriq",
+  "title": "Publique no X marcando @ZORIQNetwork",
+  "shortDescription": "Faça um post público no X marcando o perfil oficial da ZORIQ.",
+  "category": "growth",
+  "platform": "x",
+  "officialHandle": "@ZORIQNetwork",
+  "actionUrl": "https://x.com/intent/post?text=Estou%20explorando%20a%20ZORIQ%20Testnet%20%E2%9A%A1%20%40ZORIQNetwork%20%23ZORIQ%20%23testnet",
+  "xp": 250,
+  "verificationType": "external_proof",
+  "maxCompletionsPerWallet": 1,
+  "requiresWalletSignature": true,
+  "requiresOnChainProof": false,
+  "proof": {
+    "requiresXUsername": true,
+    "requiresPublicStatusUrl": true,
+    "mustMention": "@ZORIQNetwork",
+    "initialStatus": "pending_review",
+    "trustedVerificationRequired": true,
+    "clientConfirmationAwardsXp": false
+  }
+}
