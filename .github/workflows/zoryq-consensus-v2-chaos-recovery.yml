@@ -1,0 +1,207 @@
+name: ZORYQ Consensus V2 Failure Recovery Proof
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'infra/consensus-v2/**'
+      - '.github/workflows/zoryq-consensus-v2-chaos-recovery.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-consensus-v2-chaos-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  failure-recovery-proof:
+    name: Prove finality survives one participant failure and recovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout ZORYQ
+        uses: actions/checkout@v4
+
+      - name: Static topology guard
+        run: node infra/consensus-v2/verify-topology.mjs
+
+      - name: Install Kurtosis CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'deb [trusted=yes] https://sdk.kurtosis.com/kurtosis-cli-release-artifacts/ /' | sudo tee /etc/apt/sources.list.d/kurtosis.list >/dev/null
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq kurtosis-cli
+          kurtosis analytics disable
+          kurtosis version
+
+      - name: Launch isolated Consensus V2 network
+        id: launch
+        shell: bash
+        env:
+          ENCLAVE: zoryq-chaos-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Keep ethereum-package stdout out of public CI logs because the devnet
+          # generator may print disposable development keys/mnemonics.
+          if ! kurtosis run github.com/ethpandaops/ethereum-package@main \
+            --enclave "$ENCLAVE" \
+            --args-file infra/consensus-v2/network_params.yaml \
+            >/tmp/zoryq-kurtosis-run.log 2>&1; then
+            echo 'Consensus V2 launch failed. Printing only sanitized diagnostic lines.'
+            grep -Ei 'error|fail|invalid|timeout|sanity|finaliz' /tmp/zoryq-kurtosis-run.log \
+              | sed -E 's/(private_key|mnemonic|jwt[^ :=]*)([ :=]+)[^ ]+/\1\2[REDACTED]/Ig' \
+              | tail -n 120 || true
+            exit 1
+          fi
+          echo "enclave=$ENCLAVE" >> "$GITHUB_OUTPUT"
+          echo 'Consensus V2 launched; sensitive devnet generator output was intentionally suppressed.'
+
+      - name: Prove participant failure, continuing finality, and catch-up
+        id: chaos
+        shell: bash
+        env:
+          ENCLAVE: ${{ steps.launch.outputs.enclave }}
+        run: |
+          set -euo pipefail
+
+          cl_url() {
+            kurtosis port print "$ENCLAVE" cl-1-lighthouse-reth http | tail -n1 | tr -d '\r'
+          }
+          el_url() {
+            local u
+            u="$(kurtosis port print "$ENCLAVE" el-1-reth-lighthouse rpc | tail -n1 | tr -d '\r')"
+            [[ "$u" =~ ^https?:// ]] || u="http://$u"
+            printf '%s' "$u"
+          }
+          el3_url() {
+            local u
+            u="$(kurtosis port print "$ENCLAVE" el-3-reth-lighthouse rpc | tail -n1 | tr -d '\r')"
+            [[ "$u" =~ ^https?:// ]] || u="http://$u"
+            printf '%s' "$u"
+          }
+          finalized_epoch() {
+            curl -fsS "$(cl_url)/eth/v1/beacon/states/head/finality_checkpoints" | jq -r '.data.finalized.epoch | tonumber'
+          }
+          block_number() {
+            curl -fsS -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_blockNumber","params":[]}' "$1" | jq -r '.result' | xargs printf '%d\n'
+          }
+          block_hash() {
+            local url="$1" number="$2" hex
+            printf -v hex '0x%x' "$number"
+            curl -fsS -H 'content-type: application/json' \
+              --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBlockByNumber\",\"params\":[\"$hex\",false]}" \
+              "$url" | jq -r '.result.hash'
+          }
+
+          BEFORE_FINALIZED="$(finalized_epoch)"
+          BEFORE_BLOCK="$(block_number "$(el_url)")"
+          echo "baseline_finalized_epoch=$BEFORE_FINALIZED"
+          echo "baseline_execution_block=$BEFORE_BLOCK"
+
+          echo 'Stopping participant 3 (validator + consensus + execution)...'
+          kurtosis service stop "$ENCLAVE" vc-3-reth-lighthouse
+          kurtosis service stop "$ENCLAVE" cl-3-lighthouse-reth
+          kurtosis service stop "$ENCLAVE" el-3-reth-lighthouse
+
+          TARGET_FINALIZED=$((BEFORE_FINALIZED + 1))
+          DEADLINE=$((SECONDS + 240))
+          AFTER_FAILURE_FINALIZED="$BEFORE_FINALIZED"
+          while (( SECONDS < DEADLINE )); do
+            AFTER_FAILURE_FINALIZED="$(finalized_epoch)"
+            if (( AFTER_FAILURE_FINALIZED >= TARGET_FINALIZED )); then
+              break
+            fi
+            sleep 8
+          done
+          if (( AFTER_FAILURE_FINALIZED < TARGET_FINALIZED )); then
+            echo "FAIL: finality did not advance with participant 3 offline (before=$BEFORE_FINALIZED after=$AFTER_FAILURE_FINALIZED)"
+            exit 1
+          fi
+          echo "finality_survived_failure=true"
+          echo "offline_finalized_epoch=$AFTER_FAILURE_FINALIZED"
+
+          SURVIVOR_BLOCK="$(block_number "$(el_url)")"
+          if (( SURVIVOR_BLOCK <= BEFORE_BLOCK )); then
+            echo "FAIL: execution chain did not advance while participant 3 was offline"
+            exit 1
+          fi
+          echo "survivor_execution_block=$SURVIVOR_BLOCK"
+
+          echo 'Restarting participant 3...'
+          kurtosis service start "$ENCLAVE" el-3-reth-lighthouse
+          kurtosis service start "$ENCLAVE" cl-3-lighthouse-reth
+          kurtosis service start "$ENCLAVE" vc-3-reth-lighthouse
+
+          # Wait for restarted RPC to become available and catch up close to node 1.
+          DEADLINE=$((SECONDS + 240))
+          CAUGHT_UP=false
+          NODE1_BLOCK=0
+          NODE3_BLOCK=0
+          while (( SECONDS < DEADLINE )); do
+            NODE1_BLOCK="$(block_number "$(el_url)" 2>/dev/null || echo 0)"
+            U3="$(el3_url 2>/dev/null || true)"
+            if [[ -n "$U3" ]]; then
+              NODE3_BLOCK="$(block_number "$U3" 2>/dev/null || echo 0)"
+            fi
+            if (( NODE3_BLOCK > 0 && NODE1_BLOCK >= NODE3_BLOCK && NODE1_BLOCK - NODE3_BLOCK <= 2 )); then
+              CAUGHT_UP=true
+              break
+            fi
+            sleep 8
+          done
+          if [[ "$CAUGHT_UP" != true ]]; then
+            echo "FAIL: participant 3 did not catch up (node1=$NODE1_BLOCK node3=$NODE3_BLOCK)"
+            exit 1
+          fi
+
+          COMMON_BLOCK="$NODE3_BLOCK"
+          HASH1="$(block_hash "$(el_url)" "$COMMON_BLOCK")"
+          HASH3="$(block_hash "$(el3_url)" "$COMMON_BLOCK")"
+          if [[ -z "$HASH1" || "$HASH1" == null || "$HASH1" != "$HASH3" ]]; then
+            echo "FAIL: restarted participant diverged at block $COMMON_BLOCK"
+            echo "node1_hash=$HASH1"
+            echo "node3_hash=$HASH3"
+            exit 1
+          fi
+
+          FINAL_FINALIZED="$(finalized_epoch)"
+          echo "recovery_caught_up=true"
+          echo "recovery_common_block=$COMMON_BLOCK"
+          echo "recovery_common_hash=$HASH1"
+          echo "final_finalized_epoch=$FINAL_FINALIZED"
+
+          mkdir -p evidence/consensus-v2
+          cat > evidence/consensus-v2/failure-recovery-proof.txt <<EOF
+          ZORYQ Consensus V2 failure/recovery proof passed
+          commit=${GITHUB_SHA}
+          run_id=${GITHUB_RUN_ID}
+          network_id=5919065
+          failed_participant=3
+          baseline_finalized_epoch=$BEFORE_FINALIZED
+          offline_finalized_epoch=$AFTER_FAILURE_FINALIZED
+          finality_survived_failure=true
+          recovery_caught_up=true
+          recovery_common_block=$COMMON_BLOCK
+          recovery_common_hash=$HASH1
+          final_finalized_epoch=$FINAL_FINALIZED
+          EOF
+
+      - name: Upload failure/recovery evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-consensus-v2-failure-recovery-${{ github.run_id }}
+          path: evidence/consensus-v2/failure-recovery-proof.txt
+          retention-days: 30
+
+      - name: Remove isolated test enclave
+        if: always()
+        shell: bash
+        env:
+          ENCLAVE: ${{ steps.launch.outputs.enclave }}
+        run: |
+          if [[ -n "${ENCLAVE:-}" ]]; then
+            kurtosis enclave rm -f "$ENCLAVE" || true
+          fi
