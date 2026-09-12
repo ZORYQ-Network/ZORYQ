@@ -19,6 +19,8 @@ export type NativeNodeStatus={
  heartbeatStatus:string;
  lastHeartbeatAt:string;
  lastHeartbeatXp:number;
+ mobileDataBytesToday:number;
+ dailyMobileDataLimitBytes:number;
 };
 
 type NativeApi={
@@ -27,7 +29,7 @@ type NativeApi={
  stop:()=>Promise<boolean>;
  status:()=>Promise<NativeNodeStatus>;
  setMode:(mode:NativeNodeMode)=>Promise<string>;
- configure:(wifiOnly:boolean,chargingOnly:boolean,allowMobileData:boolean,batteryMinimum:number)=>Promise<boolean>;
+ configure:(wifiOnly:boolean,chargingOnly:boolean,allowMobileData:boolean,batteryMinimum:number,dailyMobileDataLimitMb:number)=>Promise<boolean>;
 };
 
 const api:NativeApi|undefined=NativeModules.ZoryqMobileNode;
@@ -38,7 +40,7 @@ export async function pauseNativeMobileNode(){if(!api)throw Error('ZORYQ native 
 export async function stopNativeMobileNode(){if(!api)throw Error('ZORYQ native Mobile Node is unavailable in this build');return api.stop()}
 export async function getNativeMobileNodeStatus(){if(!api)throw Error('ZORYQ native Mobile Node is unavailable in this build');return api.status()}
 export async function setNativeMobileNodeMode(mode:NativeNodeMode){if(!api)throw Error('ZORYQ native Mobile Node is unavailable in this build');return api.setMode(mode)}
-export async function configureNativeMobileNode(options:{wifiOnly:boolean;chargingOnly:boolean;allowMobileData:boolean;batteryMinimum:number}){
+export async function configureNativeMobileNode(options:{wifiOnly:boolean;chargingOnly:boolean;allowMobileData:boolean;batteryMinimum:number;dailyMobileDataLimitMb:number}){
  if(!api)throw Error('ZORYQ native Mobile Node is unavailable in this build');
- return api.configure(options.wifiOnly,options.chargingOnly,options.allowMobileData,options.batteryMinimum);
+ return api.configure(options.wifiOnly,options.chargingOnly,options.allowMobileData,options.batteryMinimum,options.dailyMobileDataLimitMb);
 }
