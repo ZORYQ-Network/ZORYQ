@@ -1,0 +1,41 @@
+name: ZORYQ Factory Live Proof
+
+on:
+  pull_request:
+    paths:
+      - 'tools/factory-live-proof/**'
+      - '.github/workflows/factory-live-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Prove public Factory v0.2
+        run: |
+          mkdir -p evidence
+          node tools/factory-live-proof/prove.mjs | tee evidence/factory-live-proof.json
+
+      - name: Validate evidence JSON
+        run: |
+          node -e "const e=require('./evidence/factory-live-proof.json'); if(!e.checks?.cloudCrud?.ok||!e.checks?.evolution?.ok||!e.checks?.viewerReadOnly?.ok) process.exit(1); console.log('factory live proof verified')"
+
+      - name: Upload non-secret evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Factory-Live-Proof-${{ github.run_number }}
+          path: evidence/factory-live-proof.json
+          if-no-files-found: error
+          retention-days: 30

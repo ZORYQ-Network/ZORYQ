@@ -26,7 +26,10 @@ COPY --from=rust-gateway-builder /build/zoryq-gateway/target/release/zoryq-gatew
 WORKDIR /app
 COPY zoryq-evm-node/package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
-COPY zoryq-evm-node/server.mjs ./server.mjs
+COPY zoryq-evm-node/server.mjs ./server-original.mjs
+COPY zoryq-evm-node/server-with-factory.mjs ./server.mjs
+COPY zoryq-evm-node/factory-cloud-preload.mjs ./factory-cloud-preload.mjs
+COPY zoryq-evm-node/factory-cloud.mjs ./factory-cloud.mjs
 COPY zoryq-evm-node/ai-ceo.mjs ./ai-ceo.mjs
 COPY zoryq-evm-node/mainnet-guard.mjs ./mainnet-guard.mjs
 COPY zoryq-evm-node/predeploy-guard.mjs ./predeploy-guard.mjs
