@@ -6,12 +6,15 @@
 # persistent multi-provider nodes, signer controls and disaster-recovery evidence.
 
 participants:
-  # Fulu/PeerDAS requires a supernode for a compact 3-participant devnet.
+  # Fulu/PeerDAS requires a supernode for a compact test devnet.
   # This is an isolated test role, not a production centralization assumption.
   - el_type: reth
     cl_type: lighthouse
     validator_count: 8
     supernode: true
+  - el_type: reth
+    cl_type: lighthouse
+    validator_count: 8
   - el_type: reth
     cl_type: lighthouse
     validator_count: 8
