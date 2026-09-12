@@ -18,6 +18,8 @@ namespace Zoryq.Play.RushCity
         [SerializeField] float wallRunDuration = .82f;
         [SerializeField] float wallRunGravity = -3.8f;
         [SerializeField] float wallProbeDistance = 1.75f;
+        [SerializeField] float coyoteTime = .105f;
+        [SerializeField] float jumpBufferTime = .12f;
         [SerializeField] LayerMask wallMask = ~0;
 
         [Header("Input")]
@@ -25,8 +27,11 @@ namespace Zoryq.Play.RushCity
 
         CharacterController _controller;
         int _lane = 1;
+        int _wallRunSide;
         float _verticalVelocity;
         float _laneVelocity;
+        float _lastGroundedAt=-99f;
+        float _jumpQueuedUntil=-99f;
         bool _sliding;
         bool _wallRunning;
         Vector2 _touchStart;
@@ -36,6 +41,9 @@ namespace Zoryq.Play.RushCity
         public int Lane => _lane;
         public bool IsSliding => _sliding;
         public bool IsWallRunning => _wallRunning;
+        public bool IsGrounded => _controller && _controller.isGrounded;
+        public float VerticalVelocity => _verticalVelocity;
+        public int WallRunSide => _wallRunSide;
 
         void Awake()
         {
@@ -48,7 +56,11 @@ namespace Zoryq.Play.RushCity
         {
             var gm = RushCityGameManager.Instance;
             if (gm == null || !gm.IsRunning) return;
+
+            if(_controller.isGrounded)_lastGroundedAt=Time.time;
             ReadInput();
+            ResolveJumpBuffer();
+
             var routeCenter=RushCityRouteDirector.Instance ? RushCityRouteDirector.Instance.CurrentCenterX : 0f;
             var targetX = routeCenter + (_lane - 1) * laneWidth;
             var x = Mathf.SmoothDamp(transform.position.x, targetX, ref _laneVelocity, laneSnapTime, lateralMaxSpeed);
@@ -64,7 +76,7 @@ namespace Zoryq.Play.RushCity
 #if UNITY_EDITOR || UNITY_STANDALONE
             if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.A)) ChangeLane(-1);
             if (Input.GetKeyDown(KeyCode.RightArrow) || Input.GetKeyDown(KeyCode.D)) ChangeLane(1);
-            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.Space)) Jump();
+            if (Input.GetKeyDown(KeyCode.UpArrow) || Input.GetKeyDown(KeyCode.Space)) QueueJump();
             if (Input.GetKeyDown(KeyCode.DownArrow) || Input.GetKeyDown(KeyCode.S)) StartCoroutine(Slide());
 #endif
             if (Input.touchCount == 0) return;
@@ -74,7 +86,7 @@ namespace Zoryq.Play.RushCity
             var delta = touch.position - _touchStart;
             if (delta.magnitude < swipeThreshold) return;
             if (Mathf.Abs(delta.x) > Mathf.Abs(delta.y)) ChangeLane(delta.x > 0 ? 1 : -1);
-            else if (delta.y > 0) Jump();
+            else if (delta.y > 0) QueueJump();
             else StartCoroutine(Slide());
         }
 
@@ -88,27 +100,39 @@ namespace Zoryq.Play.RushCity
             RushCityGameEvents.RaiseLaneChange(_lane);
         }
 
-        void Jump()
+        void QueueJump(){_jumpQueuedUntil=Time.time+jumpBufferTime;}
+
+        void ResolveJumpBuffer()
         {
-            if (_controller.isGrounded)
+            if(Time.time>_jumpQueuedUntil)return;
+            if(_controller.isGrounded||Time.time-_lastGroundedAt<=coyoteTime)
             {
-                _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
-                RushCityTelemetry.Instance?.Jump();
-                RushCityGhostRecorder.Instance?.MarkJump();
-                RushCityGameEvents.RaiseJump();
+                _jumpQueuedUntil=-99f;
+                PerformJump();
                 return;
             }
-            TryWallRun();
+            if(TryWallRun())_jumpQueuedUntil=-99f;
         }
 
-        void TryWallRun()
+        void PerformJump()
         {
-            if (_wallRunning) return;
+            if(_sliding)return;
+            _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+            RushCityTelemetry.Instance?.Jump();
+            RushCityGhostRecorder.Instance?.MarkJump();
+            RushCityGameEvents.RaiseJump();
+        }
+
+        bool TryWallRun()
+        {
+            if (_wallRunning) return false;
             var origin=transform.position+Vector3.up*.85f;
             var left = Physics.Raycast(origin, Vector3.left, wallProbeDistance, wallMask, QueryTriggerInteraction.Ignore);
             var right = Physics.Raycast(origin, Vector3.right, wallProbeDistance, wallMask, QueryTriggerInteraction.Ignore);
-            if (!left && !right) return;
+            if (!left && !right) return false;
+            _wallRunSide=left?-1:1;
             StartCoroutine(WallRun());
+            return true;
         }
 
         IEnumerator WallRun()
@@ -121,6 +145,7 @@ namespace Zoryq.Play.RushCity
             RushCityGameEvents.RaiseWallRun();
             yield return new WaitForSeconds(wallRunDuration);
             _wallRunning = false;
+            _wallRunSide=0;
         }
 
         IEnumerator Slide()
