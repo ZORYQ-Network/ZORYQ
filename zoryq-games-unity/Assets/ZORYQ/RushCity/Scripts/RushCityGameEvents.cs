@@ -14,6 +14,8 @@ namespace Zoryq.Play.RushCity
         public static event Action<RushPowerUpType,float> PowerUpActivated;
         public static event Action<int,string> RouteChosen;
         public static event Action<int,int,string> MissionCompleted;
+        public static event Action<RushWorldEvent,bool> WorldEventChanged;
+        public static event Action<RushWorldEvent,int,int> WorldEventRewarded;
         public static event Action<string> RunEnded;
 
         public static void RaiseLaneChange(int lane)=>LaneChanged?.Invoke(lane);
@@ -26,6 +28,8 @@ namespace Zoryq.Play.RushCity
         public static void RaisePowerUp(RushPowerUpType type,float duration)=>PowerUpActivated?.Invoke(type,duration);
         public static void RaiseRoute(int direction,string district)=>RouteChosen?.Invoke(direction,district);
         public static void RaiseMission(int score,int zq,string mission)=>MissionCompleted?.Invoke(score,zq,mission);
+        public static void RaiseWorldEvent(RushWorldEvent worldEvent,bool active)=>WorldEventChanged?.Invoke(worldEvent,active);
+        public static void RaiseWorldEventReward(RushWorldEvent worldEvent,int score,int zq)=>WorldEventRewarded?.Invoke(worldEvent,score,zq);
         public static void RaiseRunEnded(string reason)=>RunEnded?.Invoke(reason);
     }
 }
