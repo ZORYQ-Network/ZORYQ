@@ -19,7 +19,7 @@ for(const [name,html] of [['launch',launch],['runtime',runtime]]){
 for(const token of [
   'compileFresh','extractRequestedModules','genericModule','evolveSpec','fieldMatch',
   'zoryq-schema-runtime-v3',"residents","packages","reservations","incidents","notifications",
-  'uniqueTogether','cloudProvision','factory/cloud/apps','exclusiveApk','factory-app-apk.yml'
+  'uniqueTogether','cloudProvision','factory/cloud/apps','exclusiveApk','APK_BUILDER','/factory/apk/build','statusUrl','downloadUrl'
 ])assert(launch.includes(token),`launch: missing ${token}`);
 
 for(const token of [
@@ -35,11 +35,12 @@ for(const token of [
 assert(!launch.includes('eval('),'launch: eval is not allowed');
 assert(!runtime.includes('eval('),'runtime: eval is not allowed');
 assert(!cloud.includes('eval('),'cloud: eval is not allowed');
+assert(!launch.includes("window.open('https://github.com/ZORYQ-Network/ZORYQ/actions/workflows/factory-app-apk.yml"),'launch: legacy manual APK workflow must not remain in UI');
 
 const evidence={
   ok:true,
-  milestone:'factory-v0.2-cloud-auth-generic-compiler',
-  checks:{javascriptSyntax:true,genericModuleCompilerPresent:true,condominiumProvingCasePreserved:true,promptEvolutionAddRemoveFieldPresent:true,cloudPersistenceApiPresent:true,roleAuthPresent:true,localFallbackPresent:true,perAppApkWorkflowPresent:true,optionalSnapshotProofPresent:true,evalAbsent:true},
-  claimBoundary:'Static smoke evidence only. This does not prove universal software generation, production-grade database/auth security, independent user adoption, audited generated contracts, or automatic APK delivery to anonymous visitors.'
+  milestone:'factory-v0.3-automatic-signed-apk',
+  checks:{javascriptSyntax:true,genericModuleCompilerPresent:true,condominiumProvingCasePreserved:true,promptEvolutionAddRemoveFieldPresent:true,cloudPersistenceApiPresent:true,roleAuthPresent:true,localFallbackPresent:true,automaticPerAppApkBuilderPresent:true,apkJobPollingPresent:true,apkDownloadPathPresent:true,optionalSnapshotProofPresent:true,evalAbsent:true},
+  claimBoundary:'Static smoke evidence only. Runtime APK build, signature verification, installation and physical-device compatibility require separate execution evidence.'
 };
 console.log(JSON.stringify(evidence,null,2));
