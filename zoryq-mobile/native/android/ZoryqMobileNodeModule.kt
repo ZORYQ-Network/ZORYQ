@@ -104,6 +104,10 @@ class ZoryqMobileNodeModule(private val context: ReactApplicationContext) : Reac
                 putString("heartbeatStatus", p.getString("heartbeatStatus", "Not sent yet") ?: "Not sent yet")
                 putString("lastHeartbeatAt", p.getString("lastHeartbeatAt", "") ?: "")
                 putDouble("lastHeartbeatXp", p.getLong("lastHeartbeatXp", 0L).toDouble())
+                putBoolean("wifiOnly", p.getBoolean("wifiOnly", false))
+                putBoolean("chargingOnly", p.getBoolean("chargingOnly", false))
+                putBoolean("allowMobileData", p.getBoolean("allowMobileData", true))
+                putInt("batteryMinimum", p.getInt("batteryMinimum", 20))
                 putDouble("mobileDataBytesToday", p.getLong("mobileDataBytesToday", 0L).toDouble())
                 putDouble("dailyMobileDataLimitBytes", p.getLong("dailyMobileDataLimitBytes", 250L * 1024L * 1024L).toDouble())
             }
