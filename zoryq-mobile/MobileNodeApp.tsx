@@ -14,20 +14,30 @@ import {
 } from './nativeMobileNode';
 
 const CHAIN_ID=5919065;
-const EMPTY:NativeNodeStatus={running:false,paused:false,resumeRequired:false,nodeId:'',state:'Offline',mode:'BALANCED',lastBlock:0,lastBlockHash:'',lastCheck:'',proofStatus:'No verified proof yet',lastXpAwarded:0,totalXp:0,lastXpEventId:'',lastVerifiedProofHash:'',heartbeatStatus:'Not sent yet',lastHeartbeatAt:'',lastHeartbeatXp:0};
+const MB=1024*1024;
+const DATA_LIMITS=[50,100,250,500,0];
+const EMPTY:NativeNodeStatus={running:false,paused:false,resumeRequired:false,nodeId:'',state:'Offline',mode:'BALANCED',lastBlock:0,lastBlockHash:'',lastCheck:'',proofStatus:'No verified proof yet',lastXpAwarded:0,totalXp:0,lastXpEventId:'',lastVerifiedProofHash:'',heartbeatStatus:'Not sent yet',lastHeartbeatAt:'',lastHeartbeatXp:0,mobileDataBytesToday:0,dailyMobileDataLimitBytes:250*MB};
 type Props={onBack:()=>void};
 
 export default function MobileNodeApp({onBack}:Props){
  const [node,setNode]=useState<NativeNodeStatus>(EMPTY);
  const [busy,setBusy]=useState(false);
  const [warning,setWarning]=useState('');
+ const [dailyLimitMb,setDailyLimitMb]=useState(250);
  const available=nativeMobileNodeAvailable();
 
  useEffect(()=>{
   let mounted=true;
   async function refresh(){
    if(!available)return;
-   try{const next=await getNativeMobileNodeStatus();if(mounted)setNode(next)}catch(e:any){if(mounted)setWarning(e?.message||'Native node status unavailable')}
+   try{
+    const next=await getNativeMobileNodeStatus();
+    if(mounted){
+     setNode(next);
+     if(next.dailyMobileDataLimitBytes===0)setDailyLimitMb(0);
+     else if(next.dailyMobileDataLimitBytes>0)setDailyLimitMb(Math.round(next.dailyMobileDataLimitBytes/MB));
+    }
+   }catch(e:any){if(mounted)setWarning(e?.message||'Native node status unavailable')}
   }
   void refresh();const id=setInterval(()=>void refresh(),5000);
   return()=>{mounted=false;clearInterval(id)};
@@ -39,12 +49,15 @@ export default function MobileNodeApp({onBack}:Props){
    await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
   }
  }
+ async function applyConfig(limitMb=dailyLimitMb){
+  await configureNativeMobileNode({wifiOnly:false,chargingOnly:false,allowMobileData:true,batteryMinimum:20,dailyMobileDataLimitMb:limitMb});
+ }
  async function activate(){
   if(!available){setWarning('Este build não contém o serviço Android nativo do ZORYQ Mobile Node.');return}
   setBusy(true);setWarning('');
   try{
    await notificationPermission();
-   await configureNativeMobileNode({wifiOnly:false,chargingOnly:false,allowMobileData:true,batteryMinimum:20});
+   await applyConfig();
    await setNativeMobileNodeMode('BALANCED');
    await startNativeMobileNode();
    await refresh();
@@ -53,15 +66,19 @@ export default function MobileNodeApp({onBack}:Props){
  async function pause(){setBusy(true);setWarning('');try{await pauseNativeMobileNode();await refresh()}catch(e:any){setWarning(e?.message||'Não foi possível pausar')}finally{setBusy(false)}}
  async function stop(){setBusy(true);setWarning('');try{await stopNativeMobileNode();await refresh()}catch(e:any){setWarning(e?.message||'Não foi possível parar')}finally{setBusy(false)}}
  async function mode(next:NativeNodeMode){setBusy(true);setWarning('');try{await setNativeMobileNodeMode(next);if(next==='PAUSED')await pauseNativeMobileNode();else if(!node.running)await startNativeMobileNode();await refresh()}catch(e:any){setWarning(e?.message||'Não foi possível alterar o modo')}finally{setBusy(false)}}
+ async function dataLimit(next:number){setBusy(true);setWarning('');try{setDailyLimitMb(next);await applyConfig(next);await refresh()}catch(e:any){setWarning(e?.message||'Não foi possível alterar o limite de dados')}finally{setBusy(false)}}
 
  const state=node.running?'● BACKGROUND NODE ACTIVE':node.resumeRequired?'◐ RESUME REQUIRED':node.paused?'Ⅱ PAUSED':'○ OFFLINE';
+ const mobileUsedMb=(node.mobileDataBytesToday/MB).toFixed(1);
+ const mobileLimit=node.dailyMobileDataLimitBytes===0?'Ilimitado':`${Math.round(node.dailyMobileDataLimitBytes/MB)} MB`;
  return <SafeAreaView style={s.root}><ScrollView contentContainerStyle={s.content}>
   <View style={s.header}><Pressable onPress={onBack}><Text style={s.back}>← ZORYQ</Text></Pressable><View><Text style={s.kicker}>NETWORK PARTICIPATION</Text><Text style={s.title}>Mobile Node</Text></View></View>
   <View style={[s.hero,node.running&&s.heroOn]}><Text style={s.state}>{state}</Text><Text style={s.heroTitle}>Seu celular verifica a ZORYQ em segundo plano.</Text><Text style={s.copy}>O serviço Android nativo valida a Chain ID, recebe desafios, verifica blocos e só registra XP depois que a prova assinada é aceita pelo backend. Heartbeat e tempo ocioso não geram XP. O Mobile Node não é apresentado como participante do consenso e não é validator.</Text>
    <View style={s.actions}>{!node.running?<Pressable style={s.button} disabled={busy} onPress={()=>void activate()}><Text style={s.buttonText}>{busy?'Iniciando…':'Run Mobile Node'}</Text></Pressable>:<><Pressable style={s.secondary} disabled={busy} onPress={()=>void pause()}><Text style={s.secondaryText}>Pause</Text></Pressable><Pressable style={s.secondary} disabled={busy} onPress={()=>void stop()}><Text style={s.secondaryText}>Stop</Text></Pressable></>}</View>
   </View>
-  <View style={s.grid}><Metric label="STATUS" value={node.state||'Offline'}/><Metric label="CHAIN ID" value={String(CHAIN_ID)}/><Metric label="MODE" value={node.mode||'BALANCED'}/><Metric label="ÚLTIMO BLOCO" value={node.lastBlock?String(Math.trunc(node.lastBlock)):'—'}/><Metric label="TOTAL XP" value={String(Math.trunc(node.totalXp||0))}/><Metric label="ÚLTIMO XP" value={node.lastXpAwarded?`+${Math.trunc(node.lastXpAwarded)}`:'0'}/></View>
-  <View style={s.card}><Text style={s.cardTitle}>Contribution mode</Text><View style={s.modeRow}>{(['ECO','BALANCED','MAX_CONTRIBUTION'] as NativeNodeMode[]).map(m=><Pressable key={m} disabled={busy} style={[s.mode,node.mode===m&&s.modeOn]} onPress={()=>void mode(m)}><Text style={s.modeText}>{m.replace('_',' ')}</Text></Pressable>)}</View><Text style={s.copy}>O Resource Governor pode interromper tarefas por bateria, temperatura, conectividade ou armazenamento. Nenhuma pausa de segurança gera XP.</Text></View>
+  <View style={s.grid}><Metric label="STATUS" value={node.state||'Offline'}/><Metric label="CHAIN ID" value={String(CHAIN_ID)}/><Metric label="MODE" value={node.mode||'BALANCED'}/><Metric label="ÚLTIMO BLOCO" value={node.lastBlock?String(Math.trunc(node.lastBlock)):'—'}/><Metric label="TOTAL XP" value={String(Math.trunc(node.totalXp||0))}/><Metric label="ÚLTIMO XP" value={node.lastXpAwarded?`+${Math.trunc(node.lastXpAwarded)}`:'0'}/><Metric label="DADOS MÓVEIS HOJE" value={`${mobileUsedMb} MB`}/><Metric label="LIMITE DIÁRIO" value={mobileLimit}/></View>
+  <View style={s.card}><Text style={s.cardTitle}>Contribution mode</Text><View style={s.modeRow}>{(['ECO','BALANCED','MAX_CONTRIBUTION'] as NativeNodeMode[]).map(m=><Pressable key={m} disabled={busy} style={[s.mode,node.mode===m&&s.modeOn]} onPress={()=>void mode(m)}><Text style={s.modeText}>{m.replace('_',' ')}</Text></Pressable>)}</View><Text style={s.copy}>O Resource Governor pode interromper tarefas por bateria, temperatura, conectividade, armazenamento ou limite de dados móveis. Nenhuma pausa de segurança gera XP.</Text></View>
+  <View style={s.card}><Text style={s.cardTitle}>Limite diário de dados móveis</Text><View style={s.modeRow}>{DATA_LIMITS.map(limit=><Pressable key={limit} disabled={busy} style={[s.mode,dailyLimitMb===limit&&s.modeOn]} onPress={()=>void dataLimit(limit)}><Text style={s.modeText}>{limit===0?'Ilimitado':`${limit} MB`}</Text></Pressable>)}</View><Text style={s.copy}>O medidor usa tráfego do UID do APK e pausa novas contribuições em rede celular ao atingir o orçamento. Wi-Fi não consome este orçamento.</Text></View>
   {warning?<View style={s.warn}><Text style={s.warnTitle}>Atenção</Text><Text style={s.warnText}>{warning}</Text></View>:null}
   {!available?<View style={s.warn}><Text style={s.warnTitle}>Native bridge ausente</Text><Text style={s.warnText}>Use o APK oficial gerado pelo workflow da ZORYQ. Expo Go não executa o Foreground Service nativo.</Text></View>:null}
   <View style={s.card}><Text style={s.cardTitle}>Prova e XP</Text><Text style={s.line}>Proof: {node.proofStatus||'No verified proof yet'}</Text><Text style={s.line}>XP Event: {node.lastXpEventId||'—'}</Text><Text style={s.line}>Proof hash: {node.lastVerifiedProofHash||'—'}</Text><Text style={s.line}>Heartbeat: {node.heartbeatStatus||'Not sent yet'}</Text><Text style={s.line}>Heartbeat XP: {Math.trunc(node.lastHeartbeatXp||0)} (deve ser 0)</Text></View>
