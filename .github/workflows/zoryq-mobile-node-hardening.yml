@@ -60,10 +60,12 @@ jobs:
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
 
       - name: Build Android debug APK
         working-directory: zoryq-mobile-node/android
-        run: ./gradlew :app:assembleDebug --no-daemon
+        run: gradle :app:assembleDebug --no-daemon
 
       - name: Verify APK exists and is non-empty
         shell: bash
