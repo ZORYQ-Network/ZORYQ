@@ -42,6 +42,11 @@ namespace Zoryq.Play.RushCity.Editor
             var camGo=new GameObject("RushCamera"); camGo.tag="MainCamera"; var cam=camGo.AddComponent<Camera>(); cam.clearFlags=CameraClearFlags.SolidColor; cam.backgroundColor=new Color(.006f,.008f,.02f); cam.nearClipPlane=.05f; cam.farClipPlane=450f;
             var follow=camGo.AddComponent<RushCityCameraController>(); follow.target=player.transform; camGo.transform.position=new Vector3(0,3.2f,-5.5f);
 
+            var presentationGo=new GameObject("Presentation");
+            presentationGo.AddComponent<RushCityPresentationDirector>().Configure(follow);
+            presentationGo.AddComponent<RushCityAudioDirector>();
+            presentationGo.AddComponent<RushCityHudPresenter>();
+
             var trackGo=new GameObject("ProceduralTrack"); var track=trackGo.AddComponent<RushCityTrackManager>(); track.player=player.transform;
             var cityGo=new GameObject("LivingCity"); var city=cityGo.AddComponent<RushCityProceduralCity>(); city.player=player.transform;
 
