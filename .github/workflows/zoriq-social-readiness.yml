@@ -12,6 +12,7 @@ on:
       - 'zoryq-web/zoriq-social-sync.js'
       - 'zoryq-web/zoriq-app-parity.css'
       - 'zoryq-web/zoriq-app-parity.js'
+      - 'zoryq-web/zoriq-multichain-wallet.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
       - 'zoryq-mobile/Social.tsx'
@@ -24,6 +25,9 @@ on:
       - 'zoryq-mobile/SocialPaymentSheet.tsx'
       - 'zoryq-mobile/socialPayments.ts'
       - 'zoryq-mobile/socialBackend.ts'
+      - 'zoryq-mobile/multichainWallet.ts'
+      - 'zoryq-mobile/MultiChainWallet.tsx'
+      - 'zoryq-mobile/WalletHub.tsx'
       - 'zoryq-mobile/index.js'
       - 'zoryq-mobile/package.json'
       - 'zoryq-mobile/app.json'
@@ -50,6 +54,7 @@ on:
       - 'zoryq-web/zoriq-social-sync.js'
       - 'zoryq-web/zoriq-app-parity.css'
       - 'zoryq-web/zoriq-app-parity.js'
+      - 'zoryq-web/zoriq-multichain-wallet.js'
       - 'zoryq-web/config.js'
       - 'zoryq-web/vercel.json'
       - 'zoryq-mobile/Social.tsx'
@@ -62,6 +67,9 @@ on:
       - 'zoryq-mobile/SocialPaymentSheet.tsx'
       - 'zoryq-mobile/socialPayments.ts'
       - 'zoryq-mobile/socialBackend.ts'
+      - 'zoryq-mobile/multichainWallet.ts'
+      - 'zoryq-mobile/MultiChainWallet.tsx'
+      - 'zoryq-mobile/WalletHub.tsx'
       - 'zoryq-mobile/index.js'
       - 'zoryq-mobile/package.json'
       - 'zoryq-mobile/app.json'
@@ -97,6 +105,7 @@ jobs:
           node --check zoryq-web/zoriq-social-backend.js
           node --check zoryq-web/zoriq-social-sync.js
           node --check zoryq-web/zoriq-app-parity.js
+          node --check zoryq-web/zoriq-multichain-wallet.js
       - name: Validate ZORIQ Social deployment package
         run: node zoryq-developer/scripts/check-zoriq-social-readiness.mjs
       - name: Validate Web DApp and APK parity
