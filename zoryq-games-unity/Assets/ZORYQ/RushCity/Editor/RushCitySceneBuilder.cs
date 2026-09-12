@@ -26,12 +26,16 @@ namespace Zoryq.Play.RushCity.Editor
             new GameObject("EnvironmentDirector").AddComponent<RushCityEnvironmentDirector>().Configure(light);
             new GameObject("MissionDirector").AddComponent<RushCityMissionDirector>();
             new GameObject("RushCityGameManager").AddComponent<RushCityGameManager>();
+            new GameObject("WorldEventDirector").AddComponent<RushCityWorldEventDirector>();
 
             var player=GameObject.CreatePrimitive(PrimitiveType.Capsule); player.name="Runner_EngineeringRig"; player.transform.position=new Vector3(0,1,2);
             Object.DestroyImmediate(player.GetComponent<CapsuleCollider>());
             var cc=player.AddComponent<CharacterController>(); cc.height=1.9f; cc.radius=.42f; cc.center=new Vector3(0,.95f,0);
             player.AddComponent<RushCityPlayerController>();
             player.GetComponent<Renderer>().sharedMaterial=NewMat(new Color(.12f,.3f,1f),2.6f);
+
+            var worldGameplay=new GameObject("WorldEventGameplay");
+            worldGameplay.AddComponent<RushCityWorldEventGameplay>().Configure(player.transform);
 
             var ghost=GameObject.CreatePrimitive(PrimitiveType.Capsule); ghost.name="GhostRunner_EngineeringRig"; ghost.transform.position=player.transform.position;
             Object.DestroyImmediate(ghost.GetComponent<CapsuleCollider>()); ghost.GetComponent<Renderer>().sharedMaterial=NewTransparentMat(new Color(.1f,.92f,1f,.28f),2f);
