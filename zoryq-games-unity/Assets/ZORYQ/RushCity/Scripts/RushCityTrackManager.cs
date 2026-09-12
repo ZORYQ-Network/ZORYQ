@@ -5,6 +5,7 @@ namespace Zoryq.Play.RushCity
 {
     public sealed class RushCityTrackManager : MonoBehaviour
     {
+        public static RushCityTrackManager Instance { get; private set; }
         public Transform player;
         public int visibleSegments = 11;
         public float segmentLength = 24f;
@@ -13,7 +14,10 @@ namespace Zoryq.Play.RushCity
         readonly Queue<GameObject> _segments = new Queue<GameObject>();
         System.Random _rng;
         float _nextZ;
+        int _spawnedSegments;
         Material _road,_cyan,_magenta,_zq,_gold,_green;
+
+        void Awake(){Instance=this;}
 
         void Start()
         {
@@ -38,13 +42,24 @@ namespace Zoryq.Play.RushCity
             }
         }
 
+        public void ShiftFutureSegments(float fromWorldZ,float deltaX)
+        {
+            if(Mathf.Abs(deltaX)<.01f)return;
+            foreach(var segment in _segments)
+            {
+                if(!segment||segment.transform.position.z<fromWorldZ)continue;
+                segment.transform.position+=Vector3.right*deltaX;
+            }
+        }
+
         void SpawnSegment(int pattern)
         {
             var root = new GameObject($"RushSegment_{_nextZ:0000}");
             root.transform.SetParent(transform);
-            root.transform.position = new Vector3(0,0,_nextZ);
+            var centerX=RushCityRouteDirector.Instance ? RushCityRouteDirector.Instance.TargetCenterX : 0f;
+            root.transform.position = new Vector3(centerX,0,_nextZ);
 
-            CreateCube(root.transform, "Road", new Vector3(0,-.2f,segmentLength*.5f), new Vector3(9,.35f,segmentLength), _road, false);
+            CreateCube(root.transform, "Road", new Vector3(0,-.2f,segmentLength*.5f), new Vector3(9,.35f,segmentLength), _road, true);
             CreateCube(root.transform, "RailL", new Vector3(-5.15f,.65f,segmentLength*.5f), new Vector3(.22f,1.4f,segmentLength), _cyan, false);
             CreateCube(root.transform, "RailR", new Vector3(5.15f,.65f,segmentLength*.5f), new Vector3(.22f,1.4f,segmentLength), _magenta, false);
 
@@ -52,9 +67,11 @@ namespace Zoryq.Play.RushCity
             BuildCoinLine(root.transform, _rng.Next(0,3), 5, 3.4f, 5.5f);
             if (_rng.NextDouble() > .42) BuildCoinLine(root.transform, _rng.Next(0,3), 4, 3.2f, 14f);
             if (_rng.NextDouble() > .84) SpawnPowerUp(root.transform,_rng.Next(0,3),17.5f,(RushPowerUpType)_rng.Next(0,4));
+            if(_spawnedSegments>=5 && _spawnedSegments%7==0)BuildBranchGateway(root.transform);
 
             _segments.Enqueue(root);
             _nextZ += segmentLength;
+            _spawnedSegments++;
         }
 
         void BuildPattern(Transform root, int pattern)
@@ -68,22 +85,32 @@ namespace Zoryq.Play.RushCity
                     CreateObstacle(root, 1, 10f, 2.0f, .82f);
                     CreateCube(root, "OverGate", new Vector3(0,2.55f,10f), new Vector3(2.2f,.5f,.9f), _magenta, false); break;
                 case 3:
-                    CreateCube(root, "Ramp", new Vector3(-2.65f,.45f,12f), new Vector3(2.0f,.3f,5.5f), _cyan, false, Quaternion.Euler(-12,0,0));
+                    CreateCube(root, "Ramp", new Vector3(-2.65f,.45f,12f), new Vector3(2.0f,.3f,5.5f), _cyan, true, Quaternion.Euler(-12,0,0));
                     CreateObstacle(root, 1, 14f, 1.6f, 2.1f); break;
                 case 4:
-                    CreateCube(root, "WallRunLeft", new Vector3(-4.15f,1.35f,13f), new Vector3(.4f,2.7f,8f), _cyan, false);
+                    CreateCube(root, "WallRunLeft", new Vector3(-4.15f,1.35f,13f), new Vector3(.4f,2.7f,8f), _cyan, true);
                     CreateObstacle(root, 1, 13f, 2.1f, 2.8f);
-                    CreateCube(root, "WallRunRight", new Vector3(4.15f,1.35f,13f), new Vector3(.4f,2.7f,8f), _magenta, false); break;
+                    CreateCube(root, "WallRunRight", new Vector3(4.15f,1.35f,13f), new Vector3(.4f,2.7f,8f), _magenta, true); break;
                 case 5:
                     CreateObstacle(root,0,8f,1.5f,1.2f); CreateObstacle(root,1,13f,1.5f,1.2f); CreateObstacle(root,2,18f,1.5f,1.2f); break;
                 case 6:
                     CreateObstacle(root,0,10f,1.7f,2.5f); CreateObstacle(root,1,10f,1.7f,2.5f);
-                    CreateCube(root,"JumpGate",new Vector3(2.65f,.35f,14f),new Vector3(1.9f,.3f,3.4f),_cyan,false,Quaternion.Euler(-9,0,0)); break;
+                    CreateCube(root,"JumpGate",new Vector3(2.65f,.35f,14f),new Vector3(1.9f,.3f,3.4f),_cyan,true,Quaternion.Euler(-9,0,0)); break;
                 case 7:
-                    CreateCube(root,"WallRunLeft",new Vector3(-4.15f,1.4f,12f),new Vector3(.4f,2.8f,10f),_cyan,false);
-                    CreateCube(root,"WallRunRight",new Vector3(4.15f,1.4f,12f),new Vector3(.4f,2.8f,10f),_magenta,false);
+                    CreateCube(root,"WallRunLeft",new Vector3(-4.15f,1.4f,12f),new Vector3(.4f,2.8f,10f),_cyan,true);
+                    CreateCube(root,"WallRunRight",new Vector3(4.15f,1.4f,12f),new Vector3(.4f,2.8f,10f),_magenta,true);
                     CreateObstacle(root,0,12f,1.8f,2.9f); CreateObstacle(root,2,12f,1.8f,2.9f); break;
             }
+        }
+
+        void BuildBranchGateway(Transform root)
+        {
+            CreateCube(root,"BranchDeck",new Vector3(0,-.13f,18.5f),new Vector3(29f,.30f,11f),_road,true);
+            CreateCube(root,"BranchLeftGuide",new Vector3(-5.8f,.05f,19f),new Vector3(6.5f,.10f,.22f),_cyan,false,Quaternion.Euler(0,-28f,0));
+            CreateCube(root,"BranchRightGuide",new Vector3(5.8f,.05f,19f),new Vector3(6.5f,.10f,.22f),_magenta,false,Quaternion.Euler(0,28f,0));
+            var zone=new GameObject("RouteChoiceZone"); zone.transform.SetParent(root); zone.transform.localPosition=new Vector3(0,1.5f,17f);
+            var trigger=zone.AddComponent<BoxCollider>(); trigger.isTrigger=true; trigger.size=new Vector3(9f,3f,2.5f);
+            zone.AddComponent<RushCityRouteChoiceZone>();
         }
 
         void BuildCoinLine(Transform root, int lane, int count, float spacing, float startZ)
