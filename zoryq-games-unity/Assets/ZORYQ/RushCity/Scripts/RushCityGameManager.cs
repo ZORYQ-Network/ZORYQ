@@ -102,6 +102,16 @@ namespace Zoryq.Play.RushCity
             RushCityMissionDirector.Instance?.OnNearMiss(); RushCityTelemetry.Instance?.NearMiss();
         }
 
+        public void RegisterRouteChoice(int direction,string district)
+        {
+            if(!IsRunning)return;
+            Combo=Mathf.Min(10,Combo+1);
+            SkillFlow=Mathf.Clamp01(SkillFlow+.04f);
+            Score+=300*Combo*ScoreMultiplier;
+            ChasePressure=Mathf.Max(0f,ChasePressure-.035f);
+            Debug.Log($"[Rush City] route branch={(direction<0?"LEFT":"RIGHT")} district={district}");
+        }
+
         public void HitObstacle(float severity = .28f)
         {
             if (!IsRunning) return;
@@ -148,12 +158,13 @@ namespace Zoryq.Play.RushCity
         void OnGUI()
         {
             var scale = Mathf.Max(1f, Screen.width / 1080f); GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
-            GUI.Box(new Rect(22, 22, 350, 176), "ZORYQ PLAY / RUSH CITY DEV HUD");
-            GUI.Label(new Rect(40, 54, 315, 28), $"DIST {DistanceMeters:0}m  SPEED {CurrentSpeed:0.0}");
-            GUI.Label(new Rect(40, 82, 315, 28), $"ZQ {ZqCollected + _bonusZq}  COMBO x{Combo}  SCORE x{ScoreMultiplier}");
-            GUI.Label(new Rect(40, 110, 315, 28), $"CHASE {ChasePressure * 100:0}%  FLOW {SkillFlow * 100:0}%");
-            GUI.Label(new Rect(40, 138, 315, 28), $"MAG {(MagnetActive?"ON":"-")} SHIELD {_shieldCharges} BOOST {(OverdriveActive?"ON":"-")}");
-            if(RushCityLiveOpsConfig.Instance)GUI.Label(new Rect(40,166,315,28),$"SEASON {RushCityLiveOpsConfig.Instance.Current.seasonId}");
+            GUI.Box(new Rect(22, 22, 370, 202), "ZORYQ PLAY / RUSH CITY DEV HUD");
+            GUI.Label(new Rect(40, 54, 335, 28), $"DIST {DistanceMeters:0}m  SPEED {CurrentSpeed:0.0}");
+            GUI.Label(new Rect(40, 82, 335, 28), $"ZQ {ZqCollected + _bonusZq}  COMBO x{Combo}  SCORE x{ScoreMultiplier}");
+            GUI.Label(new Rect(40, 110, 335, 28), $"CHASE {ChasePressure * 100:0}%  FLOW {SkillFlow * 100:0}%");
+            GUI.Label(new Rect(40, 138, 335, 28), $"MAG {(MagnetActive?"ON":"-")} SHIELD {_shieldCharges} BOOST {(OverdriveActive?"ON":"-")}");
+            if(RushCityLiveOpsConfig.Instance)GUI.Label(new Rect(40,166,335,28),$"SEASON {RushCityLiveOpsConfig.Instance.Current.seasonId}");
+            if(RushCityRouteDirector.Instance)GUI.Label(new Rect(40,194,335,28),$"DISTRICT {RushCityRouteDirector.Instance.District} BRANCH {RushCityRouteDirector.Instance.BranchCount}");
         }
     }
 }
