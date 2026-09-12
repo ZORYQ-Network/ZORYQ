@@ -30,6 +30,7 @@ COPY zoryq-evm-node/server.mjs ./server-original.mjs
 COPY zoryq-evm-node/server-with-factory.mjs ./server.mjs
 COPY zoryq-evm-node/factory-cloud-preload.mjs ./factory-cloud-preload.mjs
 COPY zoryq-evm-node/factory-cloud.mjs ./factory-cloud.mjs
+COPY zoryq-evm-node/factory-compiler.mjs ./factory-compiler.mjs
 COPY zoryq-evm-node/ai-ceo.mjs ./ai-ceo.mjs
 COPY zoryq-evm-node/mainnet-guard.mjs ./mainnet-guard.mjs
 COPY zoryq-evm-node/predeploy-guard.mjs ./predeploy-guard.mjs
@@ -44,7 +45,13 @@ COPY zoryq-evm-node/zoryq-reth-genesis.json ./zoryq-reth-genesis.json
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY --from=protocol-builder /build/zoryq-contracts/out ./protocol-out
 COPY zoryq-web ./web
-RUN chmod +x /app/entrypoint.sh /usr/local/bin/zoryq-gateway && mkdir -p /data/reth /app/web /app/protocol-out
+RUN test -f /app/factory-cloud.mjs \
+ && test -f /app/factory-cloud-preload.mjs \
+ && test -f /app/factory-compiler.mjs \
+ && test -f /app/server.mjs \
+ && test -f /app/server-original.mjs \
+ && chmod +x /app/entrypoint.sh /usr/local/bin/zoryq-gateway \
+ && mkdir -p /data/reth /app/web /app/protocol-out
 ENV PORT=8080
 EXPOSE 8080
 CMD ["/app/entrypoint.sh"]

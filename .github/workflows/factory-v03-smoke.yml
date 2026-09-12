@@ -3,11 +3,23 @@ name: ZORYQ Factory v0.3 Smoke
 on:
   pull_request:
     paths:
+      - 'Dockerfile'
       - 'zoryq-evm-node/factory-compiler.mjs'
       - 'zoryq-evm-node/factory-compiler.test.mjs'
       - 'zoryq-evm-node/factory-cloud.mjs'
       - 'zoryq-evm-node/factory-cloud.test.mjs'
       - 'zoryq-evm-node/factory-cloud-preload.mjs'
+      - 'zoryq-evm-node/server-with-factory.mjs'
+      - '.github/workflows/factory-v03-smoke.yml'
+  push:
+    branches:
+      - zoryq-evm-testnet-node
+    paths:
+      - 'Dockerfile'
+      - 'zoryq-evm-node/factory-compiler.mjs'
+      - 'zoryq-evm-node/factory-cloud.mjs'
+      - 'zoryq-evm-node/factory-cloud-preload.mjs'
+      - 'zoryq-evm-node/server-with-factory.mjs'
       - '.github/workflows/factory-v03-smoke.yml'
   workflow_dispatch:
 
@@ -28,6 +40,15 @@ jobs:
           node --check zoryq-evm-node/factory-compiler.mjs
           node --check zoryq-evm-node/factory-cloud.mjs
           node --check zoryq-evm-node/factory-cloud-preload.mjs
+          node --check zoryq-evm-node/server-with-factory.mjs
+      - name: Verify production image wiring
+        run: |
+          set -euo pipefail
+          grep -Fq 'COPY zoryq-evm-node/factory-compiler.mjs ./factory-compiler.mjs' Dockerfile
+          grep -Fq 'COPY zoryq-evm-node/factory-cloud.mjs ./factory-cloud.mjs' Dockerfile
+          grep -Fq 'COPY zoryq-evm-node/factory-cloud-preload.mjs ./factory-cloud-preload.mjs' Dockerfile
+          grep -Fq 'COPY zoryq-evm-node/server-with-factory.mjs ./server.mjs' Dockerfile
+          grep -Fq 'test -f /app/factory-compiler.mjs' Dockerfile
       - name: Generalized compiler tests
         run: node --test zoryq-evm-node/factory-compiler.test.mjs
       - name: Durable cloud tests
