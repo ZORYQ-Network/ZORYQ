@@ -7,6 +7,8 @@
     { "source": "/clock", "destination": "/network-clock.html" },
     { "source": "/explorer", "destination": "/explorer.html" },
     { "source": "/faucet", "destination": "/faucet.html" },
+    { "source": "/quests", "destination": "/x-quests.html" },
+    { "source": "/x-quests", "destination": "/x-quests.html" },
     { "source": "/zoriq", "destination": "/zoriq-social-v2.html" },
     { "source": "/social", "destination": "/zoriq-social-v2.html" },
     { "source": "/zoriq-social", "destination": "/zoriq-social-v2.html" },
