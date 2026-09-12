@@ -1,0 +1,18 @@
+apply plugin: 'com.android.library'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'network.zoryq.mobilenode'
+version = '0.1.0'
+
+android {
+  namespace 'network.zoryq.mobilenode.expo'
+  sourceSets {
+    main.java.srcDirs += '../../../../zoryq-mobile-node/android/app/src/main/java'
+  }
+}
+
+dependencies {
+  implementation project(':expo-modules-core')
+  implementation 'androidx.core:core-ktx:1.15.0'
+  implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+}
