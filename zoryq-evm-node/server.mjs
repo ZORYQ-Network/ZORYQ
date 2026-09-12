@@ -54,8 +54,14 @@ if(legacyStateExists()&&!dirHasEntries(RETH_DATA_DIR)&&String(process.env.ZORYQ_
 }
 
 const RETH_MNEMONIC=loadOrCreateMnemonic();
-const rethArgs=['node','--chain',RETH_CHAIN_SPEC,'--datadir',RETH_DATA_DIR,'--dev','--dev.block-time','2s','--dev.finality-depth','1','--dev.mnemonic',RETH_MNEMONIC,'--http','--http.addr','127.0.0.1','--http.port',String(RPC_PORT),'--http.api','eth,net,web3,debug'];
-const reth=spawn('reth',rethArgs,{stdio:['ignore','pipe','pipe']});
+const P2P_ADDR=process.env.ZORYQ_RETH_P2P_ADDR||'0.0.0.0';
+const P2P_PORT=String(process.env.ZORYQ_RETH_P2P_PORT||'30303');
+const rethArgs=['node','--chain',RETH_CHAIN_SPEC,'--datadir',RETH_DATA_DIR,'--addr',P2P_ADDR,'--port',P2P_PORT,'--dev','--dev.block-time','2s','--dev.finality-depth','1','--dev.mnemonic',RETH_MNEMONIC,'--http','--http.addr','127.0.0.1','--http.port',String(RPC_PORT),'--http.api','eth,net,web3,debug'];
+const bootnodes=String(process.env.ZORYQ_RETH_BOOTNODES||'').trim();
+const trustedPeers=String(process.env.ZORYQ_RETH_TRUSTED_PEERS||'').trim();
+if(bootnodes)rethArgs.push('--bootnodes',bootnodes);
+if(trustedPeers)rethArgs.push('--trusted-peers',trustedPeers);
+const reth=spawn('reth',rethArgs,{stdio:['ignore','pipe','pipe'],env:process.env});
 reth.stdout.on('data',d=>process.stdout.write('[reth] '+d));
 reth.stderr.on('data',d=>process.stderr.write('[reth] '+d));
 reth.on('exit',(code,signal)=>{console.error('Reth exited',{code,signal});process.exit(code||1)});
