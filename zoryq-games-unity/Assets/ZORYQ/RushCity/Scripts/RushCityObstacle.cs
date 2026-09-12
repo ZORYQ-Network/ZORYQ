@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Zoryq.Play.RushCity
 {
-    public sealed class RushCityObstacle : MonoBehaviour
+    public sealed class RushCityObstacle : MonoBehaviour, IRushCityReusable
     {
         [Range(.1f, .8f)] public float severity = .28f;
         bool _consumed;
@@ -13,6 +13,12 @@ namespace Zoryq.Play.RushCity
             _consumed = true;
             RushCityGameManager.Instance?.HitObstacle(severity);
             if (gameObject.activeInHierarchy) gameObject.SetActive(false);
+        }
+
+        public void ResetForReuse()
+        {
+            _consumed=false;
+            gameObject.SetActive(true);
         }
     }
 }
