@@ -79,6 +79,8 @@ class WitnessService : Service() {
         prefs.edit()
             .putBoolean("running", true)
             .putBoolean("paused", false)
+            .putBoolean("userEnabled", true)
+            .putBoolean("resumeRequired", false)
             .putString("nodeId", nodeId)
             .putString("state", "Starting")
             .apply()
@@ -177,6 +179,7 @@ class WitnessService : Service() {
         getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE).edit()
             .putBoolean("running", false)
             .putBoolean("paused", true)
+            .putBoolean("userEnabled", false)
             .putString("state", "Paused by user")
             .apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -188,10 +191,24 @@ class WitnessService : Service() {
         getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE).edit()
             .putBoolean("running", false)
             .putBoolean("paused", false)
+            .putBoolean("userEnabled", false)
+            .putBoolean("resumeRequired", false)
             .putString("state", "Stopped")
             .apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        witnessJob?.cancel()
+        getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE).edit()
+            .putBoolean("running", false)
+            .putBoolean("resumeRequired", true)
+            .putString("state", "Android background limit reached • reopen app to resume")
+            .putString("proofStatus", "No XP • background session stopped safely")
+            .apply()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf(startId)
     }
 
     private fun rpc(method: String, paramsJson: String): String {
