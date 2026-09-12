@@ -7,8 +7,11 @@ on:
         description: Display name for the generated Android app
         required: true
         default: ZORYQ Generated App
+      app_id:
+        description: Stable unique Factory application ID (currentSpec.id)
+        required: true
       app_slug:
-        description: Lowercase app slug used in the APK filename
+        description: Lowercase app slug used only in the APK filename
         required: true
         default: generated-app
       app_url:
@@ -18,6 +21,7 @@ on:
     paths:
       - '.github/workflows/factory-app-apk.yml'
       - 'apps/budget-dapp-android/**'
+      - 'zoryq-web/launch-studio.html'
       - 'zoryq-web/project-launch.html'
 
 permissions:
@@ -29,16 +33,19 @@ jobs:
     timeout-minutes: 30
     env:
       APP_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.app_name || 'ZORYQ Factory Smoke App' }}
+      APP_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.app_id || 'factory-smoke-app-0001' }}
       APP_SLUG: ${{ github.event_name == 'workflow_dispatch' && inputs.app_slug || 'factory-smoke-app' }}
       APP_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.app_url || 'https://zoryq-evm-node-live-production.up.railway.app/project-launch#app=demo' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Validate inputs
+      - name: Validate Factory build inputs
         shell: bash
         run: |
           set -euo pipefail
           [[ "$APP_URL" == https://zoryq-evm-node-live-production.up.railway.app/project-launch* ]]
+          [[ "$APP_ID" =~ ^[A-Za-z0-9_-]{3,72}$ ]]
           [[ "$APP_SLUG" =~ ^[a-z0-9][a-z0-9-]{0,39}$ ]]
           test -n "$APP_NAME"
 
@@ -53,50 +60,115 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Personalize Android wrapper
+      - name: Personalize standalone Android application
         shell: python
         run: |
           from pathlib import Path
-          import os,re
-          root=Path('apps/budget-dapp-android')
-          java=root/'app/src/main/java/network/zoryq/budgetforecast/MainActivity.java'
-          manifest=root/'app/src/main/AndroidManifest.xml'
-          gradle=root/'app/build.gradle'
-          src=java.read_text()
-          url=os.environ['APP_URL'].replace('\\','\\\\').replace('"','\\"')
-          src=re.sub(r'private static final String FACTORY_URL = .*?;', f'private static final String FACTORY_URL = "{url}";', src)
-          src=src.replace(' ZORYQ-App-Runner-Android/1.1',' ZORYQ-Per-App-Android/0.2')
+          import hashlib, html, os, re
+
+          root = Path('apps/budget-dapp-android')
+          java = root / 'app/src/main/java/network/zoryq/budgetforecast/MainActivity.java'
+          manifest = root / 'app/src/main/AndroidManifest.xml'
+          gradle = root / 'app/build.gradle'
+
+          app_id = os.environ['APP_ID']
+          app_hash = hashlib.sha256(app_id.encode()).hexdigest()[:12]
+          package_id = f'network.zoryq.generated.app{app_hash}'
+          version_code = max(1, min(int(os.environ['GITHUB_RUN_NUMBER']), 2_100_000_000))
+          version_name = f'1.0.{version_code}'
+          url = os.environ['APP_URL'].replace('\\', '\\\\').replace('"', '\\"')
+          name = html.escape(os.environ['APP_NAME'][:60], quote=True)
+
+          src = java.read_text()
+          src = re.sub(
+              r'private static final String FACTORY_URL = .*?;',
+              f'private static final String FACTORY_URL = "{url}";',
+              src,
+          )
+          src = src.replace(' ZORYQ-App-Runner-Android/1.1', ' ZORYQ-Standalone-App-Android/1.0')
           java.write_text(src)
-          name=os.environ['APP_NAME'].replace('&','&amp;').replace('"','&quot;')[:60]
-          m=manifest.read_text()
-          m=re.sub(r'android:label="[^"]*"', f'android:label="{name}"', m)
-          manifest.write_text(m)
-          suffix=re.sub(r'[^a-z0-9]','',os.environ['APP_SLUG'].lower())[:24] or 'generatedapp'
-          g=gradle.read_text().replace("applicationId 'network.zoryq.budgetforecast'",f"applicationId 'network.zoryq.generated.{suffix}'")
+
+          xml = manifest.read_text()
+          xml = re.sub(r'android:label="[^"]*"', f'android:label="{name}"', xml)
+          manifest.write_text(xml)
+
+          g = gradle.read_text()
+          g = re.sub(r"applicationId\s+'[^']+'", f"applicationId '{package_id}'", g)
+          g = re.sub(r'versionCode\s+\d+', f'versionCode {version_code}', g)
+          g = re.sub(r"versionName\s+'[^']+'", f"versionName '{version_name}'", g)
           gradle.write_text(g)
+
+          Path('/tmp/zoryq-package-id').write_text(package_id)
+          Path('/tmp/zoryq-app-hash').write_text(app_hash)
+          Path('/tmp/zoryq-version-name').write_text(version_name)
+
           assert url in java.read_text()
-          assert f'network.zoryq.generated.{suffix}' in gradle.read_text()
+          assert package_id in gradle.read_text()
+          assert f'versionCode {version_code}' in gradle.read_text()
           assert name in manifest.read_text()
 
-      - name: Build installable debug APK
+      - name: Build standalone installable APK
         working-directory: apps/budget-dapp-android
         run: gradle :app:assembleDebug --no-daemon
 
-      - name: Prepare evidence
+      - name: Verify APK signature, alignment and package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="apps/budget-dapp-android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          test "$(stat -c%s "$APK")" -gt 100000
+
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          test -x "$BUILD_TOOLS/apksigner"
+          test -x "$BUILD_TOOLS/zipalign"
+          test -x "$BUILD_TOOLS/aapt2"
+
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/APKSIGNER.txt
+          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK" | tee /tmp/ZIPALIGN.txt
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" | tee /tmp/APK-BADGING.txt
+
+          EXPECTED_PACKAGE="$(cat /tmp/zoryq-package-id)"
+          grep -Fq "package: name='${EXPECTED_PACKAGE}'" /tmp/APK-BADGING.txt
+          grep -Fq "sdkVersion:'26'" /tmp/APK-BADGING.txt
+          grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/APKSIGNER.txt
+
+      - name: Package verified artifact and evidence
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p dist
-          cp apps/budget-dapp-android/app/build/outputs/apk/debug/app-debug.apk "dist/ZORYQ-${APP_SLUG}.apk"
-          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
-          printf '%s\n' "name=${APP_NAME}" "url=${APP_URL}" "source_commit=${GITHUB_SHA}" "claim=debug APK personalized to one generated app URL" > dist/BUILD-MANIFEST.txt
+          APP_HASH="$(cat /tmp/zoryq-app-hash)"
+          PACKAGE_ID="$(cat /tmp/zoryq-package-id)"
+          VERSION_NAME="$(cat /tmp/zoryq-version-name)"
+          APK_IN="apps/budget-dapp-android/app/build/outputs/apk/debug/app-debug.apk"
+          APK_OUT="dist/ZORYQ-${APP_SLUG}-${APP_HASH}.apk"
+          cp "$APK_IN" "$APK_OUT"
+          sha256sum "$APK_OUT" | tee dist/SHA256SUMS.txt
+          cp /tmp/APKSIGNER.txt dist/APKSIGNER.txt
+          cp /tmp/APK-BADGING.txt dist/APK-BADGING.txt
+          printf '%s\n' \
+            "name=${APP_NAME}" \
+            "app_id=${APP_ID}" \
+            "package_id=${PACKAGE_ID}" \
+            "version=${VERSION_NAME}" \
+            "url=${APP_URL}" \
+            "source_commit=${GITHUB_SHA}" \
+            "signature_verified=true" \
+            "zipalign_verified=true" \
+            "min_sdk=26" \
+            "claim=standalone APK personalized to one stable Factory app identity; Android installability structurally verified" \
+            > dist/BUILD-MANIFEST.txt
 
-      - uses: actions/upload-artifact@v4
+      - name: Upload verified standalone APK
+        uses: actions/upload-artifact@v4
         with:
-          name: ZORYQ-${{ env.APP_SLUG }}-APK-${{ github.run_number }}
+          name: ZORYQ-${{ env.APP_SLUG }}-Standalone-APK-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt
             dist/BUILD-MANIFEST.txt
+            dist/APKSIGNER.txt
+            dist/APK-BADGING.txt
           if-no-files-found: error
           retention-days: 30
