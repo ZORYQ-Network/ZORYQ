@@ -5,7 +5,7 @@ namespace Zoryq.Play.RushCity
 {
     public sealed class RushCityHudPresenter : MonoBehaviour
     {
-        Text _score,_zq,_combo,_district,_power,_event,_toast;
+        Text _score,_zq,_combo,_district,_power,_meta,_event,_toast;
         Image _chaseFill,_flowFill,_eventFill;
         float _toastUntil;
         Font _font;
@@ -46,6 +46,7 @@ namespace Zoryq.Play.RushCity
 
             _score=TextNode(canvasGo.transform,"Score","0",38,TextAnchor.UpperLeft,new Vector2(.04f,.94f),new Vector2(.48f,.99f));
             _zq=TextNode(canvasGo.transform,"ZQ","ZQ 0",38,TextAnchor.UpperRight,new Vector2(.55f,.94f),new Vector2(.96f,.99f));
+            _meta=TextNode(canvasGo.transform,"Meta","",21,TextAnchor.MiddleCenter,new Vector2(.18f,.918f),new Vector2(.82f,.945f));
             _combo=TextNode(canvasGo.transform,"Combo","",30,TextAnchor.MiddleCenter,new Vector2(.32f,.865f),new Vector2(.68f,.91f));
             _district=TextNode(canvasGo.transform,"District","NEO DOWNTOWN",24,TextAnchor.MiddleLeft,new Vector2(.04f,.90f),new Vector2(.55f,.935f));
             _power=TextNode(canvasGo.transform,"Power","",24,TextAnchor.MiddleRight,new Vector2(.48f,.90f),new Vector2(.96f,.935f));
@@ -69,6 +70,12 @@ namespace Zoryq.Play.RushCity
             _chaseFill.fillAmount=gm.ChasePressure;
             _flowFill.fillAmount=gm.SkillFlow;
             _power.text=PowerText(gm);
+
+            var mode=RushCityRunModeDirector.Instance;
+            var progression=RushCityProgression.Instance;
+            var modeName=mode?mode.Mode.ToString().ToUpperInvariant():"STANDARD";
+            var level=progression?progression.Level:1;
+            _meta.text=mode&&mode.Mode==RushRunMode.Daily?$"DAILY {mode.DailyId}  ·  LVL {level}  ·  BEST {mode.DailyBestScore:N0}":$"{modeName}  ·  LVL {level}";
 
             var director=RushCityWorldEventDirector.Instance;
             if(director&&director.ActiveEvent!=RushWorldEvent.None)
