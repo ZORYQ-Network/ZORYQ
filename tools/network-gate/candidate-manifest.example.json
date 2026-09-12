@@ -1,0 +1,41 @@
+{
+  "networkMode": "non-dev-testnet-candidate",
+  "execution": {
+    "client": "reth",
+    "version": "PIN_EXACT_VERSION",
+    "args": ["node", "--chain", "PATH_TO_EXECUTION_GENESIS"],
+    "genesisPath": "PATH_TO_EXECUTION_GENESIS",
+    "genesisSha256": "REPLACE_WITH_64_HEX_SHA256"
+  },
+  "consensus": {
+    "client": "lighthouse",
+    "version": "PIN_EXACT_VERSION",
+    "finalityModel": "DOCUMENT_EXACT_MODEL",
+    "configPath": "PATH_TO_CONSENSUS_CONFIG",
+    "configSha256": "REPLACE_WITH_64_HEX_SHA256"
+  },
+  "engineApi": {
+    "jwtSecretGeneratedPerOperator": true,
+    "jwtSecretCommitted": false
+  },
+  "operators": [
+    {
+      "operatorId": "operator-a",
+      "controlBoundary": "independent-account-a",
+      "persistentState": true,
+      "uniqueP2pIdentity": true
+    },
+    {
+      "operatorId": "operator-b",
+      "controlBoundary": "independent-account-b",
+      "persistentState": true,
+      "uniqueP2pIdentity": true
+    }
+  ],
+  "evidence": {
+    "matchingBlockHashEvidence": null,
+    "restartRejoinEvidence": null,
+    "oneNodeOutageRecoveryEvidence": null,
+    "finalityEvidence": null
+  }
+}
