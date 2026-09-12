@@ -80,13 +80,18 @@ export class ProofEngine {
     return payload;
   }
 
-  verifyAndCredit({ challenge, nodeId, witness }) {
+  async verifyAndCredit({ challenge, nodeId, witness }) {
     const payload = this.inspectChallenge(challenge);
     if (payload.nodeId !== nodeId) throw new Error('Challenge node mismatch');
     if (this.ledger.hasEvent(payload.nonce)) throw new Error('Replay rejected');
 
     validateWitnessShape(witness);
-    if (this.verifyWitness({ nodeId, challenge: payload, witness }) !== true) throw new Error('Server witness verification failed');
+    const verified = await this.verifyWitness({ nodeId, challenge: payload, witness });
+    if (verified !== true) throw new Error('Server witness verification failed');
+
+    // Re-check after async verification so a concurrent replay cannot pass the
+    // pre-verification check and mint a duplicate event in this process.
+    if (this.ledger.hasEvent(payload.nonce)) throw new Error('Replay rejected');
 
     const verifiedAt = new Date(this.now()).toISOString();
     const event = xpCreditEvent({
