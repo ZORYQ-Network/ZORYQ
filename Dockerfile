@@ -35,6 +35,7 @@ COPY zoryq-evm-node/deploy-autonomous-economy.mjs ./deploy-autonomous-economy.mj
 COPY zoryq-evm-node/deploy-one-prompt-company.mjs ./deploy-one-prompt-company.mjs
 COPY zoryq-evm-node/deploy-autonomous-company-v2.mjs ./deploy-autonomous-company-v2.mjs
 COPY zoryq-evm-node/deploy-autonomous-company-v3.mjs ./deploy-autonomous-company-v3.mjs
+COPY zoryq-evm-node/deploy-external-work-proof.mjs ./deploy-external-work-proof.mjs
 COPY zoryq-evm-node/zoryq-reth-genesis.json ./zoryq-reth-genesis.json
 COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY --from=protocol-builder /build/zoryq-contracts/out ./protocol-out
