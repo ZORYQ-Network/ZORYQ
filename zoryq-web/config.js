@@ -15,13 +15,16 @@ window.ZORYQ_CONFIG={
   dexContract:'0x686Ff70d8D551F0a183DbDc608486De9fA9Aa156',
   lendingContract:'0xA08d491c06a2B01bbe6866CA87302c794aD9fB77',
   projectRegistry:'0x180042c92A42f183A67005E8C0968a1F190aab33',
+  autonomousEconomy:'0xe9E075d1d44DEC0ee973e94F6e3eE8B7c2b27397',
+  autonomousCompanyV2:'0xab9654c5867CB71E0Cedb6B7379d61aadb57af60',
+  onePromptCompany:'0xab9654c5867CB71E0Cedb6B7379d61aadb57af60',
   adminTreasury:'0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33',
   scoreEpoch:1
 };
 
 // Keep Autonomous evidence verification isolated to its product surface.
 // The verifier reads only public testnet RPC state and never requests wallet secrets.
-if (/\/autonomous\.html$/.test(window.location.pathname)) {
+if (/\/autonomous(?:\.html)?$/.test(window.location.pathname)) {
   const script=document.createElement('script');
   script.src='./autonomous-evidence.js';
   script.defer=true;
