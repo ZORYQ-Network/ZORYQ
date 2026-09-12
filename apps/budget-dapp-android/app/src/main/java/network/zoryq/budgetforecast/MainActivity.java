@@ -2,7 +2,9 @@ package network.zoryq.budgetforecast;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -15,6 +17,8 @@ import android.webkit.WebViewClient;
 public class MainActivity extends Activity {
     private static final String HOST = "zoryq-evm-node-live-production.up.railway.app";
     private static final String FACTORY_URL = "https://" + HOST + "/launch-studio";
+    private static final String PREFS = "zoryq_apps";
+    private static final String LAST_APP_URL = "last_app_url";
     private WebView webView;
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -35,7 +39,7 @@ public class MainActivity extends Activity {
         settings.setAllowContentAccess(false);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString(settings.getUserAgentString() + " ZORYQ-App-Runner-Android/1.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " ZORYQ-App-Runner-Android/1.1");
 
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
@@ -56,17 +60,36 @@ public class MainActivity extends Activity {
         }
     }
 
-    private String resolveLaunchUrl(Intent intent) {
-        if (intent == null || intent.getData() == null) return FACTORY_URL;
-        Uri deep = intent.getData();
-        if (!"zoryqapp".equalsIgnoreCase(deep.getScheme()) || !"open".equalsIgnoreCase(deep.getHost())) return FACTORY_URL;
-        String raw = deep.getQueryParameter("url");
-        if (raw == null || raw.isEmpty()) return FACTORY_URL;
+    private SharedPreferences prefs() {
+        return getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    private String rememberedAppOrFactory() {
+        String raw = prefs().getString(LAST_APP_URL, FACTORY_URL);
         try {
             Uri candidate = Uri.parse(raw);
             return isAllowed(candidate) ? candidate.toString() : FACTORY_URL;
         } catch (Exception ignored) {
             return FACTORY_URL;
+        }
+    }
+
+    private String resolveLaunchUrl(Intent intent) {
+        if (intent == null || intent.getData() == null) return rememberedAppOrFactory();
+        Uri deep = intent.getData();
+        if (!"zoryqapp".equalsIgnoreCase(deep.getScheme()) || !"open".equalsIgnoreCase(deep.getHost())) return rememberedAppOrFactory();
+        String raw = deep.getQueryParameter("url");
+        if (raw == null || raw.isEmpty()) return rememberedAppOrFactory();
+        try {
+            Uri candidate = Uri.parse(raw);
+            if (isAllowed(candidate)) {
+                String value = candidate.toString();
+                prefs().edit().putString(LAST_APP_URL, value).apply();
+                return value;
+            }
+            return rememberedAppOrFactory();
+        } catch (Exception ignored) {
+            return rememberedAppOrFactory();
         }
     }
 
