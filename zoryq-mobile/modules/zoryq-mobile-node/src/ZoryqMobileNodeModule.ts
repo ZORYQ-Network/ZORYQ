@@ -10,6 +10,10 @@ export type MobileNodeStatus = {
   lastBlock: number;
   lastHash?: string | null;
   lastCheck?: string | null;
+  lastCheckpoint?: string | null;
+  rpcHealthyCount: number;
+  rpcAgreementVotes: number;
+  independentRpcAgreement: boolean;
   resourceDecision?: string | null;
   mode: NodeMode;
   minBatteryPct: number;
