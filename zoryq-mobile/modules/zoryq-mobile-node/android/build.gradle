@@ -10,13 +10,17 @@ android {
     versionCode 1
     versionName '0.1.0'
   }
+}
+
+// The Wallet embeds only the reusable Mobile Node core/service classes.
+// Keep the standalone Android Activity out of the Expo library: Kotlin does
+// not honor Java SourceDirectorySet excludes for .kt sources pulled from an
+// external java directory, so configure the Kotlin source set explicitly.
+kotlin {
   sourceSets {
     main {
-      java.srcDirs += '../../../../zoryq-mobile-node/android/app/src/main/java'
-      // The Wallet embeds only the reusable Mobile Node core/service classes.
-      // MainActivity belongs to the standalone hardening APK and depends on
-      // AppCompat + standalone UI resources that must not enter this library.
-      java.exclude '**/MainActivity.kt'
+      kotlin.srcDir '../../../../zoryq-mobile-node/android/app/src/main/java'
+      kotlin.exclude '**/MainActivity.kt'
     }
   }
 }
