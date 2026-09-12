@@ -34,6 +34,9 @@ jobs:
       EXPO_PUBLIC_STAKE_CONTRACT: '0xbB26FaADD1E083C7c0dc0A82Ddb96cC45253Ecb1'
       EXPO_PUBLIC_TEST_TOKEN: '0xd2121E96C6af936c0496fDB499c1D0613d26c2B9'
       EXPO_PUBLIC_SWAP_CONTRACT: '0x8205F34B803eDd79DDCA414F00e12eCdDEdDacbE'
+      # Public LI.FI integrator identifier only. No partner/API secret is shipped in the APK.
+      EXPO_PUBLIC_LIFI_INTEGRATOR: '${{ vars.LIFI_INTEGRATOR }}'
+      EXPO_PUBLIC_LIFI_FEE: '0.005'
     steps:
       - uses: actions/checkout@v4
 
@@ -154,17 +157,22 @@ jobs:
           check_marker 'ZORYQ MOBILE NODE'
           check_marker 'INICIAR NODE PERSISTENTE'
           check_marker 'openBatterySettings'
+          check_marker 'WALLET MULTICHAIN'
+          check_marker 'BNB Smart Chain'
+          check_marker 'Cole o contrato ERC-20'
+          check_marker 'COTAR MELHOR ROTA'
+          check_marker 'SLIPPAGE'
 
       - name: Package artifact
         run: |
           mkdir -p dist
           APK=$(find zoryq-mobile/android/app/build/outputs/apk/release -name '*.apk' | head -n 1)
-          cp "$APK" dist/ZORIQ-Complete-Node-Games-${{ github.run_number }}.apk
+          cp "$APK" dist/ZORIQ-Complete-Node-Games-Multichain-${{ github.run_number }}.apk
           sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ZORIQ-Complete-Node-Games-APK-${{ github.run_number }}
+          name: ZORIQ-Complete-Node-Games-Multichain-APK-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt
