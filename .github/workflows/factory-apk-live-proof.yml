@@ -1,0 +1,33 @@
+name: ZORYQ Factory APK Live Proof
+
+on:
+  pull_request:
+    paths:
+      - 'tools/factory-apk-live-proof/**'
+      - '.github/workflows/factory-apk-live-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Prove automatic APK delivery
+        run: |
+          mkdir -p evidence
+          node tools/factory-apk-live-proof/prove.mjs | tee evidence/factory-apk-live-proof.json
+      - name: Validate evidence
+        run: node -e "const e=require('./evidence/factory-apk-live-proof.json'); if(!e.checks?.queue||!e.checks?.scheduledWorker||!e.checks?.releasePublished||!e.checks?.downloadReachable) process.exit(1); console.log('automatic APK delivery verified')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Factory-APK-Live-Proof-${{ github.run_number }}
+          path: evidence/factory-apk-live-proof.json
+          if-no-files-found: error
+          retention-days: 30
