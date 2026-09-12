@@ -174,9 +174,9 @@ jobs:
           "$AAPT" dump badging /tmp/zoryq-final.apk | tee /tmp/APK-BADGING.txt
           EXPECTED_PACKAGE="$(cat /tmp/zoryq-package-id)"
           grep -Fq "package: name='${EXPECTED_PACKAGE}'" /tmp/APK-BADGING.txt
-          grep -Fq "sdkVersion:'26'" /tmp/APK-BADGING.txt
+          grep -Eq "^(minSdkVersion|sdkVersion):'26'$" /tmp/APK-BADGING.txt
           grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/APKSIGNER.txt
-          CERT_SHA="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' /tmp/APKSIGNER.txt | head -n1)"
+          CERT_SHA="$(sed -n -E 's/^(Signer #1|V2 Signer): certificate SHA-256 digest: //p' /tmp/APKSIGNER.txt | head -n1)"
           test -n "$CERT_SHA"
           printf '%s' "$CERT_SHA" > /tmp/zoryq-cert-sha256
 
