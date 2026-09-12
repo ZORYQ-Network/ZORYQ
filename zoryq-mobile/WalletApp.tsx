@@ -16,7 +16,7 @@ export default function WalletApp(){
  if(mode==='messages')return <MessagesApp onBack={()=>setMode('social')}/>;
  if(mode==='node')return <MobileNodeApp onBack={()=>setMode('social')}/>;
  return <SafeAreaView style={s.root}>
-  <View style={s.top}><Pressable style={s.back} onPress={()=>setMode('social')}><Text style={s.backText}>← ZORYQ</Text></Pressable><Text style={s.title}>{mode==='wallet'?'Wallet':'Swap'}</Text><View style={s.switch}><Pressable style={[s.pill,mode==='wallet'&&s.on]} onPress={()=>setMode('wallet')}><Text style={s.pillText}>Wallet</Text></Pressable><Pressable style={[s.pill,mode==='swap'&&s.on]} onPress={()=>setMode('swap')}><Text style={s.pillText}>Swap</Text></Pressable><Pressable style={[s.pill,mode==='node'&&s.on]} onPress={()=>setMode('node')}><Text style={s.pillText}>Node</Text></Pressable></View></View>
+  <View style={s.top}><Pressable style={s.back} onPress={()=>setMode('social')}><Text style={s.backText}>← ZORYQ</Text></Pressable><Text style={s.title}>{mode==='wallet'?'Wallet':'Swap'}</Text><View style={s.switch}><Pressable style={[s.pill,mode==='wallet'&&s.on]} onPress={()=>setMode('wallet')}><Text style={s.pillText}>Wallet</Text></Pressable><Pressable style={[s.pill,mode==='swap'&&s.on]} onPress={()=>setMode('swap')}><Text style={s.pillText}>Swap</Text></Pressable><Pressable style={s.pill} onPress={()=>setMode('node')}><Text style={s.pillText}>Node</Text></Pressable></View></View>
   <View style={s.body}>{mode==='wallet'?<MainnetWallet/>:<SwapEngine/>}</View>
  </SafeAreaView>
 }
