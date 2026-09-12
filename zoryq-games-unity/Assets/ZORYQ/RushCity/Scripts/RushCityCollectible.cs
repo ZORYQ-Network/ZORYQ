@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Zoryq.Play.RushCity
 {
-    public sealed class RushCityCollectible : MonoBehaviour
+    public sealed class RushCityCollectible : MonoBehaviour, IRushCityReusable
     {
         [SerializeField] int zqValue = 1;
         [SerializeField] float spinDegrees = 190f;
@@ -10,11 +10,17 @@ namespace Zoryq.Play.RushCity
         [SerializeField] float magnetRadius = 8f;
         [SerializeField] float magnetSpeed = 22f;
         float _baseY;
+        Vector3 _spawnLocalPosition;
         Transform _player;
+
+        void Awake()
+        {
+            _spawnLocalPosition=transform.localPosition;
+            _baseY=_spawnLocalPosition.y;
+        }
 
         void Start()
         {
-            _baseY = transform.localPosition.y;
             var p=FindFirstObjectByType<RushCityPlayerController>();
             if(p)_player=p.transform;
         }
@@ -43,6 +49,17 @@ namespace Zoryq.Play.RushCity
             if(!gameObject.activeSelf)return;
             RushCityGameManager.Instance?.CollectZq(zqValue);
             gameObject.SetActive(false);
+        }
+
+        public void ResetForReuse()
+        {
+            transform.localPosition=_spawnLocalPosition;
+            gameObject.SetActive(true);
+            if(!_player)
+            {
+                var p=FindFirstObjectByType<RushCityPlayerController>();
+                if(p)_player=p.transform;
+            }
         }
     }
 }
