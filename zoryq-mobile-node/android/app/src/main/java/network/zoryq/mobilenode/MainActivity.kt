@@ -34,8 +34,10 @@ class MainActivity : AppCompatActivity() {
             val lastCheck = prefs.getString("lastCheck", "never")
             val state = prefs.getString("state", if (running) "Starting" else if (paused) "Paused" else "Offline")
             val nodeId = prefs.getString("nodeId", null)
-            val proofHash = prefs.getString("lastLocalProofHash", null)
-            val proofStatus = prefs.getString("proofStatus", "No signed observation yet")
+            val proofHash = prefs.getString("lastVerifiedProofHash", null)
+            val proofStatus = prefs.getString("proofStatus", "No server-verified proof yet")
+            val totalXp = prefs.getLong("totalXp", 0)
+            val lastXp = prefs.getLong("lastXpAwarded", 0)
             status.text = when {
                 running -> "🟢 $state"
                 paused -> "🟡 $state"
@@ -53,11 +55,15 @@ class MainActivity : AppCompatActivity() {
                 append("\nProof: ")
                 append(proofStatus)
                 if (!proofHash.isNullOrBlank()) {
-                    append("\nLocal proof hash: ")
+                    append("\nVerified proof hash: ")
                     append(proofHash.take(16))
                     append("…")
                 }
-                append("\nXP: unavailable until server-side proof verification is implemented")
+                append("\nLast verified XP: +")
+                append(lastXp)
+                append("\nTotal verified XP: ")
+                append(totalXp)
+                append("\nXP = testnet participation points; not money or guaranteed token value")
             }
         }
         render()
