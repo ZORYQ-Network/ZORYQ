@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "ZORIQ",
+    "name": "ZORYQ",
     "slug": "zoryq-wallet",
-    "scheme": "zoriq",
+    "scheme": "zoryq",
     "version": "0.4.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -37,16 +37,17 @@
       "expo-secure-store",
       "./queries.js",
       "./with-zoryq-mobile-node.js",
+      "./with-zoryq-game-bridge.js",
       [
         "expo-local-authentication",
         {
-          "faceIDPermission": "Permitir que o ZORIQ use Face ID para desbloquear o aplicativo e proteger o acesso à wallet."
+          "faceIDPermission": "Permitir que o ZORYQ use Face ID para desbloquear o aplicativo e proteger o acesso à wallet."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "Permitir que o ZORIQ acesse suas fotos para você escolher uma foto de perfil.",
+          "photosPermission": "Permitir que o ZORYQ acesse suas fotos para você escolher uma foto de perfil.",
           "cameraPermission": false,
           "microphonePermission": false
         }
