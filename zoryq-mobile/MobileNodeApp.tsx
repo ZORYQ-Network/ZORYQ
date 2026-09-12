@@ -24,6 +24,10 @@ export default function MobileNodeApp({onBack}:Props){
  const [busy,setBusy]=useState(false);
  const [warning,setWarning]=useState('');
  const [dailyLimitMb,setDailyLimitMb]=useState(250);
+ const [wifiOnly,setWifiOnly]=useState(false);
+ const [chargingOnly,setChargingOnly]=useState(false);
+ const [allowMobileData,setAllowMobileData]=useState(true);
+ const [batteryMinimum,setBatteryMinimum]=useState(20);
  const available=nativeMobileNodeAvailable();
 
  useEffect(()=>{
@@ -36,6 +40,10 @@ export default function MobileNodeApp({onBack}:Props){
      setNode(next);
      if(next.dailyMobileDataLimitBytes===0)setDailyLimitMb(0);
      else if(next.dailyMobileDataLimitBytes>0)setDailyLimitMb(Math.round(next.dailyMobileDataLimitBytes/MB));
+     if(typeof next.wifiOnly==='boolean')setWifiOnly(next.wifiOnly);
+     if(typeof next.chargingOnly==='boolean')setChargingOnly(next.chargingOnly);
+     if(typeof next.allowMobileData==='boolean')setAllowMobileData(next.allowMobileData);
+     if(typeof next.batteryMinimum==='number')setBatteryMinimum(next.batteryMinimum);
     }
    }catch(e:any){if(mounted)setWarning(e?.message||'Native node status unavailable')}
   }
@@ -49,8 +57,17 @@ export default function MobileNodeApp({onBack}:Props){
    await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
   }
  }
- async function applyConfig(limitMb=dailyLimitMb){
-  await configureNativeMobileNode({wifiOnly:false,chargingOnly:false,allowMobileData:true,batteryMinimum:20,dailyMobileDataLimitMb:limitMb});
+ async function applyConfig(limitMb=dailyLimitMb,next={wifiOnly,chargingOnly,allowMobileData,batteryMinimum}){
+  await configureNativeMobileNode({wifiOnly:next.wifiOnly,chargingOnly:next.chargingOnly,allowMobileData:next.allowMobileData,batteryMinimum:next.batteryMinimum,dailyMobileDataLimitMb:limitMb});
+ }
+ async function updatePolicy(patch:Partial<{wifiOnly:boolean;chargingOnly:boolean;allowMobileData:boolean;batteryMinimum:number}>){
+  setBusy(true);setWarning('');
+  const next={wifiOnly,chargingOnly,allowMobileData,batteryMinimum,...patch};
+  try{
+   await applyConfig(dailyLimitMb,next);
+   setWifiOnly(next.wifiOnly);setChargingOnly(next.chargingOnly);setAllowMobileData(next.allowMobileData);setBatteryMinimum(next.batteryMinimum);
+   await refresh();
+  }catch(e:any){setWarning(e?.message||'Não foi possível alterar a política de recursos')}finally{setBusy(false)}
  }
  async function activate(){
   if(!available){setWarning('Este build não contém o serviço Android nativo do ZORYQ Mobile Node.');return}
@@ -79,6 +96,7 @@ export default function MobileNodeApp({onBack}:Props){
   <View style={s.grid}><Metric label="STATUS" value={node.state||'Offline'}/><Metric label="CHAIN ID" value={String(CHAIN_ID)}/><Metric label="MODE" value={node.mode||'BALANCED'}/><Metric label="ÚLTIMO BLOCO" value={node.lastBlock?String(Math.trunc(node.lastBlock)):'—'}/><Metric label="TOTAL XP" value={String(Math.trunc(node.totalXp||0))}/><Metric label="ÚLTIMO XP" value={node.lastXpAwarded?`+${Math.trunc(node.lastXpAwarded)}`:'0'}/><Metric label="DADOS MÓVEIS HOJE" value={`${mobileUsedMb} MB`}/><Metric label="LIMITE DIÁRIO" value={mobileLimit}/></View>
   <View style={s.card}><Text style={s.cardTitle}>Contribution mode</Text><View style={s.modeRow}>{(['ECO','BALANCED','MAX_CONTRIBUTION'] as NativeNodeMode[]).map(m=><Pressable key={m} disabled={busy} style={[s.mode,node.mode===m&&s.modeOn]} onPress={()=>void mode(m)}><Text style={s.modeText}>{m.replace('_',' ')}</Text></Pressable>)}</View><Text style={s.copy}>O Resource Governor pode interromper tarefas por bateria, temperatura, conectividade, armazenamento ou limite de dados móveis. Nenhuma pausa de segurança gera XP.</Text></View>
   <View style={s.card}><Text style={s.cardTitle}>Limite diário de dados móveis</Text><View style={s.modeRow}>{DATA_LIMITS.map(limit=><Pressable key={limit} disabled={busy} style={[s.mode,dailyLimitMb===limit&&s.modeOn]} onPress={()=>void dataLimit(limit)}><Text style={s.modeText}>{limit===0?'Ilimitado':`${limit} MB`}</Text></Pressable>)}</View><Text style={s.copy}>O medidor usa tráfego do UID do APK e pausa novas contribuições em rede celular ao atingir o orçamento. Wi-Fi não consome este orçamento.</Text></View>
+  <View style={s.card}><Text style={s.cardTitle}>Política de recursos</Text><View style={s.modeRow}><Pressable disabled={busy} style={[s.mode,wifiOnly&&s.modeOn]} onPress={()=>void updatePolicy({wifiOnly:!wifiOnly})}><Text style={s.modeText}>Wi-Fi only: {wifiOnly?'ON':'OFF'}</Text></Pressable><Pressable disabled={busy} style={[s.mode,chargingOnly&&s.modeOn]} onPress={()=>void updatePolicy({chargingOnly:!chargingOnly})}><Text style={s.modeText}>Charging only: {chargingOnly?'ON':'OFF'}</Text></Pressable><Pressable disabled={busy} style={[s.mode,allowMobileData&&s.modeOn]} onPress={()=>void updatePolicy({allowMobileData:!allowMobileData})}><Text style={s.modeText}>Mobile data: {allowMobileData?'ON':'OFF'}</Text></Pressable></View><Text style={s.copy}>Bateria mínima</Text><View style={s.modeRow}>{[10,20,30,40].map(value=><Pressable key={value} disabled={busy} style={[s.mode,batteryMinimum===value&&s.modeOn]} onPress={()=>void updatePolicy({batteryMinimum:value})}><Text style={s.modeText}>{value}%</Text></Pressable>)}</View><Text style={s.copy}>O Resource Governor aplica estas preferências antes de aceitar novas tarefas. Pausas por bateria, temperatura, conectividade, armazenamento ou orçamento de dados nunca geram XP.</Text></View>
   {warning?<View style={s.warn}><Text style={s.warnTitle}>Atenção</Text><Text style={s.warnText}>{warning}</Text></View>:null}
   {!available?<View style={s.warn}><Text style={s.warnTitle}>Native bridge ausente</Text><Text style={s.warnText}>Use o APK oficial gerado pelo workflow da ZORYQ. Expo Go não executa o Foreground Service nativo.</Text></View>:null}
   <View style={s.card}><Text style={s.cardTitle}>Prova e XP</Text><Text style={s.line}>Proof: {node.proofStatus||'No verified proof yet'}</Text><Text style={s.line}>XP Event: {node.lastXpEventId||'—'}</Text><Text style={s.line}>Proof hash: {node.lastVerifiedProofHash||'—'}</Text><Text style={s.line}>Heartbeat: {node.heartbeatStatus||'Not sent yet'}</Text><Text style={s.line}>Heartbeat XP: {Math.trunc(node.lastHeartbeatXp||0)} (deve ser 0)</Text></View>
