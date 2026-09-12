@@ -125,7 +125,10 @@ jobs:
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"; SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"; AVDMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/avdmanager"; ADB="$SDK_ROOT/platform-tools/adb"; EMULATOR="$SDK_ROOT/emulator/emulator"
           timeout 420 "$SDKMANAGER" --install "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64" >/tmp/sdkmanager.log 2>&1 || { cat /tmp/sdkmanager.log; exit 1; }
-          test -x "$ADB"; test -x "$EMULATOR"; echo no | "$AVDMANAGER" create avd --force --name zoryq-ci --package "system-images;android-35;google_apis;x86_64" >/dev/null
+          test -x "$ADB"; test -x "$EMULATOR"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/zoryq-avd"; mkdir -p "$ANDROID_AVD_HOME"
+          echo no | "$AVDMANAGER" create avd --force --name zoryq-ci --package "system-images;android-35;google_apis;x86_64" --path "$ANDROID_AVD_HOME/zoryq-ci.avd" >/tmp/avdmanager.log 2>&1 || { cat /tmp/avdmanager.log; exit 1; }
+          test -f "$ANDROID_AVD_HOME/zoryq-ci.ini" || { echo "AVD ini missing"; find "$RUNNER_TEMP" -maxdepth 4 -type f -name '*zoryq*' -o -name '*.ini'; cat /tmp/avdmanager.log; exit 1; }
           "$EMULATOR" -avd zoryq-ci -no-window -no-audio -no-snapshot -no-boot-anim -no-metrics -gpu swiftshader_indirect >/tmp/emulator.log 2>&1 & EMU_PID=$!; trap 'kill $EMU_PID 2>/dev/null || true' EXIT
           timeout 90 "$ADB" wait-for-device || { cat /tmp/emulator.log; exit 1; }
           timeout 240 bash -c 'ADB="$1"; until [ "$("$ADB" shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done' _ "$ADB" || { cat /tmp/emulator.log; exit 1; }
