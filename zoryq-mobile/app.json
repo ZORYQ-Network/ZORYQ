@@ -22,6 +22,7 @@
       }
     },
     "plugins": [
+      "./plugins/withZoryqMobileNode",
       [
         "expo-secure-store",
         {
