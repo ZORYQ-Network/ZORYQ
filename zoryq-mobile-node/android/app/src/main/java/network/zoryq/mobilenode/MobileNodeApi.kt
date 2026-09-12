@@ -24,11 +24,26 @@ object MobileNodeApi {
         val expiresAt: String
     )
 
+    data class HeartbeatChallenge(
+        val id: String,
+        val nonce: String,
+        val chainId: Long,
+        val issuedAt: String,
+        val expiresAt: String,
+        val protocolVersion: String
+    )
+
     data class ProofReceipt(
         val xpAwarded: Long,
         val totalXp: Long,
         val proofHash: String,
         val eventId: String
+    )
+
+    data class HeartbeatReceipt(
+        val xpAwarded: Long,
+        val eventId: String,
+        val lastHeartbeatAt: String
     )
 
     fun register(nodeId: String, publicKey: String) {
@@ -54,6 +69,18 @@ object MobileNodeApi {
             targetBlock = j.getLong("targetBlock"),
             issuedAt = j.getString("issuedAt"),
             expiresAt = j.getString("expiresAt")
+        )
+    }
+
+    fun heartbeatChallenge(nodeId: String): HeartbeatChallenge {
+        val j = post("/mobile-node/heartbeat-challenge", JSONObject().put("nodeId", nodeId))
+        return HeartbeatChallenge(
+            id = j.getString("id"),
+            nonce = j.getString("nonce"),
+            chainId = j.getLong("chainId"),
+            issuedAt = j.getString("issuedAt"),
+            expiresAt = j.getString("expiresAt"),
+            protocolVersion = j.getString("protocolVersion")
         )
     }
 
@@ -91,6 +118,41 @@ object MobileNodeApi {
             totalXp = j.getLong("totalXp"),
             proofHash = j.getString("proofHash"),
             eventId = j.getString("eventId")
+        )
+    }
+
+    fun submitHeartbeat(
+        challenge: HeartbeatChallenge,
+        nodeId: String,
+        blockSeen: Long,
+        reportedAt: String
+    ): HeartbeatReceipt {
+        val payload = listOf(
+            "zoryq-mobile-heartbeat-v1",
+            challenge.id,
+            challenge.nonce,
+            nodeId,
+            challenge.chainId.toString(),
+            blockSeen.toString(),
+            reportedAt,
+            challenge.protocolVersion
+        ).joinToString("|")
+        val signature = NodeIdentity.sign(payload.toByteArray(Charsets.UTF_8))
+        val j = post("/mobile-node/heartbeat", JSONObject()
+            .put("challengeId", challenge.id)
+            .put("nonce", challenge.nonce)
+            .put("nodeId", nodeId)
+            .put("chainId", challenge.chainId)
+            .put("blockSeen", blockSeen)
+            .put("reportedAt", reportedAt)
+            .put("protocolVersion", challenge.protocolVersion)
+            .put("signature", signature))
+        val xpAwarded = j.getLong("xpAwarded")
+        require(xpAwarded == 0L) { "HEARTBEAT_MUST_AWARD_ZERO_XP" }
+        return HeartbeatReceipt(
+            xpAwarded = xpAwarded,
+            eventId = j.getString("eventId"),
+            lastHeartbeatAt = j.getString("lastHeartbeatAt")
         )
     }
 
