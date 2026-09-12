@@ -1,0 +1,51 @@
+name: ZORYQ Mobile Node Protocol Gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/mobile-node-apk]
+    paths:
+      - 'zoryq-mobile-node/**'
+      - '.github/workflows/zoryq-mobile-node-protocol.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-mobile-node-protocol-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protocol-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+      - name: Mobile witness adversarial tests
+        working-directory: zoryq-mobile-node
+        run: npm test
+      - name: Truth invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'chainId: 5919065' zoryq-mobile-node/src/config.js
+          grep -q 'validatorClaim: false' zoryq-mobile-node/src/config.js
+          grep -q 'consensusClaim: false' zoryq-mobile-node/src/config.js
+          grep -q 'unique.length >= 2' zoryq-mobile-node/src/witness.js
+          grep -q 'agreement\[1\] >= 2' zoryq-mobile-node/src/witness.js
+          grep -q 'CHAIN_ID = 5919065L' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          if grep -R -E '(seed phrase|mnemonic|private[_-]?key[[:space:]]*[:=][[:space:]]*["'"''][0-9a-fA-F]{64})' zoryq-mobile-node --exclude-dir=build; then
+            echo 'Potential secret material or wallet key coupling found' >&2
+            exit 1
+          fi
+      - name: Android source sanity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f zoryq-mobile-node/android/app/src/main/AndroidManifest.xml
+          test -f zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          grep -q 'startForeground' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          grep -q 'START_STICKY' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
