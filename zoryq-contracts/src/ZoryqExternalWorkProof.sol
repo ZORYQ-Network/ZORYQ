@@ -128,6 +128,16 @@ contract ZoryqExternalWorkProof {
         emit WorkOrderCancelled(workOrderId);
     }
 
+    function paymentProof(uint256 workOrderId)
+        external
+        view
+        returns (address payer, uint256 revenueZqWei, bool delivered, bool paid, bool cancelled)
+    {
+        WorkOrder storage w = workOrders[workOrderId];
+        require(w.id != 0, "unknown work order");
+        return (w.payer, w.revenueZqWei, w.delivered, w.paid, w.cancelled);
+    }
+
     function proofDigest(uint256 workOrderId) external view returns (bytes32) {
         WorkOrder storage w = workOrders[workOrderId];
         require(w.id != 0, "unknown work order");
