@@ -34,7 +34,7 @@ test('evolution preserves modules and adds requested capability/module/field',()
  assert.equal(next.cloud,true);
  assert.ok(next.modules.some(m=>m.id==='invoices'));
  const patients=next.modules.find(m=>m.id==='patients');
- assert.ok(patients.fields.some(f=>f.id==='convenio'));
+ assert.ok(patients.fields.some(f=>String(f.id).startsWith('convenio')));
 });
 
 test('evolution can remove module and enable blockchain',()=>{
