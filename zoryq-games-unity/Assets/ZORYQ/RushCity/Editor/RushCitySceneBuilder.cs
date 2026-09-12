@@ -28,7 +28,14 @@ namespace Zoryq.Play.RushCity.Editor
             Object.DestroyImmediate(player.GetComponent<CapsuleCollider>());
             var cc=player.AddComponent<CharacterController>(); cc.height=1.9f; cc.radius=.42f; cc.center=new Vector3(0,.95f,0);
             player.AddComponent<RushCityPlayerController>();
-            var playerMat=NewMat(new Color(.12f,.3f,1f),2.6f); player.GetComponent<Renderer>().sharedMaterial=playerMat;
+            player.GetComponent<Renderer>().sharedMaterial=NewMat(new Color(.12f,.3f,1f),2.6f);
+
+            var ghost=GameObject.CreatePrimitive(PrimitiveType.Capsule); ghost.name="GhostRunner_EngineeringRig"; ghost.transform.position=player.transform.position;
+            Object.DestroyImmediate(ghost.GetComponent<CapsuleCollider>()); ghost.GetComponent<Renderer>().sharedMaterial=NewTransparentMat(new Color(.1f,.92f,1f,.28f),2f);
+            var ghostSystem=new GameObject("GhostRaceSystem");
+            var recorder=ghostSystem.AddComponent<RushCityGhostRecorder>();
+            var playback=ghostSystem.AddComponent<RushCityGhostPlayback>(); playback.Configure(ghost.transform);
+            ghostSystem.AddComponent<RushCityGhostRaceManager>().Configure(playback);
 
             var camGo=new GameObject("RushCamera"); camGo.tag="MainCamera"; var cam=camGo.AddComponent<Camera>(); cam.clearFlags=CameraClearFlags.SolidColor; cam.backgroundColor=new Color(.006f,.008f,.02f); cam.nearClipPlane=.05f; cam.farClipPlane=450f;
             var follow=camGo.AddComponent<RushCityCameraController>(); follow.target=player.transform; camGo.transform.position=new Vector3(0,3.2f,-5.5f);
@@ -51,6 +58,7 @@ namespace Zoryq.Play.RushCity.Editor
         }
 
         static Material NewMat(Color c,float e){var s=Shader.Find("Universal Render Pipeline/Lit")??Shader.Find("Standard");var m=new Material(s);m.color=c;m.EnableKeyword("_EMISSION");m.SetColor("_EmissionColor",c*e);return m;}
+        static Material NewTransparentMat(Color c,float e){var m=NewMat(c,e);m.SetFloat("_Surface",1f);m.SetFloat("_ZWrite",0f);m.renderQueue=3000;return m;}
     }
 }
 #endif
