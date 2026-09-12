@@ -9,7 +9,7 @@ name: Build ZORYQ Super App APK
       - '.github/workflows/zoryq-mobile-apk.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: zoryq-mobile-apk-${{ github.ref }}
@@ -143,3 +143,18 @@ jobs:
             dist/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
+      - name: Publish rolling official testnet APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          TAG="zoryq-super-app-testnet-latest"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" --yes --cleanup-tag
+          fi
+          gh release create "$TAG" \
+            dist/ZORYQ-Super-App-1.5.0-Mobile-Node.apk \
+            dist/SHA256SUMS.txt \
+            --title "ZORYQ Super App 1.5.0 — Mobile Node Testnet Beta" \
+            --notes "Official experimental Android build for ZORYQ Testnet. Includes Social, Wallet, Swap and Mobile Witness Node. The Mobile Node verifies network identity and block progress; it is not a consensus validator. Testnet assets have no monetary value." \
+            --prerelease
