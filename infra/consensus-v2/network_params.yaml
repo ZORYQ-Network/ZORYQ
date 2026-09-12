@@ -22,12 +22,16 @@ network_params:
   preset: minimal
   seconds_per_slot: 4
 
-# Observability for proving finality, node health and cross-node agreement.
+# Runtime evidence: explorer + metrics + automated consensus/block checks.
 additional_services:
   - dora
   - prometheus
   - grafana
+  - assertoor
+
+assertoor_params:
+  run_stability_check: true
+  run_block_proposal_check: true
 
 ethereum_metrics_exporter_enabled: true
 wait_for_finalization: true
-wait_for_verifications: true
