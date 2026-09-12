@@ -19,7 +19,6 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.security.MessageDigest
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -76,6 +75,7 @@ class WitnessService : Service() {
             stopSelf()
             return
         }
+        val publicKey = NodeIdentity.publicKeyBase64()
         prefs.edit()
             .putBoolean("running", true)
             .putBoolean("paused", false)
@@ -84,7 +84,7 @@ class WitnessService : Service() {
             .apply()
 
         witnessJob = scope.launch {
-            var previousBlock = prefs.getLong("lastBlock", -1)
+            var registered = false
             while (isActive) {
                 val resourceDecision = ResourceGovernor.evaluate(this@WitnessService)
                 if (!resourceDecision.allowed) {
@@ -103,52 +103,72 @@ class WitnessService : Service() {
                     val chainId = chainHex.removePrefix("0x").toLong(16)
                     require(chainId == CHAIN_ID) { "Chain ID mismatch: $chainId" }
 
-                    val block = rpcObject("eth_getBlockByNumber", "[\"latest\",false]")
-                    val numberHex = block.getString("number")
-                    val blockNumber = numberHex.removePrefix("0x").toLong(16)
+                    if (!registered) {
+                        MobileNodeApi.register(nodeId, publicKey)
+                        registered = true
+                        prefs.edit().putBoolean("serverRegistered", true).apply()
+                    }
+
+                    val challenge = try {
+                        MobileNodeApi.challenge(nodeId)
+                    } catch (e: IllegalStateException) {
+                        if (e.message == "NODE_NOT_REGISTERED") {
+                            registered = false
+                            prefs.edit().putBoolean("serverRegistered", false).apply()
+                        }
+                        throw e
+                    }
+                    require(challenge.chainId == CHAIN_ID) { "Challenge chain mismatch" }
+
+                    val blockTag = "0x${challenge.targetBlock.toString(16)}"
+                    val block = rpcObject("eth_getBlockByNumber", "[\"$blockTag\",false]")
+                    val blockNumber = block.getString("number").removePrefix("0x").toLong(16)
                     val blockHash = block.getString("hash")
                     val parentHash = block.getString("parentHash")
-                    require(blockHash.startsWith("0x") && blockHash.length == 66) { "Invalid block hash" }
-                    require(parentHash.startsWith("0x") && parentHash.length == 66) { "Invalid parent hash" }
-                    require(previousBlock < 0 || blockNumber >= previousBlock) { "Block height moved backwards" }
+                    require(blockNumber == challenge.targetBlock) { "Challenge block mismatch" }
+                    require(blockHash.matches(Regex("^0x[0-9a-fA-F]{64}$"))) { "Invalid block hash" }
+                    require(parentHash.matches(Regex("^0x[0-9a-fA-F]{64}$"))) { "Invalid parent hash" }
 
-                    val timestamp = Instant.now().toString()
-                    val proofPayload = listOf(
-                        "zoryq-mobile-proof-v1",
-                        nodeId,
-                        CHAIN_ID.toString(),
-                        blockNumber.toString(),
-                        blockHash,
-                        parentHash,
-                        timestamp
-                    ).joinToString("|")
-                    val signature = NodeIdentity.sign(proofPayload.toByteArray(Charsets.UTF_8))
-                    val proofHash = MessageDigest.getInstance("SHA-256")
-                        .digest(proofPayload.toByteArray(Charsets.UTF_8))
-                        .joinToString("") { "%02x".format(it) }
+                    val observedAt = Instant.now().toString()
+                    val receipt = MobileNodeApi.submitProof(challenge, nodeId, blockHash, parentHash, observedAt)
 
-                    previousBlock = blockNumber
                     prefs.edit()
                         .putLong("lastBlock", blockNumber)
                         .putString("lastBlockHash", blockHash)
-                        .putString("lastCheck", timestamp)
-                        .putString("lastLocalProofHash", proofHash)
-                        .putString("lastLocalProofSignature", signature)
-                        .putString("proofStatus", "Locally signed • not server-verified • no XP")
+                        .putString("lastCheck", observedAt)
+                        .putString("lastVerifiedProofHash", receipt.proofHash)
+                        .putString("lastXpEventId", receipt.eventId)
+                        .putLong("lastXpAwarded", receipt.xpAwarded)
+                        .putLong("totalXp", receipt.totalXp)
+                        .putString("proofStatus", "Server verified • +${receipt.xpAwarded} XP")
                         .putString("state", "Verified • block $blockNumber")
                         .apply()
-                    val nm = getSystemService(NotificationManager::class.java)
-                    nm.notify(NOTIFICATION_ID, notification("Verified ZORYQ block $blockNumber • signed locally"))
+                    getSystemService(NotificationManager::class.java)
+                        .notify(NOTIFICATION_ID, notification("Verified ZORYQ block $blockNumber • +${receipt.xpAwarded} XP"))
                 } catch (e: Exception) {
                     prefs.edit()
                         .putString("lastCheck", Instant.now().toString())
                         .putString("state", "Verification warning")
+                        .putString("proofStatus", "No XP • ${safeError(e)}")
                         .apply()
                     getSystemService(NotificationManager::class.java)
-                        .notify(NOTIFICATION_ID, notification("Verification warning • ${e.message ?: "RPC unavailable"}"))
+                        .notify(NOTIFICATION_ID, notification("Verification warning • no XP"))
                 }
-                delay(20_000)
+                delay(30_000)
             }
+        }
+    }
+
+    private fun safeError(e: Exception): String {
+        val message = e.message.orEmpty()
+        return when {
+            message.contains("CHALLENGE_ALREADY_USED") -> "challenge already used"
+            message.contains("CHALLENGE_EXPIRED") -> "challenge expired"
+            message.contains("INVALID_NODE_SIGNATURE") -> "signature rejected"
+            message.contains("BLOCK_PROOF_MISMATCH") -> "block proof rejected"
+            message.contains("NODE_NOT_REGISTERED") -> "node registration required"
+            message.contains("Chain ID", ignoreCase = true) -> "wrong chain"
+            else -> "verification unavailable"
         }
     }
 
