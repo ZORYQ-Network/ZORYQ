@@ -49,18 +49,19 @@ jobs:
         working-directory: zoryq-mobile
         run: npx expo-doctor@latest
 
-      - name: Expo native module discovery gate
+      - name: Expo Android native module resolution gate
         working-directory: zoryq-mobile
+        env:
+          NO_COLOR: '1'
         run: |
           set -euo pipefail
-          npx expo-modules-autolinking search | tee /tmp/autolink-search.json
-          npx expo-modules-autolinking resolve --platform android | tee /tmp/autolink-android.json
+          npx expo-modules-autolinking resolve --platform android | tee /tmp/autolink-android.txt
           echo '--- local module files ---'
-          find modules/zoryq-mobile-node -maxdepth 3 -type f -print | sort
+          find modules/zoryq-mobile-node -maxdepth 6 -type f -print | sort
           echo '--- autolink assertions ---'
-          grep -q 'zoryq-mobile-node' /tmp/autolink-search.json
-          grep -q 'ZoryqMobileNodeModule' /tmp/autolink-android.json
-          grep -q 'ZoryqMobileNodeModule' modules/zoryq-mobile-node/expo-module.config.json
+          grep -q 'zoryq-mobile-node' /tmp/autolink-android.txt
+          grep -q 'network.zoryq.mobilenode.expo.ZoryqMobileNodeModule' /tmp/autolink-android.txt
+          grep -q 'network.zoryq.mobilenode.expo.ZoryqMobileNodeModule' modules/zoryq-mobile-node/expo-module.config.json
 
       - name: Generate Android project from clean prebuild
         working-directory: zoryq-mobile
