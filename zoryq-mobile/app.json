@@ -3,7 +3,7 @@
     "name": "ZORIQ",
     "slug": "zoryq-wallet",
     "scheme": "zoriq",
-    "version": "0.4.0",
+    "version": "0.4.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/zoryq-icon.png",
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "com.zoryq.wallet",
-      "versionCode": 5,
+      "versionCode": 6,
       "permissions": [],
       "adaptiveIcon": {
         "foregroundImage": "./assets/zoryq-icon.png",
