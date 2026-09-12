@@ -75,7 +75,7 @@ contract ZoryqExternalWorkProofTest {
 
         (bool ok,) = address(payer).call{value: 1 wei}(abi.encodeWithSelector(payer.pay.selector, proof, id));
         require(!ok, "rejecting treasury must revert payment");
-        (,,,,,, address storedPayer, uint256 revenue,,,,, bool paid,) = proof.workOrders(id);
+        (,,,,,, address storedPayer, uint256 revenue,,,, bool paid,) = proof.workOrders(id);
         require(storedPayer == address(0) && revenue == 0 && !paid, "failed transfer must not become revenue");
     }
 
