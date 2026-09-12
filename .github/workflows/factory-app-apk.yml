@@ -30,12 +30,14 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     env:
       APP_NAME: ${{ github.event_name == 'workflow_dispatch' && inputs.app_name || 'ZORYQ Factory Smoke App' }}
       APP_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.app_id || 'factory-smoke-app-0001' }}
       APP_SLUG: ${{ github.event_name == 'workflow_dispatch' && inputs.app_slug || 'factory-smoke-app' }}
       APP_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.app_url || 'https://zoryq-evm-node-live-production.up.railway.app/project-launch#app=demo' }}
+      RELEASE_BUILD: ${{ github.event_name == 'workflow_dispatch' && 'true' || 'false' }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -50,7 +52,7 @@ jobs:
           test -n "$APP_NAME"
 
       - name: Setup Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -80,11 +82,7 @@ jobs:
           name = html.escape(os.environ['APP_NAME'][:60], quote=True)
 
           src = java.read_text()
-          src = re.sub(
-              r'private static final String FACTORY_URL = .*?;',
-              f'private static final String FACTORY_URL = "{url}";',
-              src,
-          )
+          src = re.sub(r'private static final String FACTORY_URL = .*?;', f'private static final String FACTORY_URL = "{url}";', src)
           src = src.replace(' ZORYQ-App-Runner-Android/1.1', ' ZORYQ-Standalone-App-Android/1.0')
           java.write_text(src)
 
@@ -101,37 +99,117 @@ jobs:
           Path('/tmp/zoryq-package-id').write_text(package_id)
           Path('/tmp/zoryq-app-hash').write_text(app_hash)
           Path('/tmp/zoryq-version-name').write_text(version_name)
-
           assert url in java.read_text()
           assert package_id in gradle.read_text()
           assert f'versionCode {version_code}' in gradle.read_text()
           assert name in manifest.read_text()
 
-      - name: Build standalone installable APK
-        working-directory: apps/budget-dapp-android
-        run: gradle :app:assembleDebug --no-daemon
-
-      - name: Verify APK signature, alignment and package identity
+      - name: Resolve Android Build Tools
         shell: bash
         run: |
           set -euo pipefail
-          APK="apps/budget-dapp-android/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
-          test "$(stat -c%s "$APK")" -gt 100000
-
-          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          test -n "$SDK_ROOT"
+          BUILD_TOOLS="$(find "$SDK_ROOT/build-tools" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -n1)"
+          test -n "$BUILD_TOOLS"
+          BUILD_TOOLS="$SDK_ROOT/build-tools/$BUILD_TOOLS"
           test -x "$BUILD_TOOLS/apksigner"
           test -x "$BUILD_TOOLS/zipalign"
-          test -x "$BUILD_TOOLS/aapt2"
+          if [ -x "$BUILD_TOOLS/aapt2" ]; then AAPT="$BUILD_TOOLS/aapt2"; else AAPT="$BUILD_TOOLS/aapt"; fi
+          test -x "$AAPT"
+          echo "BUILD_TOOLS=$BUILD_TOOLS" >> "$GITHUB_ENV"
+          echo "AAPT=$AAPT" >> "$GITHUB_ENV"
+          echo "Using Android Build Tools: $BUILD_TOOLS"
 
-          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/APKSIGNER.txt
-          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK" | tee /tmp/ZIPALIGN.txt
-          "$BUILD_TOOLS/aapt2" dump badging "$APK" | tee /tmp/APK-BADGING.txt
+      - name: Build PR smoke APK
+        if: github.event_name == 'pull_request'
+        working-directory: apps/budget-dapp-android
+        run: gradle :app:assembleDebug --no-daemon
 
+      - name: Require permanent release signing secrets
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        env:
+          KEYSTORE_B64: ${{ secrets.ZORYQ_ANDROID_KEYSTORE_B64 }}
+          KEY_ALIAS: ${{ secrets.ZORYQ_ANDROID_KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.ZORYQ_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ZORYQ_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "$KEYSTORE_B64"
+          test -n "$KEY_ALIAS"
+          test -n "$KEYSTORE_PASSWORD"
+          test -n "$KEY_PASSWORD"
+          printf '%s' "$KEYSTORE_B64" | base64 --decode > /tmp/zoryq-release.jks
+          chmod 600 /tmp/zoryq-release.jks
+          keytool -list -keystore /tmp/zoryq-release.jks -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
+
+      - name: Build unsigned release APK
+        if: github.event_name == 'workflow_dispatch'
+        working-directory: apps/budget-dapp-android
+        run: gradle :app:assembleRelease --no-daemon
+
+      - name: Produce final APK
+        shell: bash
+        env:
+          KEY_ALIAS: ${{ secrets.ZORYQ_ANDROID_KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.ZORYQ_ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ZORYQ_ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ "$RELEASE_BUILD" = "true" ]; then
+            UNSIGNED="apps/budget-dapp-android/app/build/outputs/apk/release/app-release-unsigned.apk"
+            test -s "$UNSIGNED"
+            "$BUILD_TOOLS/zipalign" -f -P 16 4 "$UNSIGNED" /tmp/zoryq-aligned.apk
+            "$BUILD_TOOLS/apksigner" sign \
+              --ks /tmp/zoryq-release.jks \
+              --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass env:KEYSTORE_PASSWORD \
+              --key-pass env:KEY_PASSWORD \
+              --out /tmp/zoryq-final.apk \
+              /tmp/zoryq-aligned.apk
+            rm -f /tmp/zoryq-aligned.apk /tmp/zoryq-release.jks
+            echo "SIGNING_MODE=permanent-release-key" >> "$GITHUB_ENV"
+          else
+            cp apps/budget-dapp-android/app/build/outputs/apk/debug/app-debug.apk /tmp/zoryq-final.apk
+            echo "SIGNING_MODE=debug-ci-only" >> "$GITHUB_ENV"
+          fi
+          test -s /tmp/zoryq-final.apk
+          test "$(stat -c%s /tmp/zoryq-final.apk)" -gt 100000
+
+      - name: Verify signature, alignment and package identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs /tmp/zoryq-final.apk | tee /tmp/APKSIGNER.txt
+          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 /tmp/zoryq-final.apk | tee /tmp/ZIPALIGN.txt
+          "$AAPT" dump badging /tmp/zoryq-final.apk | tee /tmp/APK-BADGING.txt
           EXPECTED_PACKAGE="$(cat /tmp/zoryq-package-id)"
           grep -Fq "package: name='${EXPECTED_PACKAGE}'" /tmp/APK-BADGING.txt
           grep -Fq "sdkVersion:'26'" /tmp/APK-BADGING.txt
           grep -Fq 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/APKSIGNER.txt
+          CERT_SHA="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' /tmp/APKSIGNER.txt | head -n1)"
+          test -n "$CERT_SHA"
+          printf '%s' "$CERT_SHA" > /tmp/zoryq-cert-sha256
+
+      - name: Install APK on clean Android emulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "emulator" "system-images;android-35;google_apis;x86_64" >/dev/null
+          echo no | "$SDK_ROOT/cmdline-tools/latest/bin/avdmanager" create avd --force --name zoryq-ci --package "system-images;android-35;google_apis;x86_64" >/dev/null
+          "$SDK_ROOT/emulator/emulator" -avd zoryq-ci -no-window -no-audio -no-snapshot -no-boot-anim -gpu swiftshader_indirect >/tmp/emulator.log 2>&1 &
+          adb wait-for-device
+          timeout 240 bash -c 'until [ "$(adb shell getprop sys.boot_completed 2>/dev/null | tr -d "\r")" = "1" ]; do sleep 2; done'
+          adb install /tmp/zoryq-final.apk | tee /tmp/ADB-INSTALL.txt
+          grep -Fq 'Success' /tmp/ADB-INSTALL.txt
+          PACKAGE_ID="$(cat /tmp/zoryq-package-id)"
+          adb shell pm path "$PACKAGE_ID" | tee /tmp/ADB-PACKAGE.txt
+          grep -Fq 'package:' /tmp/ADB-PACKAGE.txt
+          adb shell monkey -p "$PACKAGE_ID" -c android.intent.category.LAUNCHER 1 >/tmp/ADB-LAUNCH.txt
+          echo 'emulator_install_verified=true' > /tmp/ANDROID-INSTALL.txt
 
       - name: Package verified artifact and evidence
         shell: bash
@@ -141,12 +219,15 @@ jobs:
           APP_HASH="$(cat /tmp/zoryq-app-hash)"
           PACKAGE_ID="$(cat /tmp/zoryq-package-id)"
           VERSION_NAME="$(cat /tmp/zoryq-version-name)"
-          APK_IN="apps/budget-dapp-android/app/build/outputs/apk/debug/app-debug.apk"
+          CERT_SHA="$(cat /tmp/zoryq-cert-sha256)"
           APK_OUT="dist/ZORYQ-${APP_SLUG}-${APP_HASH}.apk"
-          cp "$APK_IN" "$APK_OUT"
+          cp /tmp/zoryq-final.apk "$APK_OUT"
           sha256sum "$APK_OUT" | tee dist/SHA256SUMS.txt
           cp /tmp/APKSIGNER.txt dist/APKSIGNER.txt
           cp /tmp/APK-BADGING.txt dist/APK-BADGING.txt
+          cp /tmp/ZIPALIGN.txt dist/ZIPALIGN.txt
+          cp /tmp/ADB-INSTALL.txt dist/ADB-INSTALL.txt
+          cp /tmp/ANDROID-INSTALL.txt dist/ANDROID-INSTALL.txt
           printf '%s\n' \
             "name=${APP_NAME}" \
             "app_id=${APP_ID}" \
@@ -154,10 +235,12 @@ jobs:
             "version=${VERSION_NAME}" \
             "url=${APP_URL}" \
             "source_commit=${GITHUB_SHA}" \
+            "signing_mode=${SIGNING_MODE}" \
+            "certificate_sha256=${CERT_SHA}" \
             "signature_verified=true" \
             "zipalign_verified=true" \
+            "emulator_clean_install_verified=true" \
             "min_sdk=26" \
-            "claim=standalone APK personalized to one stable Factory app identity; Android installability structurally verified" \
             > dist/BUILD-MANIFEST.txt
 
       - name: Upload verified standalone APK
@@ -166,9 +249,6 @@ jobs:
           name: ZORYQ-${{ env.APP_SLUG }}-Standalone-APK-${{ github.run_number }}
           path: |
             dist/*.apk
-            dist/SHA256SUMS.txt
-            dist/BUILD-MANIFEST.txt
-            dist/APKSIGNER.txt
-            dist/APK-BADGING.txt
+            dist/*.txt
           if-no-files-found: error
           retention-days: 30
