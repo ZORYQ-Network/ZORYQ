@@ -92,7 +92,7 @@ async function buildJob(id, input) {
     fs.cpSync(TEMPLATE, work, { recursive: true });
     const hash = crypto.createHash('sha256').update(input.app_id).digest('hex').slice(0, 12);
     const packageId = `network.zoryq.generated.app${hash}`;
-    const versionCode = Math.min(2_100_000_000, Math.max(1, Math.floor(Date.now() / 60000)));
+    const versionCode = Math.min(2_100_000_000, Math.max(1, Math.floor(Date.now() / 1000)));
     const versionName = `1.0.${versionCode}`;
     const java = path.join(work, 'app/src/main/java/network/zoryq/budgetforecast/MainActivity.java');
     const manifest = path.join(work, 'app/src/main/AndroidManifest.xml');
@@ -124,7 +124,9 @@ async function buildJob(id, input) {
     if (!badging.out.includes(`package: name='${packageId}'`)) throw new Error('package_identity_verification_failed');
     if (!verified.out.includes('Verified using v2 scheme (APK Signature Scheme v2): true')) throw new Error('signature_v2_verification_failed');
     const sha256 = crypto.createHash('sha256').update(fs.readFileSync(finalApk)).digest('hex');
-    const cert = (verified.out.match(/Signer #1 certificate SHA-256 digest: ([0-9a-f]+)/i) || [])[1] || null;
+    const certMatch = verified.out.match(/(?:Signer #1|V2 Signer): certificate SHA-256 digest: ([0-9a-f]+)/i);
+    const cert = certMatch ? certMatch[1] : null;
+    if (!cert) throw new Error('certificate_fingerprint_missing');
     updateJob(id, { status: 'ready', appId: input.app_id, appName: input.app_name, packageId, versionCode, versionName, sha256, certificateSha256: cert, signing: 'permanent-release-key', downloadUrl: `/factory/apk/jobs/${id}/apk` });
   } catch (e) {
     console.error('[factory-apk]', id, e);
