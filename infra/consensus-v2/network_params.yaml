@@ -1,0 +1,33 @@
+# ZORYQ Consensus V2 — PARALLEL TESTNET ONLY
+#
+# Purpose: prove a real multi-node EL+CL consensus architecture without touching
+# the currently live ZORYQ testnet. This file must not be promoted directly to
+# mainnet. Promotion requires the repository mainnet guard, external audit,
+# persistent multi-provider nodes, signer controls and disaster-recovery evidence.
+
+participants:
+  - el_type: reth
+    cl_type: lighthouse
+    validator_count: 8
+  - el_type: reth
+    cl_type: lighthouse
+    validator_count: 8
+  - el_type: reth
+    cl_type: lighthouse
+    validator_count: 8
+
+network_params:
+  network: "kurtosis"
+  network_id: "5919065"
+  preset: minimal
+  seconds_per_slot: 4
+
+# Observability for proving finality, node health and cross-node agreement.
+additional_services:
+  - dora
+  - prometheus
+  - grafana
+
+ethereum_metrics_exporter_enabled: true
+wait_for_finalization: true
+wait_for_verifications: true
