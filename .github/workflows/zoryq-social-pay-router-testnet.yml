@@ -1,11 +1,9 @@
 name: Deploy ZORIQ Social Pay Router Testnet
 
+# Router deployment is intentionally manual. The verified Testnet router is already
+# deployed; ordinary app/social commits must never spend faucet gas to create another
+# contract. Re-run this workflow only when an intentional router redeployment is needed.
 on:
-  pull_request:
-    paths:
-      - 'zoryq-contracts/src/ZoryqSocialPayRouter.sol'
-      - 'zoryq-contracts/test/ZoryqSocialPayRouter.t.sol'
-      - '.github/workflows/zoryq-social-pay-router-testnet.yml'
   workflow_dispatch:
 
 permissions:
