@@ -1,14 +1,38 @@
 # ZORYQ Network
 
-**Experimental EVM-compatible blockchain testnet for evidence-first Web3 engineering and verifiable agent commerce.**
+**Experimental EVM-compatible blockchain testnet for evidence-first Web3 engineering, usable AI-generated applications and verifiable agent commerce.**
 
-ZORYQ is an early-stage public blockchain project building an EVM-compatible test network, developer platform and an **Agent Commerce & Trust Layer** for economically active AI agents.
+ZORYQ is an early-stage public blockchain project building an EVM-compatible test network, developer platform and product layer for AI-generated software and economically active AI agents.
 
-The engineering rule is simple: **technical claims must be backed by code, tests, reproducible measurements, or clearly labeled research.**
+The engineering rule is simple: **technical and product claims must be backed by code, tests, reproducible measurements, or clearly labeled research.**
 
-> **Current stage:** active experimental development / public testnet. This repository does not claim production-mainnet readiness, audited security, decentralization, novel consensus, product-market fit or measured high-performance unless a linked artifact explicitly proves it.
+> **Current stage:** active experimental development / public testnet. This repository does not claim production-mainnet readiness, audited security, decentralization, universal app generation, product-market fit or measured high-performance unless a linked artifact explicitly proves it.
 
-## Flagship product direction — Autonomous Company
+## Product mission — three engines
+
+ZORYQ is being shaped around three connected product engines:
+
+1. **ZORYQ AI App Factory** — idea → usable application.
+2. **Autonomous Company** — goal + budget → bounded agent organization that can work, hire, pay, receive and account onchain.
+3. **ZORYQ Network** — verifiable infrastructure for identity, payments, execution and evidence.
+
+The blockchain is infrastructure, not the end-user pitch. The target experience is useful software first, with ZORYQ introduced where verifiability, payments, ownership, identity or autonomous execution improve the product.
+
+Read [`docs/AI_APP_FACTORY_FLAGSHIP.md`](docs/AI_APP_FACTORY_FLAGSHIP.md) for the product/traction loop and evidence boundaries.
+
+## Flagship product engine — AI App Factory
+
+> **Describe what you need. ZORYQ turns the idea into usable software and, when useful, connects that software to the blockchain.**
+
+Target experience:
+
+**Prompt → objective understanding → application generation → functional preview → Web app → Android APK → optional ZORYQ integration → verifiable onchain proof → sharing → application evolution.**
+
+The current Factory is evidence-gated: template-based generated applications and an Android App Runner exist, while general arbitrary software generation, dynamic backends/databases/auth and a unique standalone APK for every prompt remain roadmap items until implemented and reproduced.
+
+Experimental public surface: https://zoryq-evm-node-live-production.up.railway.app/launch-studio
+
+## Flagship product engine — Autonomous Company
 
 > **Give ZORYQ a goal and a budget. It creates a bounded autonomous company of agents that works, hires, pays, earns and accounts onchain.**
 
@@ -26,12 +50,13 @@ The published evidence used Chain ID `5919065`, received `100 ZQ` from the publi
 
 See [`docs/EXTERNAL_TRACTION_EVIDENCE.md`](docs/EXTERNAL_TRACTION_EVIDENCE.md) and completed [Issue #88](https://github.com/ZORYQ-Network/ZORYQ/issues/88).
 
-**Claim boundary:** this proves external developer reproducibility for the first-transaction path. It does not by itself prove independent node operation, decentralization, audited security or mainnet readiness.
+**Claim boundary:** this proves external developer reproducibility for the first-transaction path. It does not by itself prove independent node operation, decentralization, audited security, Factory adoption or mainnet readiness.
 
 ## Start exploring
 
 | Area | Evidence | Status |
 | --- | --- | --- |
+| AI App Factory | [`docs/AI_APP_FACTORY_FLAGSHIP.md`](docs/AI_APP_FACTORY_FLAGSHIP.md) | Flagship product strategy; current implementation is bounded/evidence-gated |
 | External traction | [`docs/EXTERNAL_TRACTION_EVIDENCE.md`](docs/EXTERNAL_TRACTION_EVIDENCE.md) | First independent developer transaction verified |
 | Investor readiness | [`docs/INVESTOR_READINESS.md`](docs/INVESTOR_READINESS.md) | Evidence-gated plan |
 | Autonomous Company | [`docs/ZORYQ_AUTONOMOUS_COMPANY.md`](docs/ZORYQ_AUTONOMOUS_COMPANY.md) | MVP evidence gates open |
@@ -55,18 +80,23 @@ See [`docs/EXTERNAL_TRACTION_EVIDENCE.md`](docs/EXTERNAL_TRACTION_EVIDENCE.md) a
 - **Public RPC:** https://zoryq-evm-node-live-production.up.railway.app/rpc
 - **Public faucet:** https://zoryq-evm-node-live-production.up.railway.app/faucet/claim
 - **Developer surface:** https://zoryq-evm-node-live-production.up.railway.app/developer
+- **AI App Factory:** https://zoryq-evm-node-live-production.up.railway.app/launch-studio
 - **Public web:** https://zoryq-testnet.vercel.app
 - **X:** https://x.com/ZORIQNetwork
 
 Testnet ZQ has no implied monetary value.
 
-## Developer path
+## Product and developer funnels
 
-The target funnel is:
+The Factory acquisition loop is:
+
+**Visitor → creates first app → uses app → creates wallet → receives testnet ZQ → first transaction → useful onchain feature → shares app → returns → becomes builder / developer / contributor.**
+
+The developer funnel is:
 
 **Discovery → Docs → Faucet → First Transaction → First Contract → First Application → Contribution → Ecosystem Project**
 
-The `Faucet → First Transaction` path now has independent external evidence. The next traction target is to move multiple independent developers through **First Contract → First Application**, while finishing the remaining faucet reliability/observability requirements tracked in [Issue #55](https://github.com/ZORYQ-Network/ZORYQ/issues/55).
+The `Faucet → First Transaction` path now has independent external evidence. The next product/traction target is to move real external users through **Prompt → usable application → Web/Android → first useful ZORYQ interaction**, while moving independent developers through **First Contract → First Application**.
 
 ## External operator challenge
 
@@ -80,16 +110,18 @@ A second process controlled by the ZORYQ primary operator does not count as inde
 
 ZORYQ is being developed around a stricter evidence model: separate what exists today from what is being researched, then make important technical and product claims independently reproducible.
 
-The intended product wedge is not simply "another generic EVM chain." The project is exploring infrastructure for **verifiable economic activity by autonomous software**: who an agent is, what it is allowed to do, what it intended, what it actually executed, what it paid or received, and what evidence supports the result.
+The intended product wedge is not simply "another generic EVM chain." ZORYQ is exploring a product loop where people first receive useful software, then use blockchain capabilities only when those capabilities improve the experience. In parallel, the project is building infrastructure for **verifiable economic activity by autonomous software**: who an agent is, what it is allowed to do, what it intended, what it actually executed, what it paid or received, and what evidence supports the result.
 
 A parallel research direction is **adaptive verifiable execution**: exploring how blockchain execution could handle different transaction workloads while preserving deterministic state. This remains research until implementation, tests and reproducible evidence demonstrate it.
 
 ## For developers
 
-ZORYQ is looking for contributors who care about blockchain execution, distributed systems, EVM tooling, AI-agent infrastructure, testing, security, developer experience and reproducible performance work.
+ZORYQ is looking for contributors who care about blockchain execution, distributed systems, EVM tooling, AI-generated software, AI-agent infrastructure, testing, security, developer experience and reproducible performance work.
 
 Useful contribution paths include:
 
+- reproduce the AI App Factory application path externally;
+- extend the Factory beyond bounded templates with explicit tests and evidence;
 - run the public onboarding proof independently;
 - run an independent Node 2;
 - build an external dApp on ZORYQ;
@@ -107,17 +139,19 @@ ZORYQ is not using unverified token-price or adoption claims as a substitute for
 
 1. independent developers;
 2. independent node operators;
-3. external applications;
-4. a reproducible Autonomous Company vertical slice;
-5. external reproduction of that product;
-6. paid pilots / customers;
-7. security and operational maturity.
+3. externally used applications;
+4. external Factory reproductions and retained users;
+5. a reproducible Autonomous Company vertical slice;
+6. external reproduction of that product;
+7. paid pilots / customers;
+8. security and operational maturity.
 
 See [`docs/INVESTOR_READINESS.md`](docs/INVESTOR_READINESS.md).
 
 ## Engineering principles
 
 - **Evidence first** — measured claims link to methodology and raw results.
+- **Useful product first** — blockchain should appear where it adds value, not as friction for its own sake.
 - **Research is labeled** — hypotheses stay separate from implemented behavior.
 - **Security before marketing** — critical risks block release claims.
 - **Reproducibility** — another engineer should be able to rebuild a result.
@@ -128,7 +162,7 @@ See [`docs/INVESTOR_READINESS.md`](docs/INVESTOR_READINESS.md).
 
 ## Evidence standard
 
-ZORYQ does **not** treat target numbers as measured results. Any TPS, latency, finality, recovery, node-distribution or adoption claim should include the evidence needed to reproduce or audit it.
+ZORYQ does **not** treat target numbers as measured results. Any TPS, latency, finality, recovery, node-distribution, application-generation or adoption claim should include the evidence needed to reproduce or audit it.
 
 For technical benchmark claims, include at minimum:
 
@@ -167,8 +201,8 @@ ZORYQ intends to publish engineering progress without turning unfinished work in
 
 ## Search / discovery
 
-Relevant areas: **EVM blockchain, blockchain testnet, Web3 infrastructure, AI agents, autonomous agents, agent commerce, verifiable execution, onchain payments, distributed systems, deterministic state, parallel execution, blockchain benchmarking, RPC compatibility, developer tooling, blockchain research.**
+Relevant areas: **AI app builder, AI app factory, generated applications, EVM blockchain, blockchain testnet, Web3 infrastructure, AI agents, autonomous agents, agent commerce, verifiable execution, onchain payments, distributed systems, deterministic state, parallel execution, blockchain benchmarking, RPC compatibility, developer tooling, blockchain research.**
 
 ---
 
-**ZORYQ Network — make the engineering verifiable, then let the evidence speak.**
+**ZORYQ Network — useful software first, verifiable execution underneath.**
