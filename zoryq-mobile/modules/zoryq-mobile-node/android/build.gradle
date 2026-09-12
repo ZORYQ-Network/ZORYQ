@@ -11,7 +11,13 @@ android {
     versionName '0.1.0'
   }
   sourceSets {
-    main.java.srcDirs += '../../../../zoryq-mobile-node/android/app/src/main/java'
+    main {
+      java.srcDirs += '../../../../zoryq-mobile-node/android/app/src/main/java'
+      // The Wallet embeds only the reusable Mobile Node core/service classes.
+      // MainActivity belongs to the standalone hardening APK and depends on
+      // AppCompat + standalone UI resources that must not enter this library.
+      java.exclude '**/MainActivity.kt'
+    }
   }
 }
 
