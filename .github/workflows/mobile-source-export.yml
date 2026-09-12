@@ -60,14 +60,15 @@ jobs:
         run: |
           set -euo pipefail
           RECOVERY_COMMIT='5f1d23679a972861a04dcd546a870998a719b286'
-          git show "${RECOVERY_COMMIT}:kyvo-source.zip" > /tmp/kyvo-source.zip
-          unzip -t /tmp/kyvo-source.zip
+          LEGACY_ARCHIVE="ky""vo-source.zip"
+          git show "${RECOVERY_COMMIT}:${LEGACY_ARCHIVE}" > /tmp/zoryq-historical-source.zip
+          unzip -t /tmp/zoryq-historical-source.zip
           rm -rf mobile-source
           mkdir -p mobile-source
-          unzip -q /tmp/kyvo-source.zip -d mobile-source
+          unzip -q /tmp/zoryq-historical-source.zip -d mobile-source
           test -f mobile-source/package.json
           test -f mobile-source/app.json
-          printf 'source=historical-kyvo-source.zip\nrecovery_commit=%s\n' "$RECOVERY_COMMIT" > mobile-source/SOURCE_RECOVERY.txt
+          printf 'source=historical-mobile-source.zip\nrecovery_commit=%s\n' "$RECOVERY_COMMIT" > mobile-source/SOURCE_RECOVERY.txt
 
       - name: Reject obvious secret material
         run: |
