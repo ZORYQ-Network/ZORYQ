@@ -1,0 +1,38 @@
+{
+  "version": "0.1",
+  "companyId": "example-company-001",
+  "chainId": 5919065,
+  "rootController": "0x1111111111111111111111111111111111111111",
+  "goal": {
+    "description": "Example-only company fixture for validating the ZORYQ Autonomous reference format.",
+    "successCriteria": ["Produce a structurally valid evidence pack"],
+    "goalHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "budget": {
+    "asset": "ZQ_TESTNET",
+    "initial": "1000",
+    "committed": "100",
+    "spent": "0",
+    "received": "0"
+  },
+  "autonomy": "balanced",
+  "policy": {
+    "policyId": "policy-example-001",
+    "maxTotalSpend": "1000",
+    "emergencyStop": false,
+    "permissions": [
+      {
+        "permissionId": "perm-example-001",
+        "agentId": "agent-example-research",
+        "target": "0x2222222222222222222222222222222222222222",
+        "method": "performBoundedAction",
+        "maxValue": "100",
+        "expiresAt": "2099-01-01T00:00:00Z",
+        "nonce": "example-nonce-001",
+        "domain": "zoryq-testnet:5919065:example-company-001",
+        "revoked": false
+      }
+    ]
+  },
+  "status": "draft"
+}
