@@ -39,8 +39,8 @@ async function latestMatchingOrder(contract, owner, companyRef, specHash) {
   }
   return 0n;
 }
-async function latestEvent(contract, filter) {
-  const logs = await contract.queryFilter(filter, 0, 'latest');
+async function latestEvent(contract, filter, fromBlock) {
+  const logs = await contract.queryFilter(filter, fromBlock, 'latest');
   return logs.length ? logs[logs.length - 1] : null;
 }
 
@@ -92,6 +92,13 @@ if (!contract) {
   state.deployedAt = new Date().toISOString();
   writeJson(STATE_FILE, state);
 }
+if (!Number.isInteger(Number(state.deploymentBlock)) || Number(state.deploymentBlock) < 0) {
+  const deploymentReceipt = state.deploymentTx ? await provider.getTransactionReceipt(state.deploymentTx) : null;
+  if (!deploymentReceipt) throw new Error('deployment block unavailable for bounded event recovery');
+  state.deploymentBlock = Number(deploymentReceipt.blockNumber);
+  writeJson(STATE_FILE, state);
+}
+const eventFromBlock = Number(state.deploymentBlock);
 
 const companyRef = keccak256(toUtf8Bytes(COMPANY_REF_TEXT));
 const specHash = keccak256(toUtf8Bytes(SPEC_TEXT));
@@ -150,9 +157,9 @@ if (!proof[2] || !proof[3] || proof[4]) throw new Error('invalid canonical work-
 if (!eqAddress(proof[0], payer.address)) throw new Error('contract payer mismatch');
 if (proof[1] !== PAYMENT_WEI) throw new Error('contract revenue mismatch');
 
-const createEvent = await latestEvent(contract, contract.filters.WorkOrderCreated(workOrderId));
-const deliveryEvent = await latestEvent(contract, contract.filters.WorkDelivered(workOrderId));
-const paymentEvent = await latestEvent(contract, contract.filters.ExternalRevenueReceived(workOrderId));
+const createEvent = await latestEvent(contract, contract.filters.WorkOrderCreated(workOrderId), eventFromBlock);
+const deliveryEvent = await latestEvent(contract, contract.filters.WorkDelivered(workOrderId), eventFromBlock);
+const paymentEvent = await latestEvent(contract, contract.filters.ExternalRevenueReceived(workOrderId), eventFromBlock);
 if (!createEvent || !deliveryEvent || !paymentEvent) throw new Error('canonical evidence events missing');
 state.createWorkOrderTx = createEvent.transactionHash;
 state.createWorkOrderBlock = Number(createEvent.blockNumber);
