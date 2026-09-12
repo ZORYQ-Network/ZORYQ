@@ -78,7 +78,6 @@ namespace Zoryq.Play.RushCity
             _consumed=true;
             if(_collider)_collider.enabled=false;
             RushCityGameManager.Instance?.HitObstacle(severity);
-            RushCityGameEvents.RaiseImpact(severity);
         }
     }
 }
