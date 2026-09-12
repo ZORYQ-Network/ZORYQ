@@ -1,0 +1,77 @@
+name: Design partner / pilot interest
+description: Apply to test a defined ZORYQ workflow as an external design partner or pilot
+title: "[Pilot interest] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ZORYQ is looking for external design partners to test narrowly scoped workflows, especially Autonomous Company / Agent Commerce. This is an experimental testnet program, not a promise of production readiness or token value.
+  - type: input
+    id: org
+    attributes:
+      label: Organization / project
+      placeholder: "Company, DAO, startup or independent project"
+    validations:
+      required: true
+  - type: input
+    id: contact
+    attributes:
+      label: Public contact
+      description: GitHub, website or other public contact route. Do not post private credentials.
+    validations:
+      required: true
+  - type: dropdown
+    id: workflow
+    attributes:
+      label: Workflow you want to test
+      options:
+        - Autonomous Company / Agent Commerce
+        - Agent payment / settlement
+        - Onchain proof / Proof Pack
+        - Developer infrastructure / RPC
+        - External dApp deployment
+        - Independent node operation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Real problem to solve
+      description: Describe the concrete workflow, pain point and why a verifiable onchain agent/action layer could help.
+    validations:
+      required: true
+  - type: textarea
+    id: success
+    attributes:
+      label: Pilot success criteria
+      description: What measurable result would make this pilot useful?
+    validations:
+      required: true
+  - type: input
+    id: period
+    attributes:
+      label: Expected test period
+      placeholder: "2 weeks / 30 days / specific dates"
+  - type: dropdown
+    id: commitment
+    attributes:
+      label: Commitment level
+      options:
+        - Exploratory technical test
+        - Formal design-partner pilot
+        - Paid pilot if scope and terms are acceptable
+    validations:
+      required: true
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Security, compliance or integration constraints
+      description: Do not include secrets. Describe requirements at a high level.
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Experimental-stage acknowledgement
+      options:
+        - label: I understand ZORYQ is currently an experimental public testnet and this submission is not evidence of a commercial partnership until scope/terms are separately agreed.
+          required: true
