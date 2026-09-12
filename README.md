@@ -1,23 +1,42 @@
 # ZORYQ Network
 
-**Experimental EVM-compatible blockchain testnet for evidence-first Web3 engineering.**
+**Experimental EVM-compatible blockchain testnet for evidence-first Web3 engineering and verifiable agent commerce.**
 
-ZORYQ is an early-stage public blockchain project building an EVM-compatible test network and developer platform. The engineering rule is simple: **technical claims must be backed by code, tests, reproducible measurements, or clearly labeled research.**
+ZORYQ is an early-stage public blockchain project building an EVM-compatible test network, developer platform and an **Agent Commerce & Trust Layer** for economically active AI agents.
 
-> **Current stage:** active experimental development / public testnet. This repository does not claim production-mainnet readiness, audited security, decentralization, novel consensus, or measured high-performance unless a linked artifact explicitly proves it.
+The engineering rule is simple: **technical claims must be backed by code, tests, reproducible measurements, or clearly labeled research.**
 
-## Why ZORYQ exists
+> **Current stage:** active experimental development / public testnet. This repository does not claim production-mainnet readiness, audited security, decentralization, novel consensus, product-market fit or measured high-performance unless a linked artifact explicitly proves it.
 
-Blockchain systems often mix roadmap language, research ideas and measured capabilities. ZORYQ is being developed around a stricter evidence model: separate what exists today from what is being researched, then make important technical claims reproducible.
+## Flagship product direction — Autonomous Company
 
-A provisional research direction is **adaptive verifiable execution**: exploring how a blockchain architecture could dynamically handle different transaction workloads while preserving deterministic state. This remains research until implementation, tests and reproducible evidence demonstrate it.
+> **Give ZORYQ a goal and a budget. It creates a bounded autonomous company of agents that works, hires, pays, earns and accounts onchain.**
+
+The target experience combines agent identity, scoped authority, task/service hiring, onchain payments, evidence-backed accounting and a portable Proof Pack. Capability claims remain gated until each part has a reproducible public testnet proof.
+
+Read [`docs/ZORYQ_AUTONOMOUS_COMPANY.md`](docs/ZORYQ_AUTONOMOUS_COMPANY.md) and track the MVP in [Issue #59](https://github.com/ZORYQ-Network/ZORYQ/issues/59).
+
+## Verified external traction
+
+On **2026-09-12**, an independent developer reproduced the ZORYQ public first-transaction path from a local machine:
+
+**public RPC → public faucet → fresh wallet → funded balance → signed transaction → confirmed receipt**
+
+The published evidence used Chain ID `5919065`, received `100 ZQ` from the public testnet faucet and produced a transaction included in block `112071` with receipt `status=1`.
+
+See [`docs/EXTERNAL_TRACTION_EVIDENCE.md`](docs/EXTERNAL_TRACTION_EVIDENCE.md) and completed [Issue #88](https://github.com/ZORYQ-Network/ZORYQ/issues/88).
+
+**Claim boundary:** this proves external developer reproducibility for the first-transaction path. It does not by itself prove independent node operation, decentralization, audited security or mainnet readiness.
 
 ## Start exploring
 
 | Area | Evidence | Status |
 | --- | --- | --- |
-| Developer onboarding | [`docs/DEVELOPER_ONBOARDING.md`](docs/DEVELOPER_ONBOARDING.md) | Evidence-gated path |
-| External operator challenge | [Issue #73](https://github.com/ZORYQ-Network/ZORYQ/issues/73) | Looking for first independent Node 2 + developer reproduction |
+| External traction | [`docs/EXTERNAL_TRACTION_EVIDENCE.md`](docs/EXTERNAL_TRACTION_EVIDENCE.md) | First independent developer transaction verified |
+| Investor readiness | [`docs/INVESTOR_READINESS.md`](docs/INVESTOR_READINESS.md) | Evidence-gated plan |
+| Autonomous Company | [`docs/ZORYQ_AUTONOMOUS_COMPANY.md`](docs/ZORYQ_AUTONOMOUS_COMPANY.md) | MVP evidence gates open |
+| Developer onboarding | [`docs/DEVELOPER_ONBOARDING.md`](docs/DEVELOPER_ONBOARDING.md) | Public first-transaction reproduction achieved |
+| Independent Node 2 | [Issue #73](https://github.com/ZORYQ-Network/ZORYQ/issues/73) | Still open — highest-value external network gate |
 | Project overview | [`docs/PROJECT_OVERVIEW.md`](docs/PROJECT_OVERVIEW.md) | Active |
 | Architecture | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Documented |
 | Protocol | [`PROTOCOL.md`](PROTOCOL.md), [`SPECIFICATION.md`](SPECIFICATION.md) | Being established |
@@ -27,13 +46,19 @@ A provisional research direction is **adaptive verifiable execution**: exploring
 | Roadmap | [`docs/ROADMAP.md`](docs/ROADMAP.md) | Active |
 | Contributing | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Open |
 
-## External operator challenge
+## Network
 
-ZORYQ is actively looking for its first **independent external node operator/developer**. The challenge is intentionally evidence-first: run Node 2 on infrastructure you control, peer with the public testnet, publish non-secret convergence evidence, then attempt the developer path without private assistance.
+- **Name:** ZORYQ Testnet
+- **Chain ID:** `5919065`
+- **Compatibility target:** EVM
+- **Stage:** public experimental testnet / active development
+- **Public RPC:** https://zoryq-evm-node-live-production.up.railway.app/rpc
+- **Public faucet:** https://zoryq-evm-node-live-production.up.railway.app/faucet/claim
+- **Developer surface:** https://zoryq-evm-node-live-production.up.railway.app/developer
+- **Public web:** https://zoryq-testnet.vercel.app
+- **X:** https://x.com/ZORIQNetwork
 
-Start here: **[Issue #73 — run an independent ZORYQ Node 2 and reproduce the developer path](https://github.com/ZORYQ-Network/ZORYQ/issues/73)**.
-
-A second process controlled by the ZORYQ primary operator does not count as independent evidence. Never publish private keys, mnemonics, discovery secrets, provider tokens or infrastructure credentials.
+Testnet ZQ has no implied monetary value.
 
 ## Developer path
 
@@ -41,34 +66,54 @@ The target funnel is:
 
 **Discovery → Docs → Faucet → First Transaction → First Contract → First Application → Contribution → Ecosystem Project**
 
-The current P0 is **Faucet → First Transaction**. ZORYQ will not promote a zero-to-build flow as stable until an external developer can reproduce a fresh-wallet funding and signed transaction path with public evidence. Track the blocker in [Issue #55](https://github.com/ZORYQ-Network/ZORYQ/issues/55) and see [`docs/DEVELOPER_ONBOARDING.md`](docs/DEVELOPER_ONBOARDING.md).
+The `Faucet → First Transaction` path now has independent external evidence. The next traction target is to move multiple independent developers through **First Contract → First Application**, while finishing the remaining faucet reliability/observability requirements tracked in [Issue #55](https://github.com/ZORYQ-Network/ZORYQ/issues/55).
 
-## Network
+## External operator challenge
 
-- **Name:** ZORYQ Testnet
-- **Chain ID:** `5919065`
-- **Compatibility target:** EVM
-- **Stage:** public testnet / active development
-- **Public web:** https://zoryq-testnet.vercel.app
-- **X:** https://x.com/ZORIQNetwork
+The developer-reproduction half of the external challenge is now complete. The remaining high-value network milestone is a truly **independently controlled Node 2** that peers with the testnet and publishes convergence, restart/rejoin and non-secret peer evidence.
 
-Stable RPC, explorer, faucet, wallet and deployment instructions will be promoted here only after they are reproducible enough for external developers. Until then, absence of a link should be read as **not yet publicly supported**, not as an invitation to guess an endpoint.
+Start here: [Issue #73](https://github.com/ZORYQ-Network/ZORYQ/issues/73) and [`docs/EXTERNAL_NODE2_HANDOFF.md`](docs/EXTERNAL_NODE2_HANDOFF.md).
+
+A second process controlled by the ZORYQ primary operator does not count as independent evidence. Never publish private keys, mnemonics, discovery secrets, provider tokens or infrastructure credentials.
+
+## Why ZORYQ exists
+
+ZORYQ is being developed around a stricter evidence model: separate what exists today from what is being researched, then make important technical and product claims independently reproducible.
+
+The intended product wedge is not simply "another generic EVM chain." The project is exploring infrastructure for **verifiable economic activity by autonomous software**: who an agent is, what it is allowed to do, what it intended, what it actually executed, what it paid or received, and what evidence supports the result.
+
+A parallel research direction is **adaptive verifiable execution**: exploring how blockchain execution could handle different transaction workloads while preserving deterministic state. This remains research until implementation, tests and reproducible evidence demonstrate it.
 
 ## For developers
 
-ZORYQ is looking for contributors who care about blockchain execution, distributed systems, EVM tooling, testing, security, developer experience and reproducible performance work.
+ZORYQ is looking for contributors who care about blockchain execution, distributed systems, EVM tooling, AI-agent infrastructure, testing, security, developer experience and reproducible performance work.
 
-A useful contribution does not need to be large. Good starting areas include:
+Useful contribution paths include:
 
+- run the public onboarding proof independently;
+- run an independent Node 2;
+- build an external dApp on ZORYQ;
 - improve documentation and reproducibility;
-- add tests for explicit failure cases;
-- improve developer onboarding;
+- add explicit failure/adversarial tests;
 - inspect RPC and EVM compatibility behavior;
-- create benchmark workloads and methodology without inventing results;
-- document architecture decisions and limitations;
-- turn research questions into falsifiable experiments.
+- improve the Autonomous Company evidence path;
+- create benchmark workloads and methodology without inventing results.
 
 Read [`CONTRIBUTING.md`](CONTRIBUTING.md). Public contribution opportunities are tracked through GitHub Issues.
+
+## Investor / partner view
+
+ZORYQ is not using unverified token-price or adoption claims as a substitute for traction. The current fundraising strategy is to accumulate evidence that changes the investment conversation:
+
+1. independent developers;
+2. independent node operators;
+3. external applications;
+4. a reproducible Autonomous Company vertical slice;
+5. external reproduction of that product;
+6. paid pilots / customers;
+7. security and operational maturity.
+
+See [`docs/INVESTOR_READINESS.md`](docs/INVESTOR_READINESS.md).
 
 ## Engineering principles
 
@@ -79,27 +124,13 @@ Read [`CONTRIBUTING.md`](CONTRIBUTING.md). Public contribution opportunities are
 - **Determinism before speed** — optimization cannot silently weaken correctness.
 - **Failures are data** — negative results and known limitations are documented.
 - **No vanity engineering** — green CI is not a substitute for valid evidence.
-
-## Research directions
-
-Current or planned research areas may include:
-
-- adaptive and parallel execution;
-- dependency-aware scheduling;
-- verifiable execution receipts;
-- explicit confirmation/finality semantics;
-- congestion isolation;
-- state recovery and divergence detection;
-- safe autonomous optimization;
-- verifiable compute and future cryptographic research.
-
-**These are research directions, not performance claims.** A concept should progress through specification → prototype → test → benchmark → risk analysis before being described as a proven ZORYQ capability.
-
-See [`RESEARCH.md`](RESEARCH.md), [`PROTOCOL.md`](PROTOCOL.md) and [`SPECIFICATION.md`](SPECIFICATION.md).
+- **No vanity traction** — project-controlled activity does not count as independent adoption.
 
 ## Evidence standard
 
-ZORYQ does **not** treat target numbers as measured results. Any future TPS, latency, finality, recovery or resource claim should include at minimum:
+ZORYQ does **not** treat target numbers as measured results. Any TPS, latency, finality, recovery, node-distribution or adoption claim should include the evidence needed to reproduce or audit it.
+
+For technical benchmark claims, include at minimum:
 
 1. commit hash;
 2. hardware and operating system;
@@ -116,15 +147,15 @@ See [`BENCHMARKS.md`](BENCHMARKS.md).
 
 ```text
 .github/            CI workflows and contribution templates
-docs/               Architecture, security and operational documentation
+docs/               Architecture, security, product and operational documentation
 docs/adr/           Architecture Decision Records
 rfcs/                Proposed protocol/product changes
 research/            Research notes, experiments and results
 benchmarks/          Reproducible benchmark definitions and results
-zoryq-src.tgz        Temporary packaged mobile source used by APK workflow
+autonomous/          Autonomous Company / agent-commerce implementation work
 ```
 
-The packaged mobile source is a known repository limitation. The target is first-class source directories, lockfiles, reviewable diffs, tests and dependency tooling without archive extraction.
+The mobile source/build path has known reproducibility debt tracked in [Issue #58](https://github.com/ZORYQ-Network/ZORYQ/issues/58); broad mobile promotion should not outrun that evidence gate.
 
 ## Security
 
@@ -132,11 +163,11 @@ Do not publish wallet, signing, authentication, treasury, swap-routing, infrastr
 
 ## Build in public
 
-ZORYQ intends to publish engineering progress without turning unfinished work into marketing claims. Expect specifications, experiments, failures, CI evidence, benchmarks and implementation milestones to become more visible as they are validated.
+ZORYQ intends to publish engineering progress without turning unfinished work into marketing claims. Expect specifications, experiments, failures, CI evidence, benchmarks, external reproductions and implementation milestones to become more visible as they are validated.
 
 ## Search / discovery
 
-Relevant areas: **EVM blockchain, blockchain testnet, Web3 infrastructure, distributed systems, blockchain execution, deterministic state, parallel execution, adaptive execution, verifiable execution, blockchain benchmarking, RPC compatibility, developer tooling, blockchain research.**
+Relevant areas: **EVM blockchain, blockchain testnet, Web3 infrastructure, AI agents, autonomous agents, agent commerce, verifiable execution, onchain payments, distributed systems, deterministic state, parallel execution, blockchain benchmarking, RPC compatibility, developer tooling, blockchain research.**
 
 ---
 
