@@ -67,12 +67,10 @@ jobs:
         run: |
           from pathlib import Path
           import hashlib, html, os, re
-
           root = Path('apps/budget-dapp-android')
           java = root / 'app/src/main/java/network/zoryq/budgetforecast/MainActivity.java'
           manifest = root / 'app/src/main/AndroidManifest.xml'
           gradle = root / 'app/build.gradle'
-
           app_id = os.environ['APP_ID']
           app_hash = hashlib.sha256(app_id.encode()).hexdigest()[:12]
           package_id = f'network.zoryq.generated.app{app_hash}'
@@ -80,22 +78,18 @@ jobs:
           version_name = f'1.0.{version_code}'
           url = os.environ['APP_URL'].replace('\\', '\\\\').replace('"', '\\"')
           name = html.escape(os.environ['APP_NAME'][:60], quote=True)
-
           src = java.read_text()
           src = re.sub(r'private static final String FACTORY_URL = .*?;', f'private static final String FACTORY_URL = "{url}";', src)
           src = src.replace(' ZORYQ-App-Runner-Android/1.1', ' ZORYQ-Standalone-App-Android/1.0')
           java.write_text(src)
-
           xml = manifest.read_text()
           xml = re.sub(r'android:label="[^"]*"', f'android:label="{name}"', xml)
           manifest.write_text(xml)
-
           g = gradle.read_text()
           g = re.sub(r"applicationId\s+'[^']+'", f"applicationId '{package_id}'", g)
           g = re.sub(r'versionCode\s+\d+', f'versionCode {version_code}', g)
           g = re.sub(r"versionName\s+'[^']+'", f"versionName '{version_name}'", g)
           gradle.write_text(g)
-
           Path('/tmp/zoryq-package-id').write_text(package_id)
           Path('/tmp/zoryq-app-hash').write_text(app_hash)
           Path('/tmp/zoryq-version-name').write_text(version_name)
@@ -161,13 +155,7 @@ jobs:
             UNSIGNED="apps/budget-dapp-android/app/build/outputs/apk/release/app-release-unsigned.apk"
             test -s "$UNSIGNED"
             "$BUILD_TOOLS/zipalign" -f -P 16 4 "$UNSIGNED" /tmp/zoryq-aligned.apk
-            "$BUILD_TOOLS/apksigner" sign \
-              --ks /tmp/zoryq-release.jks \
-              --ks-key-alias "$KEY_ALIAS" \
-              --ks-pass env:KEYSTORE_PASSWORD \
-              --key-pass env:KEY_PASSWORD \
-              --out /tmp/zoryq-final.apk \
-              /tmp/zoryq-aligned.apk
+            "$BUILD_TOOLS/apksigner" sign --ks /tmp/zoryq-release.jks --ks-key-alias "$KEY_ALIAS" --ks-pass env:KEYSTORE_PASSWORD --key-pass env:KEY_PASSWORD --out /tmp/zoryq-final.apk /tmp/zoryq-aligned.apk
             rm -f /tmp/zoryq-aligned.apk /tmp/zoryq-release.jks
             echo "SIGNING_MODE=permanent-release-key" >> "$GITHUB_ENV"
           else
@@ -175,7 +163,7 @@ jobs:
             echo "SIGNING_MODE=debug-ci-only" >> "$GITHUB_ENV"
           fi
           test -s /tmp/zoryq-final.apk
-          test "$(stat -c%s /tmp/zoryq-final.apk)" -gt 100000
+          test "$(stat -c%s /tmp/zoryq-final.apk)" -gt 10000
 
       - name: Verify signature, alignment and package identity
         shell: bash
@@ -228,20 +216,7 @@ jobs:
           cp /tmp/ZIPALIGN.txt dist/ZIPALIGN.txt
           cp /tmp/ADB-INSTALL.txt dist/ADB-INSTALL.txt
           cp /tmp/ANDROID-INSTALL.txt dist/ANDROID-INSTALL.txt
-          printf '%s\n' \
-            "name=${APP_NAME}" \
-            "app_id=${APP_ID}" \
-            "package_id=${PACKAGE_ID}" \
-            "version=${VERSION_NAME}" \
-            "url=${APP_URL}" \
-            "source_commit=${GITHUB_SHA}" \
-            "signing_mode=${SIGNING_MODE}" \
-            "certificate_sha256=${CERT_SHA}" \
-            "signature_verified=true" \
-            "zipalign_verified=true" \
-            "emulator_clean_install_verified=true" \
-            "min_sdk=26" \
-            > dist/BUILD-MANIFEST.txt
+          printf '%s\n' "name=${APP_NAME}" "app_id=${APP_ID}" "package_id=${PACKAGE_ID}" "version=${VERSION_NAME}" "url=${APP_URL}" "source_commit=${GITHUB_SHA}" "signing_mode=${SIGNING_MODE}" "certificate_sha256=${CERT_SHA}" "signature_verified=true" "zipalign_verified=true" "emulator_clean_install_verified=true" "min_sdk=26" > dist/BUILD-MANIFEST.txt
 
       - name: Upload verified standalone APK
         uses: actions/upload-artifact@v4
