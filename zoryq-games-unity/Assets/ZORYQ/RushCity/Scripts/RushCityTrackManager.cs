@@ -52,6 +52,15 @@ namespace Zoryq.Play.RushCity
             }
         }
 
+        float ZqDensity
+        {
+            get
+            {
+                var live=RushCityLiveOpsConfig.Instance;
+                return live?Mathf.Clamp(live.Current.zqDensityMultiplier,.65f,1.6f):1f;
+            }
+        }
+
         void SpawnSegment(int pattern)
         {
             var root = new GameObject($"RushSegment_{_nextZ:0000}");
@@ -64,8 +73,10 @@ namespace Zoryq.Play.RushCity
             CreateCube(root.transform, "RailR", new Vector3(5.15f,.65f,segmentLength*.5f), new Vector3(.22f,1.4f,segmentLength), _magenta, false);
 
             BuildPattern(root.transform, pattern);
-            BuildCoinLine(root.transform, _rng.Next(0,3), 5, 3.4f, 5.5f);
-            if (_rng.NextDouble() > .42) BuildCoinLine(root.transform, _rng.Next(0,3), 4, 3.2f, 14f);
+            var density=ZqDensity;
+            BuildCoinLine(root.transform, _rng.Next(0,3), Mathf.Clamp(Mathf.RoundToInt(5*density),3,9), 3.4f, 5.5f);
+            var secondLineChance=Mathf.Lerp(.35f,.78f,Mathf.InverseLerp(.65f,1.6f,density));
+            if (_rng.NextDouble() < secondLineChance) BuildCoinLine(root.transform, _rng.Next(0,3), Mathf.Clamp(Mathf.RoundToInt(4*density),3,8), 3.2f, 14f);
             if (_rng.NextDouble() > .84) SpawnPowerUp(root.transform,_rng.Next(0,3),17.5f,(RushPowerUpType)_rng.Next(0,4));
             if(_spawnedSegments>=5 && _spawnedSegments%7==0)BuildBranchGateway(root.transform);
 
