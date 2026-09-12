@@ -1,0 +1,102 @@
+name: ZORYQ Factory Per-App APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: Display name for the generated Android app
+        required: true
+        default: ZORYQ Generated App
+      app_slug:
+        description: Lowercase app slug used in the APK filename
+        required: true
+        default: generated-app
+      app_url:
+        description: Full ZORYQ generated app URL
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: zoryq-evm-testnet-node
+
+      - name: Validate inputs
+        shell: bash
+        env:
+          APP_URL: ${{ inputs.app_url }}
+          APP_SLUG: ${{ inputs.app_slug }}
+        run: |
+          set -euo pipefail
+          [[ "$APP_URL" == https://zoryq-evm-node-live-production.up.railway.app/project-launch* ]]
+          [[ "$APP_SLUG" =~ ^[a-z0-9][a-z0-9-]{0,39}$ ]]
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Personalize Android wrapper
+        shell: python
+        env:
+          APP_URL: ${{ inputs.app_url }}
+          APP_NAME: ${{ inputs.app_name }}
+          APP_SLUG: ${{ inputs.app_slug }}
+        run: |
+          from pathlib import Path
+          import os,re
+          root=Path('apps/budget-dapp-android')
+          java=root/'app/src/main/java/network/zoryq/budgetforecast/MainActivity.java'
+          manifest=root/'app/src/main/AndroidManifest.xml'
+          gradle=root/'app/build.gradle'
+          src=java.read_text()
+          url=os.environ['APP_URL'].replace('\\','\\\\').replace('"','\\"')
+          src=re.sub(r'private static final String FACTORY_URL = .*?;', f'private static final String FACTORY_URL = "{url}";', src)
+          src=src.replace(' ZORYQ-App-Runner-Android/1.1',' ZORYQ-Per-App-Android/0.1')
+          java.write_text(src)
+          name=os.environ['APP_NAME'].replace('&','&amp;').replace('"','&quot;')[:60]
+          m=manifest.read_text()
+          m=re.sub(r'android:label="[^"]*"', f'android:label="{name}"', m)
+          manifest.write_text(m)
+          suffix=re.sub(r'[^a-z0-9]','',os.environ['APP_SLUG'].lower())[:24] or 'generatedapp'
+          g=gradle.read_text().replace("applicationId 'network.zoryq.budgetforecast'",f"applicationId 'network.zoryq.generated.{suffix}'")
+          gradle.write_text(g)
+
+      - name: Build installable debug APK
+        working-directory: apps/budget-dapp-android
+        run: gradle :app:assembleDebug --no-daemon
+
+      - name: Prepare evidence
+        shell: bash
+        env:
+          APP_SLUG: ${{ inputs.app_slug }}
+          APP_NAME: ${{ inputs.app_name }}
+          APP_URL: ${{ inputs.app_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp apps/budget-dapp-android/app/build/outputs/apk/debug/app-debug.apk "dist/ZORYQ-${APP_SLUG}.apk"
+          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
+          printf '%s\n' "name=${APP_NAME}" "url=${APP_URL}" "source_commit=${GITHUB_SHA}" > dist/BUILD-MANIFEST.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-${{ inputs.app_slug }}-APK-${{ github.run_number }}
+          path: |
+            dist/*.apk
+            dist/SHA256SUMS.txt
+            dist/BUILD-MANIFEST.txt
+          if-no-files-found: error
+          retention-days: 30
