@@ -22,12 +22,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: tools/external-proof/package-lock.json
 
       - name: Install proof runner
         working-directory: tools/external-proof
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Run fresh-wallet public proof
         working-directory: tools/external-proof
