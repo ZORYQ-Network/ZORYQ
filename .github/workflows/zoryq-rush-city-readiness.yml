@@ -25,7 +25,7 @@ jobs:
           test -f zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           grep -Fq '6000.3.15f1' zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           test -f zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
-          for f in RushCityGameManager RushCityPlayerController RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityEnvironmentDirector; do
+          for f in RushCityGameManager RushCityPlayerController RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
             test -f "$ROOT/Scripts/$f.cs"
           done
           test -f $ROOT/Editor/RushCitySceneBuilder.cs
@@ -79,7 +79,33 @@ jobs:
           grep -Fq 'LoadJson' "$PLAYBACK"
           grep -Fq 'ghostRaceEnabled' "$GHOSTMGR"
           grep -Fq 'zoryq.rush.liveops.v1' "$LIVEOPS"
-          grep -Fq 'stormEventEnabled' "$LIVEOPS"
+          grep -Fq 'worldEventsEnabled' "$LIVEOPS"
+          grep -Fq 'worldEventRewardMultiplier' "$LIVEOPS"
+
+      - name: Verify world events affect gameplay safely
+        run: |
+          ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
+          EVENT=$ROOT/RushCityWorldEventDirector.cs
+          HAZARDS=$ROOT/RushCityWorldEventGameplay.cs
+          HAZARD=$ROOT/RushCityWorldEventHazard.cs
+          GAME=$ROOT/RushCityGameManager.cs
+          EVENTS=$ROOT/RushCityGameEvents.cs
+          TELEMETRY=$ROOT/RushCityTelemetry.cs
+          for marker in DroneGauntlet HyperTrain StormRush; do grep -Fq "$marker" "$EVENT"; done
+          grep -Fq 'SpeedMultiplier' "$EVENT"
+          grep -Fq 'ChaseMultiplier' "$EVENT"
+          grep -Fq 'ScoreMultiplier' "$EVENT"
+          grep -Fq 'GrantWorldEventReward' "$GAME"
+          grep -Fq 'WorldEventChanged' "$EVENTS"
+          grep -Fq 'WorldEventRewarded' "$EVENTS"
+          grep -Fq 'safeLane' "$HAZARDS"
+          grep -Fq 'if(lane==safeLane)continue' "$HAZARDS"
+          grep -Fq 'HyperTrain_Crossing' "$HAZARDS"
+          grep -Fq 'StormStrike_Warning' "$HAZARDS"
+          grep -Fq 'armDelay' "$HAZARD"
+          grep -Fq '_collider.enabled=false' "$HAZARD"
+          grep -Fq 'WorldEventStarted' "$TELEMETRY"
+          grep -Fq 'WorldEventCompleted' "$TELEMETRY"
 
       - name: Verify presentation game feel and HUD
         run: |
@@ -97,17 +123,21 @@ jobs:
           grep -Fq 'Handheld.Vibrate' "$PRESENT"
           grep -Fq 'windLoop' "$AUDIO"
           grep -Fq 'chaseLoop' "$AUDIO"
+          grep -Fq 'WorldEventChanged' "$AUDIO"
           grep -Fq 'CanvasScaler' "$HUD"
           grep -Fq 'ChaseBar' "$HUD"
           grep -Fq 'FlowBar' "$HUD"
+          grep -Fq 'EventBar' "$HUD"
+          grep -Fq 'WorldEventChanged' "$HUD"
           grep -Fq 'ParticleSystem' "$VFX"
-          grep -Fq 'stormEventEnabled' "$ENV"
+          grep -Fq 'WorldEventChanged' "$VFX"
+          grep -Fq 'StormActive' "$ENV"
           grep -Fq 'RenderSettings.fogColor' "$ENV"
 
       - name: Verify scene assembles production systems
         run: |
           SCENE=zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCitySceneBuilder.cs
-          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityChaseDirector; do
+          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityChaseDirector RushCityWorldEventDirector RushCityWorldEventGameplay; do
             grep -Fq "$marker" "$SCENE"
           done
           grep -Fq 'EngineeringRig' "$SCENE"
