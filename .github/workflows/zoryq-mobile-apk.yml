@@ -69,10 +69,14 @@ jobs:
           grep -q "CommunitiesApp" zoryq-mobile/WalletApp.tsx
           grep -q "MessagesApp" zoryq-mobile/WalletApp.tsx
           grep -q "MobileNodeApp" zoryq-mobile/WalletApp.tsx
-          grep -q "CHAIN_ID=5919065" zoryq-mobile/MobileNodeApp.tsx
-          grep -q "eth_chainId" zoryq-mobile/MobileNodeApp.tsx
-          grep -q "eth_getBlockByNumber" zoryq-mobile/MobileNodeApp.tsx
-          grep -q "não é apresentado como participante do consenso" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "ZoryqMobileNode" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "5919065" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "Foreground Service" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "não é um validator" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "lastLocalProofXp" zoryq-mobile/MobileNodeApp.tsx
+          ! grep -q "setInterval(()=>void round" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "WitnessService" zoryq-mobile/modules/zoryq-mobile-node/android/src/main/AndroidManifest.xml
+          grep -q 'foregroundServiceType="dataSync"' zoryq-mobile/modules/zoryq-mobile-node/android/src/main/AndroidManifest.xml
           grep -q "signTypedData" zoryq-mobile/UnifiedSocialApp.tsx
           grep -q "5919065" zoryq-mobile/UnifiedSocialApp.tsx
           grep -q "/v1/profile/registration-challenge" zoryq-mobile/UnifiedSocialApp.tsx
