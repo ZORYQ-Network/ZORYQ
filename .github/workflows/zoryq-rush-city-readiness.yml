@@ -25,7 +25,7 @@ jobs:
           test -f zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           grep -Fq '6000.3.15f1' zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           test -f zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
-          for f in RushCityGameManager RushCityPlayerController RushCityCharacterAnimator RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
+          for f in RushCityGameManager RushCityPlayerController RushCityCharacterAnimator RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRunModeDirector RushCityProgression RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
             test -f "$ROOT/Scripts/$f.cs"
           done
           test -f $ROOT/Editor/RushCitySceneBuilder.cs
@@ -49,6 +49,7 @@ jobs:
           grep -Fq 'ShiftFutureSegments' "$TRACK"
           grep -Fq 'BranchDeck' "$TRACK"
           grep -Fq 'RushCityRouteChoiceZone' "$TRACK"
+          grep -Fq 'RushCityRunModeDirector.Instance' "$TRACK"
           grep -Fq 'CurrentCenterX' "$ROUTE"
           grep -Fq 'ChooseBranch' "$ROUTE"
           grep -Fq 'RushDistrict' "$ROUTE"
@@ -65,6 +66,8 @@ jobs:
           PLAYBACK=$ROOT/RushCityGhostPlayback.cs
           GHOSTMGR=$ROOT/RushCityGhostRaceManager.cs
           LIVEOPS=$ROOT/RushCityLiveOpsConfig.cs
+          MODE=$ROOT/RushCityRunModeDirector.cs
+          PROGRESSION=$ROOT/RushCityProgression.cs
           grep -Fq 'SkillFlow' "$GAME"
           grep -Fq 'RegisterNearMiss' "$GAME"
           grep -Fq 'ActivatePowerUp' "$GAME"
@@ -84,6 +87,13 @@ jobs:
           grep -Fq 'zoryq.rush.liveops.v1' "$LIVEOPS"
           grep -Fq 'worldEventsEnabled' "$LIVEOPS"
           grep -Fq 'worldEventRewardMultiplier' "$LIVEOPS"
+          grep -Fq 'RushRunMode.Daily' "$MODE"
+          grep -Fq 'DateTime.UtcNow.ToString("yyyy-MM-dd")' "$MODE"
+          grep -Fq 'StableHash' "$MODE"
+          grep -Fq 'client-untrusted' "$MODE"
+          grep -Fq 'zoryq.rush.progress.v1' "$PROGRESSION"
+          grep -Fq 'RequiredXp' "$PROGRESSION"
+          grep -Fq 'worldEventsCompleted' "$PROGRESSION"
 
       - name: Verify world events affect gameplay safely
         run: |
@@ -132,7 +142,8 @@ jobs:
           grep -Fq 'ChaseBar' "$HUD"
           grep -Fq 'FlowBar' "$HUD"
           grep -Fq 'EventBar' "$HUD"
-          grep -Fq 'WorldEventChanged' "$HUD"
+          grep -Fq 'RushCityProgression.Instance' "$HUD"
+          grep -Fq 'RushCityRunModeDirector.Instance' "$HUD"
           grep -Fq 'ParticleSystem' "$VFX"
           grep -Fq 'WorldEventChanged' "$VFX"
           grep -Fq 'StormActive' "$ENV"
@@ -144,7 +155,7 @@ jobs:
       - name: Verify scene assembles production systems
         run: |
           SCENE=zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCitySceneBuilder.cs
-          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityChaseDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityCharacterAnimator; do
+          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRunModeDirector RushCityProgression RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityChaseDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityCharacterAnimator; do
             grep -Fq "$marker" "$SCENE"
           done
           grep -Fq 'Runner_GameplayRoot' "$SCENE"
@@ -170,6 +181,7 @@ jobs:
           grep -Fq 'client-untrusted' "$BRIDGE"
           grep -Fq 'zoryq.play.run.v1' "$BRIDGE"
           grep -Fq 'zoryq.play.launch.v1' "$MOBILE"
+          grep -Fq "mode:gameId==='rush-city'" "$MOBILE"
           grep -Fq 'GAME_ENGINE_UNAVAILABLE' "$NATIVE"
           grep -Fq 'zoryq_play_result' "$NATIVE"
           ! grep -R -E 'eth_sendTransaction|personal_sign|eth_signTypedData|Wallet\.createRandom|fromPhrase|mnemonic|privateKey|seedPhrase' zoryq-games-unity/Assets/ZORYQ --include='*.cs'
