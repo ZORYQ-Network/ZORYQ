@@ -13,10 +13,15 @@ node /app/mainnet-guard.mjs
 
 # Railway production currently runs inside a ~1 GB memory budget. Keep Reth
 # within conservative cache ceilings while preserving execution semantics.
-# P2P listening is explicit. Optional bootnodes/trusted peers are accepted only
-# through dedicated environment variables so an external operator can join
-# without baking infrastructure-specific peer identities or secrets into the
-# image.
+# P2P listening is explicit. Optional bootnodes/trusted peers/static peers are
+# accepted only through dedicated environment variables so an external operator
+# can join without baking infrastructure-specific peer identities or secrets
+# into the image.
+#
+# Static peers (--static-peers) are non-blocking: they represent peers this node
+# will try to connect to on startup, but will continue operation even if they
+# are unreachable. This is the recommended way for a second node to peer with
+# this node.
 mkdir -p /tmp/zoryq-bin
 cat > /tmp/zoryq-bin/reth <<'EOF'
 #!/bin/sh
@@ -37,6 +42,9 @@ if [ -n "${ZORYQ_RETH_BOOTNODES:-}" ]; then
 fi
 if [ -n "${ZORYQ_RETH_TRUSTED_PEERS:-}" ]; then
   set -- "$@" --trusted-peers "$ZORYQ_RETH_TRUSTED_PEERS"
+fi
+if [ -n "${ZORYQ_RETH_STATIC_PEERS:-}" ]; then
+  set -- "$@" --static-peers "$ZORYQ_RETH_STATIC_PEERS"
 fi
 
 exec /usr/local/bin/reth "$@"
@@ -144,3 +152,4 @@ fi
 
 # Native Rust edge gateway with the Node chain backend kept internal only.
 exec /usr/local/bin/zoryq-gateway
+
