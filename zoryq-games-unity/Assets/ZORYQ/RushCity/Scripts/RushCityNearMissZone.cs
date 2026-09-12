@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Zoryq.Play.RushCity
 {
-    public sealed class RushCityNearMissZone : MonoBehaviour
+    public sealed class RushCityNearMissZone : MonoBehaviour, IRushCityReusable
     {
         [SerializeField] float lateralClearance=.62f;
         [SerializeField] float verticalClearance=.9f;
@@ -19,5 +19,7 @@ namespace Zoryq.Play.RushCity
             _awarded=true;
             RushCityGameManager.Instance?.RegisterNearMiss();
         }
+
+        public void ResetForReuse(){_awarded=false;gameObject.SetActive(true);}
     }
 }
