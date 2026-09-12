@@ -46,6 +46,7 @@ namespace Zoryq.Play.RushCity.Editor
             presentationGo.AddComponent<RushCityPresentationDirector>().Configure(follow);
             presentationGo.AddComponent<RushCityAudioDirector>();
             presentationGo.AddComponent<RushCityHudPresenter>();
+            presentationGo.AddComponent<RushCityVfxDirector>().Configure(player.transform);
 
             var trackGo=new GameObject("ProceduralTrack"); var track=trackGo.AddComponent<RushCityTrackManager>(); track.player=player.transform;
             var cityGo=new GameObject("LivingCity"); var city=cityGo.AddComponent<RushCityProceduralCity>(); city.player=player.transform;
