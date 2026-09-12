@@ -4,28 +4,28 @@
     "zoryq": {
       "chainId": 5919065,
       "enabled": false,
-      "treasuryAddress": null,
+      "treasuryAddress": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
       "confirmations": 1,
       "assets": []
     },
     "base": {
       "chainId": 8453,
       "enabled": false,
-      "treasuryAddress": null,
+      "treasuryAddress": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
       "confirmations": 2,
       "assets": []
     },
     "arbitrum": {
       "chainId": 42161,
       "enabled": false,
-      "treasuryAddress": null,
+      "treasuryAddress": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
       "confirmations": 2,
       "assets": []
     },
     "ethereum": {
       "chainId": 1,
       "enabled": false,
-      "treasuryAddress": null,
+      "treasuryAddress": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
       "confirmations": 3,
       "assets": []
     }
