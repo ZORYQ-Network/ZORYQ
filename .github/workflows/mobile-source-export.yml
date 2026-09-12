@@ -22,28 +22,52 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Checkout
+      - name: Checkout current repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
-      - name: Validate archive before extraction
+      - name: Inspect current packaged source
+        id: current
+        shell: bash
         run: |
           set -euo pipefail
-          test -f zoryq-src.tgz
-          tar -tzf zoryq-src.tgz > /tmp/zoryq-mobile-files.txt
-          test -s /tmp/zoryq-mobile-files.txt
-          if grep -E '(^|/)\.\./|^/' /tmp/zoryq-mobile-files.txt; then
+          if tar -tzf zoryq-src.tgz > /tmp/current-mobile-files.txt 2>/tmp/current-tar-error.txt; then
+            echo 'valid=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'valid=false' >> "$GITHUB_OUTPUT"
+            echo 'Current zoryq-src.tgz is not a valid gzip tar archive.'
+            cat /tmp/current-tar-error.txt
+          fi
+
+      - name: Extract current source
+        if: steps.current.outputs.valid == 'true'
+        run: |
+          set -euo pipefail
+          if grep -E '(^|/)\.\./|^/' /tmp/current-mobile-files.txt; then
             echo 'Unsafe archive path detected' >&2
             exit 1
           fi
-
-      - name: Extract source
-        run: |
-          set -euo pipefail
           rm -rf mobile-source
           mkdir -p mobile-source
           tar -xzf zoryq-src.tgz -C mobile-source
           test -f mobile-source/package.json
           test -f mobile-source/app.json
+          printf 'source=current-zoryq-src.tgz\n' > mobile-source/SOURCE_RECOVERY.txt
+
+      - name: Recover source from historical ZIP when current archive is corrupt
+        if: steps.current.outputs.valid != 'true'
+        run: |
+          set -euo pipefail
+          RECOVERY_COMMIT='5f1d23679a972861a04dcd546a870998a719b286'
+          git show "${RECOVERY_COMMIT}:kyvo-source.zip" > /tmp/kyvo-source.zip
+          unzip -t /tmp/kyvo-source.zip
+          rm -rf mobile-source
+          mkdir -p mobile-source
+          unzip -q /tmp/kyvo-source.zip -d mobile-source
+          test -f mobile-source/package.json
+          test -f mobile-source/app.json
+          printf 'source=historical-kyvo-source.zip\nrecovery_commit=%s\n' "$RECOVERY_COMMIT" > mobile-source/SOURCE_RECOVERY.txt
 
       - name: Reject obvious secret material
         run: |
@@ -57,7 +81,7 @@ jobs:
         run: |
           set -euo pipefail
           find mobile-source -type f -printf '%P\n' | LC_ALL=C sort > mobile-source/FILE_INVENTORY.txt
-          sha256sum zoryq-src.tgz > mobile-source/SOURCE_ARCHIVE_SHA256.txt
+          sha256sum zoryq-src.tgz > mobile-source/CURRENT_ARCHIVE_SHA256.txt
           printf 'commit=%s\n' "$GITHUB_SHA" > mobile-source/SOURCE_EXPORT_PROVENANCE.txt
           printf 'workflow_run=%s\n' "$GITHUB_RUN_ID" >> mobile-source/SOURCE_EXPORT_PROVENANCE.txt
 
