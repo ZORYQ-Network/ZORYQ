@@ -22,11 +22,12 @@ window.ZORYQ_CONFIG={
   scoreEpoch:1
 };
 
-// Keep Autonomous evidence verification isolated to its product surface.
-// The verifier reads only public testnet RPC state and never requests wallet secrets.
+// Autonomous helpers are isolated to the Autonomous product surface.
 if (/\/autonomous(?:\.html)?$/.test(window.location.pathname)) {
-  const script=document.createElement('script');
-  script.src='./autonomous-evidence.js';
-  script.defer=true;
-  document.head.appendChild(script);
+  for (const src of ['./autonomous-evidence.js','./autonomous-wallet.js']) {
+    const script=document.createElement('script');
+    script.src=src;
+    script.defer=true;
+    document.head.appendChild(script);
+  }
 }
