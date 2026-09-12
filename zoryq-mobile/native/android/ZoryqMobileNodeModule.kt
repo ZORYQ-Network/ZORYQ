@@ -55,14 +55,26 @@ class ZoryqMobileNodeModule(private val context: ReactApplicationContext) : Reac
     }
 
     @ReactMethod
-    fun configure(wifiOnly: Boolean, chargingOnly: Boolean, allowMobileData: Boolean, batteryMinimum: Int, promise: Promise) {
+    fun configure(
+        wifiOnly: Boolean,
+        chargingOnly: Boolean,
+        allowMobileData: Boolean,
+        batteryMinimum: Int,
+        dailyMobileDataLimitMb: Int,
+        promise: Promise
+    ) {
         try {
             require(batteryMinimum in 5..80) { "batteryMinimum must be between 5 and 80" }
+            require(dailyMobileDataLimitMb == 0 || dailyMobileDataLimitMb in 10..2048) {
+                "dailyMobileDataLimitMb must be 0 (unlimited) or between 10 and 2048"
+            }
+            val bytes = if (dailyMobileDataLimitMb == 0) 0L else dailyMobileDataLimitMb.toLong() * 1024L * 1024L
             context.getSharedPreferences("zoryq_mobile_node", 0).edit()
                 .putBoolean("wifiOnly", wifiOnly)
                 .putBoolean("chargingOnly", chargingOnly)
                 .putBoolean("allowMobileData", allowMobileData)
                 .putInt("batteryMinimum", batteryMinimum)
+                .putLong("dailyMobileDataLimitBytes", bytes)
                 .apply()
             promise.resolve(true)
         } catch (e: Exception) {
@@ -92,6 +104,8 @@ class ZoryqMobileNodeModule(private val context: ReactApplicationContext) : Reac
                 putString("heartbeatStatus", p.getString("heartbeatStatus", "Not sent yet") ?: "Not sent yet")
                 putString("lastHeartbeatAt", p.getString("lastHeartbeatAt", "") ?: "")
                 putDouble("lastHeartbeatXp", p.getLong("lastHeartbeatXp", 0L).toDouble())
+                putDouble("mobileDataBytesToday", p.getLong("mobileDataBytesToday", 0L).toDouble())
+                putDouble("dailyMobileDataLimitBytes", p.getLong("dailyMobileDataLimitBytes", 250L * 1024L * 1024L).toDouble())
             }
             promise.resolve(result)
         } catch (e: Exception) {
