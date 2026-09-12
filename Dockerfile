@@ -29,6 +29,7 @@ RUN npm install --omit=dev --no-audit --no-fund
 COPY zoryq-evm-node/server.mjs ./server-original.mjs
 COPY zoryq-evm-node/server-with-factory.mjs ./server.mjs
 COPY zoryq-evm-node/factory-prompt-ui-preload.mjs ./factory-prompt-ui-preload.mjs
+COPY zoryq-evm-node/factory-v6-ui-preload.mjs ./factory-v6-ui-preload.mjs
 COPY zoryq-evm-node/factory-prompt-architect.mjs ./factory-prompt-architect.mjs
 COPY zoryq-evm-node/factory-cloud-preload.mjs ./factory-cloud-preload.mjs
 COPY zoryq-evm-node/factory-cloud.mjs ./factory-cloud.mjs
@@ -48,6 +49,7 @@ COPY zoryq-evm-node/entrypoint.sh ./entrypoint.sh
 COPY --from=protocol-builder /build/zoryq-contracts/out ./protocol-out
 COPY zoryq-web ./web
 RUN test -f /app/factory-prompt-ui-preload.mjs \
+ && test -f /app/factory-v6-ui-preload.mjs \
  && test -f /app/factory-prompt-architect.mjs \
  && test -f /app/factory-cloud.mjs \
  && test -f /app/factory-cloud-preload.mjs \
