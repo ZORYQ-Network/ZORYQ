@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace Zoryq.Play.RushCity
 {
-    public sealed class RushCityRouteChoiceZone : MonoBehaviour
+    public sealed class RushCityRouteChoiceZone : MonoBehaviour, IRushCityReusable
     {
         bool _chosen;
         void OnTriggerEnter(Collider other)
@@ -16,5 +16,7 @@ namespace Zoryq.Play.RushCity
             var direction=director.SuggestedDirection(player.Lane);
             director.ChooseBranch(direction,transform.position.z);
         }
+
+        public void ResetForReuse(){_chosen=false;gameObject.SetActive(true);}
     }
 }
