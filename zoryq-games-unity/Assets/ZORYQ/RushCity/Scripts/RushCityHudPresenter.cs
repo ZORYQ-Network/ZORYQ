@@ -14,7 +14,7 @@ namespace Zoryq.Play.RushCity
 
         void OnEnable()
         {
-            RushCityGameEvents.NearMissed+=()=>Toast("NEAR MISS  +FLOW");
+            RushCityGameEvents.NearMissed+=OnNearMiss;
             RushCityGameEvents.PowerUpActivated+=OnPowerUp;
             RushCityGameEvents.RouteChosen+=OnRoute;
             RushCityGameEvents.MissionCompleted+=OnMission;
@@ -22,6 +22,7 @@ namespace Zoryq.Play.RushCity
 
         void OnDisable()
         {
+            RushCityGameEvents.NearMissed-=OnNearMiss;
             RushCityGameEvents.PowerUpActivated-=OnPowerUp;
             RushCityGameEvents.RouteChosen-=OnRoute;
             RushCityGameEvents.MissionCompleted-=OnMission;
@@ -82,6 +83,7 @@ namespace Zoryq.Play.RushCity
             switch(d){case RushDistrict.CyberHarbor:return "CYBER HARBOR";case RushDistrict.Skyline:return "SKYLINE";case RushDistrict.OldMetro:return "OLD METRO";default:return "NEO DOWNTOWN";}
         }
 
+        void OnNearMiss()=>Toast("NEAR MISS  +FLOW");
         void OnPowerUp(RushPowerUpType type,float duration)=>Toast(type.ToString().ToUpperInvariant()+"  ONLINE");
         void OnRoute(int direction,string district)=>Toast((direction<0?"LEFT ROUTE · ":"RIGHT ROUTE · ")+district.ToUpperInvariant());
         void OnMission(int score,int zq,string mission)=>Toast($"MISSION COMPLETE  +{zq} ZQ");
