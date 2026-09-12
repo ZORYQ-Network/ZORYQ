@@ -29,29 +29,47 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE)
         fun render() {
             val running = prefs.getBoolean("running", false)
+            val paused = prefs.getBoolean("paused", false)
             val lastBlock = prefs.getLong("lastBlock", -1)
             val lastCheck = prefs.getString("lastCheck", "never")
-            val state = prefs.getString("state", if (running) "Starting" else "Offline")
-            status.text = if (running) "🟢 $state" else "⚪ Offline"
+            val state = prefs.getString("state", if (running) "Starting" else if (paused) "Paused" else "Offline")
+            val nodeId = prefs.getString("nodeId", null)
+            val proofHash = prefs.getString("lastLocalProofHash", null)
+            val proofStatus = prefs.getString("proofStatus", "No signed observation yet")
+            status.text = when {
+                running -> "🟢 $state"
+                paused -> "🟡 $state"
+                else -> "⚪ Offline"
+            }
             detail.text = buildString {
-                append("Witness Node • Chain 5919065\n")
+                append("Mobile Witness • Chain 5919065\n")
                 append("Mode: Balanced • Not a validator\n")
-                append("Last verified block: ")
+                append("Node ID: ")
+                append(nodeId ?: "created when node starts")
+                append("\nLast verified block: ")
                 append(if (lastBlock >= 0) lastBlock else "—")
                 append("\nLast check: ")
                 append(lastCheck)
+                append("\nProof: ")
+                append(proofStatus)
+                if (!proofHash.isNullOrBlank()) {
+                    append("\nLocal proof hash: ")
+                    append(proofHash.take(16))
+                    append("…")
+                }
+                append("\nXP: unavailable until server-side proof verification is implemented")
             }
         }
         render()
 
         start.setOnClickListener {
-            prefs.edit().putBoolean("running", true).putString("state", "Starting").apply()
+            prefs.edit().putBoolean("running", true).putBoolean("paused", false).putString("state", "Starting").apply()
             ContextCompat.startForegroundService(this, Intent(this, WitnessService::class.java).setAction(WitnessService.ACTION_START))
             render()
         }
         stop.setOnClickListener {
             startService(Intent(this, WitnessService::class.java).setAction(WitnessService.ACTION_STOP))
-            prefs.edit().putBoolean("running", false).putString("state", "Stopped").apply()
+            prefs.edit().putBoolean("running", false).putBoolean("paused", false).putString("state", "Stopped").apply()
             render()
         }
     }
@@ -61,7 +79,12 @@ class MainActivity : AppCompatActivity() {
         val status = findViewByIdOrNull<TextView>(R.id.statusText) ?: return
         val prefs = getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE)
         val running = prefs.getBoolean("running", false)
-        status.text = if (running) "🟢 ${prefs.getString("state", "Online")}" else "⚪ Offline"
+        val paused = prefs.getBoolean("paused", false)
+        status.text = when {
+            running -> "🟢 ${prefs.getString("state", "Online")}"
+            paused -> "🟡 ${prefs.getString("state", "Paused")}"
+            else -> "⚪ Offline"
+        }
     }
 
     private fun <T : android.view.View> findViewByIdOrNull(id: Int): T? = try { findViewById(id) } catch (_: Exception) { null }
