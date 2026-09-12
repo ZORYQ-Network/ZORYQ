@@ -1,0 +1,105 @@
+name: ZORYQ Wallet + Mobile Node APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [feat/mobile-node-apk]
+    paths:
+      - 'zoryq-mobile/**'
+      - 'zoryq-mobile-node/**'
+      - '.github/workflows/zoryq-wallet-mobile-node-apk.yml'
+  pull_request:
+    paths:
+      - 'zoryq-mobile/**'
+      - 'zoryq-mobile-node/**'
+      - '.github/workflows/zoryq-wallet-mobile-node-apk.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-wallet-mobile-node-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-wallet-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.13.1'
+          cache: npm
+          cache-dependency-path: zoryq-mobile/package.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install wallet dependencies
+        working-directory: zoryq-mobile
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript gate
+        working-directory: zoryq-mobile
+        run: npm run typecheck
+
+      - name: Expo Doctor
+        working-directory: zoryq-mobile
+        run: npx expo-doctor@latest
+
+      - name: Expo native module discovery gate
+        working-directory: zoryq-mobile
+        run: |
+          set -euo pipefail
+          npx expo-modules-autolinking search --platform android > /tmp/autolink.json
+          grep -q 'zoryq-mobile-node' /tmp/autolink.json
+          grep -q 'ZoryqMobileNodeModule' modules/zoryq-mobile-node/expo-module.config.json
+
+      - name: Generate Android project from clean prebuild
+        working-directory: zoryq-mobile
+        env:
+          CI: '1'
+        run: npx expo prebuild --platform android --clean
+
+      - name: Native embedding truth gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'com.zoryq.wallet' zoryq-mobile/app.json
+          grep -q 'ZoryqMobileNode' zoryq-mobile/MobileNodeApp.tsx
+          grep -q 'WitnessService' zoryq-mobile/modules/zoryq-mobile-node/android/src/main/AndroidManifest.xml
+          grep -q 'foregroundServiceType="dataSync"' zoryq-mobile/modules/zoryq-mobile-node/android/src/main/AndroidManifest.xml
+          grep -q 'AndroidKeyStore' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeIdentity.kt
+          grep -q 'CHAIN_ID = 5919065L' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          grep -q 'lastLocalProofXp", 0' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          grep -q 'ResourceGovernor' zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          ! grep -q 'setInterval(()=>void round' zoryq-mobile/MobileNodeApp.tsx
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build official Wallet debug APK
+        working-directory: zoryq-mobile/android
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Verify APK and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=zoryq-mobile/android/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          mkdir -p dist
+          cp "$APK" dist/ZORYQ-Wallet-Mobile-Node-debug.apk
+          sha256sum dist/ZORYQ-Wallet-Mobile-Node-debug.apk | tee dist/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Wallet-Mobile-Node-debug
+          path: |
+            dist/ZORYQ-Wallet-Mobile-Node-debug.apk
+            dist/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
