@@ -1,1 +1,1 @@
-export {default} from './PremiumArcade';
+export {default} from './WalletGames';
