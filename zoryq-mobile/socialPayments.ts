@@ -5,6 +5,7 @@ import {assertSocialPaymentDestination} from './socialPaymentDestination';
 const WALLET_KEY='zoryq.wallet.privateKey';
 export const DEFAULT_SOCIAL_FEE_BPS=50; // 0.50%
 export const MAX_SOCIAL_FEE_BPS=250; // contract hard cap: 2.50%
+export const ZORYQ_TESTNET_SOCIAL_PAY_ROUTER='0xBa50D695D9d82f275973d332a75b16434Bc86344';
 
 const ROUTER_ABI=[
  'function feeBps() view returns(uint16)',
@@ -23,18 +24,22 @@ export type PaymentAsset={symbol:string;name:string;decimals:number;tokenAddress
 export type PaymentNetwork={chainId:number;name:string;nativeSymbol:string;rpcUrls:string[];routerAddress:string|null;mainnet:boolean;assets:PaymentAsset[]};
 
 // Expo only replaces EXPO_PUBLIC_* references reliably when property access is static.
-// Mainnet values intentionally have no fallback: a network remains disabled until a
-// verified router has actually been deployed there and its address is configured.
+// The ZORYQ Testnet fallback below is a router whose deployment workflow verified chain,
+// treasury and 50 bps fee. Mainnet values intentionally have NO fallback: each remains
+// disabled until its router is actually deployed and independently configured.
 const ROUTERS:Record<number,string|null>={
- 5919065:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_5919065||null,
+ 5919065:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_5919065||ZORYQ_TESTNET_SOCIAL_PAY_ROUTER,
  1:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_1||null,
  8453:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_8453||null,
  42161:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_42161||null,
  10:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_10||null,
  137:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_137||null,
  43114:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_43114||null,
+ 56:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_56||null,
  59144:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_59144||null,
- 324:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_324||null
+ 324:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_324||null,
+ 534352:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_534352||null,
+ 130:process.env.EXPO_PUBLIC_ZORIQ_PAY_ROUTER_130||null
 };
 function routerFor(chainId:number){const value=ROUTERS[chainId];return value&&isAddress(value)?value:null}
 
@@ -99,6 +104,11 @@ export const SOCIAL_PAYMENT_NETWORKS:PaymentNetwork[]=[
   ]
  },
  {
+  chainId:56,name:'BNB Smart Chain',nativeSymbol:'BNB',mainnet:true,
+  rpcUrls:['https://bsc-rpc.publicnode.com','https://bsc-dataseed.binance.org'],routerAddress:routerFor(56),
+  assets:[{symbol:'BNB',name:'BNB',decimals:18,tokenAddress:null,kind:'native'}]
+ },
+ {
   chainId:59144,name:'Linea',nativeSymbol:'ETH',mainnet:true,
   rpcUrls:['https://linea-rpc.publicnode.com','https://rpc.linea.build'],routerAddress:routerFor(59144),
   assets:[
@@ -113,6 +123,16 @@ export const SOCIAL_PAYMENT_NETWORKS:PaymentNetwork[]=[
    {symbol:'ETH',name:'Ether',decimals:18,tokenAddress:null,kind:'native'},
    {symbol:'USDC',name:'USD Coin',decimals:6,tokenAddress:'0x1d17CBcF0D6D143135aE902365D2E5e2A16538D4',kind:'erc20'}
   ]
+ },
+ {
+  chainId:534352,name:'Scroll',nativeSymbol:'ETH',mainnet:true,
+  rpcUrls:['https://scroll-rpc.publicnode.com','https://rpc.scroll.io'],routerAddress:routerFor(534352),
+  assets:[{symbol:'ETH',name:'Ether',decimals:18,tokenAddress:null,kind:'native'}]
+ },
+ {
+  chainId:130,name:'Unichain',nativeSymbol:'ETH',mainnet:true,
+  rpcUrls:['https://mainnet.unichain.org'],routerAddress:routerFor(130),
+  assets:[{symbol:'ETH',name:'Ether',decimals:18,tokenAddress:null,kind:'native'}]
  }
 ];
 
