@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://zoryq.example/schemas/autonomous-proof-pack.schema.json",
+  "title": "ZORYQ Autonomous Proof Pack",
+  "type": "object",
+  "required": ["version", "companyId", "chainId", "generatedAt", "tasks", "hires", "receipts", "treasury", "goalProgress", "evidenceRoot"],
+  "properties": {
+    "version": {"type": "string", "const": "0.1"},
+    "companyId": {"type": "string", "minLength": 1},
+    "chainId": {"type": "integer", "const": 5919065},
+    "generatedAt": {"type": "string", "format": "date-time"},
+    "tasks": {"type": "array", "items": {"type": "object", "required": ["taskId", "status", "evidence"], "properties": {"taskId": {"type": "string"}, "status": {"type": "string", "enum": ["open", "assigned", "executing", "completed", "failed", "cancelled"]}, "evidence": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": true}},
+    "hires": {"type": "array", "items": {"type": "object", "required": ["hireId", "taskId", "agentId", "compensation", "status"], "properties": {"hireId": {"type": "string"}, "taskId": {"type": "string"}, "agentId": {"type": "string"}, "compensation": {"type": "string"}, "status": {"type": "string", "enum": ["proposed", "accepted", "completed", "failed", "cancelled"]}}, "additionalProperties": true}},
+    "receipts": {"type": "array", "items": {"type": "object", "required": ["kind", "txHash", "blockNumber", "status", "verified"], "properties": {"kind": {"type": "string", "enum": ["execution", "payment", "revenue"]}, "txHash": {"type": "string", "pattern": "^0x[a-fA-F0-9]{64}$"}, "blockNumber": {"type": "string", "pattern": "^[0-9]+$"}, "status": {"type": "string", "enum": ["success", "reverted", "failed"]}, "verified": {"type": "boolean"}}, "additionalProperties": true}},
+    "treasury": {"type": "object", "required": ["asset", "initial", "spent", "received", "remaining", "reconciled"], "properties": {"asset": {"type": "string"}, "initial": {"type": "string"}, "spent": {"type": "string"}, "received": {"type": "string"}, "remaining": {"type": "string"}, "reconciled": {"type": "boolean"}}, "additionalProperties": false},
+    "goalProgress": {"type": "object", "required": ["percent", "basis"], "properties": {"percent": {"type": "number", "minimum": 0, "maximum": 100}, "basis": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false},
+    "evidenceRoot": {"type": "string", "pattern": "^0x[a-fA-F0-9]{64}$"}
+  },
+  "additionalProperties": false
+}
