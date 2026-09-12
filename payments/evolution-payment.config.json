@@ -6,28 +6,96 @@
       "enabled": false,
       "treasuryAddress": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
       "confirmations": 1,
-      "assets": []
+      "assets": [],
+      "status": "blocked_until_real_value_asset_path_is_verified"
     },
     "base": {
       "chainId": 8453,
       "enabled": false,
       "treasuryAddress": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
       "confirmations": 2,
-      "assets": []
+      "assets": [
+        {
+          "symbol": "ETH",
+          "type": "native",
+          "decimals": 18,
+          "enabled": true,
+          "pricing": "usd_quote_required"
+        },
+        {
+          "symbol": "USDC",
+          "type": "erc20",
+          "address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "decimals": 6,
+          "enabled": true,
+          "pricing": "fixed_1_99_units"
+        }
+      ],
+      "status": "configured_not_live"
     },
     "arbitrum": {
       "chainId": 42161,
       "enabled": false,
       "treasuryAddress": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
       "confirmations": 2,
-      "assets": []
+      "assets": [
+        {
+          "symbol": "ETH",
+          "type": "native",
+          "decimals": 18,
+          "enabled": true,
+          "pricing": "usd_quote_required"
+        },
+        {
+          "symbol": "USDC",
+          "type": "erc20",
+          "address": "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+          "decimals": 6,
+          "enabled": true,
+          "pricing": "fixed_1_99_units"
+        },
+        {
+          "symbol": "USDT",
+          "type": "erc20",
+          "address": "0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9",
+          "decimals": 6,
+          "enabled": true,
+          "pricing": "fixed_1_99_units"
+        }
+      ],
+      "status": "configured_not_live"
     },
     "ethereum": {
       "chainId": 1,
       "enabled": false,
       "treasuryAddress": "0xc0e03982fb8615ddf8b8fabd27e5a35541e12f33",
       "confirmations": 3,
-      "assets": []
+      "assets": [
+        {
+          "symbol": "ETH",
+          "type": "native",
+          "decimals": 18,
+          "enabled": true,
+          "pricing": "usd_quote_required"
+        },
+        {
+          "symbol": "USDC",
+          "type": "erc20",
+          "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+          "decimals": 6,
+          "enabled": true,
+          "pricing": "fixed_1_99_units"
+        },
+        {
+          "symbol": "USDT",
+          "type": "erc20",
+          "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+          "decimals": 6,
+          "enabled": true,
+          "pricing": "fixed_1_99_units"
+        }
+      ],
+      "status": "configured_not_live"
     }
   }
 }
