@@ -5,16 +5,22 @@ on:
     paths:
       - 'zoryq-web/launch-studio.html'
       - 'zoryq-web/project-launch.html'
+      - 'zoryq-evm-node/factory-cloud.mjs'
+      - 'zoryq-evm-node/public-gateway.mjs'
       - 'tools/factory-smoke/**'
       - '.github/workflows/factory-dynamic-smoke.yml'
+      - '.github/workflows/factory-app-apk.yml'
   push:
     branches:
       - zoryq-evm-testnet-node
     paths:
       - 'zoryq-web/launch-studio.html'
       - 'zoryq-web/project-launch.html'
+      - 'zoryq-evm-node/factory-cloud.mjs'
+      - 'zoryq-evm-node/public-gateway.mjs'
       - 'tools/factory-smoke/**'
       - '.github/workflows/factory-dynamic-smoke.yml'
+      - '.github/workflows/factory-app-apk.yml'
   workflow_dispatch:
 
 permissions:
@@ -30,5 +36,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Verify Factory dynamic runtime
+      - name: Parse backend modules
+        run: |
+          node --check zoryq-evm-node/factory-cloud.mjs
+          node --check zoryq-evm-node/public-gateway.mjs
+      - name: Verify Factory v0.2 runtime
         run: node tools/factory-smoke/check.mjs
