@@ -54,10 +54,14 @@ for(const marker of commonMc){
   if(!webMc.includes(marker))fail(`web multichain missing network: ${marker}`);else pass(`web multichain network: ${marker}`);
   if(!mobileMc.includes(marker))fail(`APK multichain missing network: ${marker}`);else pass(`APK multichain network: ${marker}`);
 }
-for(const marker of ['eth_getCode','eth_call','https://li.quest/v1/quote','approvalAddress','slippage','0.005','0.01','0.02']){
+for(const marker of ['eth_getCode','eth_call','https://li.quest/v1/quote','approvalAddress','slippage']){
   if(!webMc.includes(marker))fail(`web multichain engine missing: ${marker}`);else pass(`web multichain engine: ${marker}`);
-  if(!mobileMc.includes(marker)&&!mobileMcUi.includes(marker))fail(`APK multichain engine missing: ${marker}`);else pass(`APK multichain engine: ${marker}`);
 }
+for(const marker of ['getCode(','new Contract(','https://li.quest/v1/quote','approvalAddress','slippage']){
+  if(!mobileMc.includes(marker))fail(`APK multichain engine missing: ${marker}`);else pass(`APK multichain engine: ${marker}`);
+}
+if(!webMc.includes("[.005,.01,.02]"))fail('web auto-slippage sequence must be 0.5% → 1% → 2%');else pass('web auto-slippage sequence: 0.5% → 1% → 2%');
+if(!mobileMc.includes('[0.005,0.01,0.02]'))fail('APK auto-slippage sequence must be 0.5% → 1% → 2%');else pass('APK auto-slippage sequence: 0.5% → 1% → 2%');
 for(const marker of ['WALLET MULTICHAIN','Cole um contrato','SLIPPAGE','AUTO','MANUAL']){
   if(!webMc.includes(marker))fail(`web multichain UI missing: ${marker}`);else pass(`web multichain UI: ${marker}`);
   if(!mobileMcUi.includes(marker))fail(`APK multichain UI missing: ${marker}`);else pass(`APK multichain UI: ${marker}`);
@@ -76,5 +80,6 @@ for(const forbidden of ['service_role','SUPABASE_SERVICE_ROLE_KEY','sb_secret_',
 if(!web.includes("if(!router)return toast('Router ainda não configurado nesta rede.')"))fail('web Social Pay must block unconfigured routers');else pass('web Social Pay blocks unconfigured routers');
 if(!mobilePayments.includes("if(!network.routerAddress||!isAddress(network.routerAddress))throw new Error('payment_router_not_deployed')"))fail('APK Social Pay must block undeployed routers');else pass('APK Social Pay blocks undeployed routers');
 if(!webMc.includes("state.quote.created>55000")||!mobileMc.includes('quote.createdAt>55000'))fail('multichain quotes must expire before execution');else pass('multichain quotes expire before execution');
+if(!mobileMc.includes("if(!isAddress(String(tr.to||'')))throw new Error('quote_destination_invalid')"))fail('APK multichain must validate quote transaction destination');else pass('APK multichain validates quote destination');
 if(process.exitCode)process.exit(process.exitCode);
 console.log('ZORIQ Web DApp ↔ APK parity checks passed.');
