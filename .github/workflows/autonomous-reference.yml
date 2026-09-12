@@ -1,0 +1,28 @@
+name: ZORYQ Autonomous Reference
+
+on:
+  push:
+    paths:
+      - autonomous/**
+      - .github/workflows/autonomous-reference.yml
+  pull_request:
+    paths:
+      - autonomous/**
+      - .github/workflows/autonomous-reference.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-reference:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate ZORYQ Autonomous reference fixture
+        run: node autonomous/validate.mjs autonomous/examples/company.example.json
