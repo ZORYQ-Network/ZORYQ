@@ -3,9 +3,12 @@ name: ZORYQ Factory Dynamic Smoke
 on:
   pull_request:
     paths:
+      - 'Dockerfile'
       - 'zoryq-web/launch-studio.html'
       - 'zoryq-web/project-launch.html'
       - 'zoryq-evm-node/factory-cloud.mjs'
+      - 'zoryq-evm-node/factory-cloud-preload.mjs'
+      - 'zoryq-evm-node/server-with-factory.mjs'
       - 'zoryq-evm-node/public-gateway.mjs'
       - 'tools/factory-smoke/**'
       - '.github/workflows/factory-dynamic-smoke.yml'
@@ -14,9 +17,12 @@ on:
     branches:
       - zoryq-evm-testnet-node
     paths:
+      - 'Dockerfile'
       - 'zoryq-web/launch-studio.html'
       - 'zoryq-web/project-launch.html'
       - 'zoryq-evm-node/factory-cloud.mjs'
+      - 'zoryq-evm-node/factory-cloud-preload.mjs'
+      - 'zoryq-evm-node/server-with-factory.mjs'
       - 'zoryq-evm-node/public-gateway.mjs'
       - 'tools/factory-smoke/**'
       - '.github/workflows/factory-dynamic-smoke.yml'
@@ -39,6 +45,10 @@ jobs:
       - name: Parse backend modules
         run: |
           node --check zoryq-evm-node/factory-cloud.mjs
+          node --check zoryq-evm-node/factory-cloud-preload.mjs
+          node --check zoryq-evm-node/server-with-factory.mjs
           node --check zoryq-evm-node/public-gateway.mjs
+          grep -q 'server-with-factory.mjs ./server.mjs' Dockerfile
+          grep -q 'factory-cloud.mjs ./factory-cloud.mjs' Dockerfile
       - name: Verify Factory v0.2 runtime
         run: node tools/factory-smoke/check.mjs
