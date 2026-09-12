@@ -48,19 +48,13 @@ namespace Zoryq.Play.RushCity
         {
             var gm = RushCityGameManager.Instance;
             if (gm == null || !gm.IsRunning) return;
-
             ReadInput();
             var targetX = (_lane - 1) * laneWidth;
             var x = Mathf.SmoothDamp(transform.position.x, targetX, ref _laneVelocity, laneSnapTime, lateralMaxSpeed);
             var lateral = (x - transform.position.x) / Mathf.Max(Time.deltaTime, .0001f);
-
             if (_controller.isGrounded && _verticalVelocity < 0) _verticalVelocity = -2f;
-            var activeGravity = _wallRunning ? wallRunGravity : gravity;
-            _verticalVelocity += activeGravity * Time.deltaTime;
-
-            var motion = new Vector3(lateral, _verticalVelocity, gm.CurrentSpeed);
-            _controller.Move(motion * Time.deltaTime);
-
+            _verticalVelocity += (_wallRunning ? wallRunGravity : gravity) * Time.deltaTime;
+            _controller.Move(new Vector3(lateral, _verticalVelocity, gm.CurrentSpeed) * Time.deltaTime);
             if (transform.position.y < -4f) gm.EndRun("fell");
         }
 
@@ -87,7 +81,9 @@ namespace Zoryq.Play.RushCity
         {
             var before=_lane;
             _lane = Mathf.Clamp(_lane + direction, 0, 2);
-            if(_lane!=before) RushCityTelemetry.Instance?.LaneChange();
+            if(_lane==before)return;
+            RushCityTelemetry.Instance?.LaneChange();
+            RushCityGhostRecorder.Instance?.MarkLaneChange();
         }
 
         void Jump()
@@ -96,6 +92,7 @@ namespace Zoryq.Play.RushCity
             {
                 _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
                 RushCityTelemetry.Instance?.Jump();
+                RushCityGhostRecorder.Instance?.MarkJump();
                 return;
             }
             TryWallRun();
@@ -115,6 +112,7 @@ namespace Zoryq.Play.RushCity
             _wallRunning = true;
             _verticalVelocity = 1.2f;
             RushCityTelemetry.Instance?.WallRun();
+            RushCityGhostRecorder.Instance?.MarkWallRun();
             RushCityGameManager.Instance?.RegisterCleanParkour();
             yield return new WaitForSeconds(wallRunDuration);
             _wallRunning = false;
@@ -125,6 +123,7 @@ namespace Zoryq.Play.RushCity
             if (_sliding || !_controller.isGrounded) yield break;
             _sliding = true;
             RushCityTelemetry.Instance?.Slide();
+            RushCityGhostRecorder.Instance?.MarkSlide();
             _controller.height = _defaultHeight * .48f;
             _controller.center = new Vector3(_defaultCenter.x, _defaultCenter.y * .48f, _defaultCenter.z);
             yield return new WaitForSeconds(slideDuration);
