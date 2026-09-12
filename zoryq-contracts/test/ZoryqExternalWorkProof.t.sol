@@ -3,6 +3,10 @@ pragma solidity ^0.8.24;
 
 import "../src/ZoryqExternalWorkProof.sol";
 
+contract AcceptingTreasury {
+    receive() external payable {}
+}
+
 contract RejectingTreasury {
     receive() external payable { revert("reject"); }
 }
@@ -19,16 +23,17 @@ contract ZoryqExternalWorkProofTest {
     function testExternalPaymentIsBoundToDeliveredWorkAndForwarded() public {
         ZoryqExternalWorkProof proof = new ZoryqExternalWorkProof();
         ExternalPayer payer = new ExternalPayer();
+        AcceptingTreasury treasury = new AcceptingTreasury();
         bytes32 companyRef = keccak256("company-1");
         bytes32 specHash = keccak256("external-work-spec");
         bytes32 deliveryHash = keccak256("public-delivery-artifact");
 
-        uint256 id = proof.createWorkOrder(payable(address(this)), companyRef, specHash);
+        uint256 id = proof.createWorkOrder(payable(address(treasury)), companyRef, specHash);
         proof.recordDelivery(id, deliveryHash);
 
-        uint256 beforeBalance = address(this).balance;
+        uint256 beforeBalance = address(treasury).balance;
         payer.pay{value: 1 wei}(proof, id);
-        require(address(this).balance == beforeBalance + 1 wei, "treasury did not receive payment");
+        require(address(treasury).balance == beforeBalance + 1 wei, "treasury did not receive payment");
 
         (address storedPayer, uint256 revenue, bool delivered, bool paid, bool cancelled) = proof.paymentProof(id);
         require(storedPayer == address(payer), "payer mismatch");
