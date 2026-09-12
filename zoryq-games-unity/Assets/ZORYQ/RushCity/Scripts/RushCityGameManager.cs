@@ -50,20 +50,27 @@ namespace Zoryq.Play.RushCity
         {
             if (!IsRunning) return;
             DurationSeconds += Time.deltaTime;
+
             var flowPace = Mathf.Lerp(.85f, 1.18f, SkillFlow);
             var overdrive = OverdriveActive ? 1.22f : 1f;
             var rawSpeed = Mathf.Min(maxSpeed * overdrive, (baseSpeed + DurationSeconds * speedGainPerSecond * flowPace) * overdrive);
-            CurrentSpeed = RushCityLiveOpsConfig.Instance ? RushCityLiveOpsConfig.Instance.Speed(rawSpeed) : rawSpeed;
+            var liveSpeed = RushCityLiveOpsConfig.Instance ? RushCityLiveOpsConfig.Instance.Speed(rawSpeed) : rawSpeed;
+            var eventSpeed = RushCityWorldEventDirector.Instance ? RushCityWorldEventDirector.Instance.SpeedMultiplier : 1f;
+            CurrentSpeed = liveSpeed * eventSpeed;
             DistanceMeters += CurrentSpeed * Time.deltaTime;
 
             var baseScore = Mathf.RoundToInt(DistanceMeters * 10f) + ZqCollected * 25 * Combo + _bonusScore;
             var dangerBonus = Mathf.RoundToInt(ChasePressure * 200f * Mathf.Max(1, Combo));
             var calculated = (baseScore + dangerBonus) * ScoreMultiplier;
-            Score = Mathf.Max(Score, RushCityLiveOpsConfig.Instance ? RushCityLiveOpsConfig.Instance.Score(calculated) : calculated);
+            calculated = RushCityLiveOpsConfig.Instance ? RushCityLiveOpsConfig.Instance.Score(calculated) : calculated;
+            var eventScore = RushCityWorldEventDirector.Instance ? RushCityWorldEventDirector.Instance.ScoreMultiplier : 1f;
+            calculated = Mathf.RoundToInt(calculated * eventScore);
+            Score = Mathf.Max(Score, calculated);
 
             var rawChaseGain=chasePressureGain * Mathf.Lerp(1.08f,.82f,SkillFlow);
-            var chaseGain=RushCityLiveOpsConfig.Instance ? RushCityLiveOpsConfig.Instance.Chase(rawChaseGain) : rawChaseGain;
-            ChasePressure = Mathf.Clamp01(ChasePressure + chaseGain * Time.deltaTime);
+            var liveChase=RushCityLiveOpsConfig.Instance ? RushCityLiveOpsConfig.Instance.Chase(rawChaseGain) : rawChaseGain;
+            var eventChase=RushCityWorldEventDirector.Instance ? RushCityWorldEventDirector.Instance.ChaseMultiplier : 1f;
+            ChasePressure = Mathf.Clamp01(ChasePressure + liveChase * eventChase * Time.deltaTime);
             if (Time.time - _lastCollectTime < 0.75f) ChasePressure = Mathf.Clamp01(ChasePressure - chasePressureRecovery * Time.deltaTime);
 
             if (Time.time - _lastCollectTime > 2.4f) Combo = 1;
@@ -155,6 +162,22 @@ namespace Zoryq.Play.RushCity
             Debug.Log($"[Rush City] mission complete {mission}: +{rewardScore} score +{rewardZq} ZQ");
         }
 
+        public void GrantWorldEventReward(int rewardScore,int rewardZq,string eventName)
+        {
+            if(!IsRunning)return;
+            var eventType=RushWorldEvent.None;
+            Enum.TryParse(eventName,true,out eventType);
+            var score=Mathf.Max(0,rewardScore);
+            var zq=Mathf.Max(0,rewardZq);
+            _bonusScore+=score;
+            _bonusZq+=zq;
+            Score+=score;
+            SkillFlow=Mathf.Clamp01(SkillFlow+.08f);
+            ChasePressure=Mathf.Max(0f,ChasePressure-.12f);
+            RushCityGameEvents.RaiseWorldEventReward(eventType,score,zq);
+            Debug.Log($"[Rush City] world event reward {eventName}: +{score} score +{zq} ZQ");
+        }
+
         public void EndRun(string reason)
         {
             if (!IsRunning) return;
@@ -170,13 +193,14 @@ namespace Zoryq.Play.RushCity
         void OnGUI()
         {
             var scale = Mathf.Max(1f, Screen.width / 1080f); GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1));
-            GUI.Box(new Rect(22, 22, 370, 202), "ZORYQ PLAY / RUSH CITY DEV HUD");
-            GUI.Label(new Rect(40, 54, 335, 28), $"DIST {DistanceMeters:0}m  SPEED {CurrentSpeed:0.0}");
-            GUI.Label(new Rect(40, 82, 335, 28), $"ZQ {TotalZq}  COMBO x{Combo}  SCORE x{ScoreMultiplier}");
-            GUI.Label(new Rect(40, 110, 335, 28), $"CHASE {ChasePressure * 100:0}%  FLOW {SkillFlow * 100:0}%");
-            GUI.Label(new Rect(40, 138, 335, 28), $"MAG {(MagnetActive?"ON":"-")} SHIELD {_shieldCharges} BOOST {(OverdriveActive?"ON":"-")}");
-            if(RushCityLiveOpsConfig.Instance)GUI.Label(new Rect(40,166,335,28),$"SEASON {RushCityLiveOpsConfig.Instance.Current.seasonId}");
-            if(RushCityRouteDirector.Instance)GUI.Label(new Rect(40,194,335,28),$"DISTRICT {RushCityRouteDirector.Instance.District} BRANCH {RushCityRouteDirector.Instance.BranchCount}");
+            GUI.Box(new Rect(22, 22, 390, 230), "ZORYQ PLAY / RUSH CITY DEV HUD");
+            GUI.Label(new Rect(40, 54, 355, 28), $"DIST {DistanceMeters:0}m  SPEED {CurrentSpeed:0.0}");
+            GUI.Label(new Rect(40, 82, 355, 28), $"ZQ {TotalZq}  COMBO x{Combo}  SCORE x{ScoreMultiplier}");
+            GUI.Label(new Rect(40, 110, 355, 28), $"CHASE {ChasePressure * 100:0}%  FLOW {SkillFlow * 100:0}%");
+            GUI.Label(new Rect(40, 138, 355, 28), $"MAG {(MagnetActive?"ON":"-")} SHIELD {_shieldCharges} BOOST {(OverdriveActive?"ON":"-")}");
+            if(RushCityLiveOpsConfig.Instance)GUI.Label(new Rect(40,166,355,28),$"SEASON {RushCityLiveOpsConfig.Instance.Current.seasonId}");
+            if(RushCityRouteDirector.Instance)GUI.Label(new Rect(40,194,355,28),$"DISTRICT {RushCityRouteDirector.Instance.District} BRANCH {RushCityRouteDirector.Instance.BranchCount}");
+            if(RushCityWorldEventDirector.Instance)GUI.Label(new Rect(40,222,355,28),$"EVENT {RushCityWorldEventDirector.Instance.ActiveEvent} INT {RushCityWorldEventDirector.Instance.Intensity:0.00}");
         }
 #endif
     }
