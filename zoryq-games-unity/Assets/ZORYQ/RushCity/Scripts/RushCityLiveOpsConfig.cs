@@ -16,6 +16,12 @@ namespace Zoryq.Play.RushCity
         public bool stormEventEnabled=false;
         public bool doubleScoreWeekend=false;
         public string cosmeticTheme="electric-violet";
+
+        public bool worldEventsEnabled=true;
+        public bool droneGauntletEnabled=true;
+        public bool hyperTrainEnabled=true;
+        public bool stormRushEnabled=true;
+        public float worldEventRewardMultiplier=1f;
     }
 
     public sealed class RushCityLiveOpsConfig : MonoBehaviour
@@ -41,9 +47,10 @@ namespace Zoryq.Play.RushCity
                 parsed.speedMultiplier=Mathf.Clamp(parsed.speedMultiplier,.85f,1.20f);
                 parsed.chaseMultiplier=Mathf.Clamp(parsed.chaseMultiplier,.75f,1.35f);
                 parsed.zqDensityMultiplier=Mathf.Clamp(parsed.zqDensityMultiplier,.65f,1.60f);
+                parsed.worldEventRewardMultiplier=Mathf.Clamp(parsed.worldEventRewardMultiplier,.5f,2f);
                 Current=parsed;
                 if(persist){PlayerPrefs.SetString(LocalKey,JsonUtility.ToJson(Current));PlayerPrefs.Save();}
-                Debug.Log($"[Rush City] LiveOps season={Current.seasonId} district={Current.district}");
+                Debug.Log($"[Rush City] LiveOps season={Current.seasonId} district={Current.district} worldEvents={Current.worldEventsEnabled}");
                 return true;
             }
             catch{return false;}
@@ -52,5 +59,6 @@ namespace Zoryq.Play.RushCity
         public float Speed(float raw)=>raw*Current.speedMultiplier;
         public float Chase(float raw)=>raw*Current.chaseMultiplier;
         public int Score(int raw)=>Current.doubleScoreWeekend?raw*2:raw;
+        public int WorldEventReward(int raw)=>Mathf.RoundToInt(raw*Current.worldEventRewardMultiplier);
     }
 }
