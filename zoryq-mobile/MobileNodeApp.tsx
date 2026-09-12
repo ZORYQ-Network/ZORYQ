@@ -1,61 +1,73 @@
-import React,{useEffect,useRef,useState} from 'react';
-import {AppState,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,View} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React,{useEffect,useState} from 'react';
+import {PermissionsAndroid,Platform,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {ZORYQ_UI} from './theme';
+import {
+ configureNativeMobileNode,
+ getNativeMobileNodeStatus,
+ nativeMobileNodeAvailable,
+ NativeNodeMode,
+ NativeNodeStatus,
+ pauseNativeMobileNode,
+ setNativeMobileNodeMode,
+ startNativeMobileNode,
+ stopNativeMobileNode,
+} from './nativeMobileNode';
 
 const CHAIN_ID=5919065;
-const RPC=process.env.EXPO_PUBLIC_ZORYQ_RPC||'https://zoryq-evm-node-live-production.up.railway.app/rpc';
-const STORAGE='zoryq.mobileWitness.v1';
-const INTERVAL_MS=20000;
-
+const EMPTY:NativeNodeStatus={running:false,paused:false,resumeRequired:false,nodeId:'',state:'Offline',mode:'BALANCED',lastBlock:0,lastBlockHash:'',lastCheck:'',proofStatus:'No verified proof yet',lastXpAwarded:0,totalXp:0,lastXpEventId:'',lastVerifiedProofHash:'',heartbeatStatus:'Not sent yet',lastHeartbeatAt:'',lastHeartbeatXp:0};
 type Props={onBack:()=>void};
-type State={enabled:boolean;checks:number;successfulChecks:number;lastBlock:number;lastHash:string;lastCheckedAt:string;startedAt:string};
-const EMPTY:State={enabled:false,checks:0,successfulChecks:0,lastBlock:0,lastHash:'',lastCheckedAt:'',startedAt:''};
-
-async function rpc(method:string,params:any[]=[]){
- const r=await fetch(RPC,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:Date.now(),method,params})});
- if(!r.ok)throw Error(`RPC HTTP ${r.status}`);
- const j=await r.json();
- if(j.error)throw Error(j.error.message||'RPC error');
- return j.result;
-}
-async function verify(previousBlock:number){
- const chainHex=await rpc('eth_chainId');
- const chainId=parseInt(chainHex,16);
- if(chainId!==CHAIN_ID)throw Error(`Chain ID inesperado: ${chainId}`);
- const b=await rpc('eth_getBlockByNumber',['latest',false]);
- if(!b?.hash||!b?.parentHash||!b?.number)throw Error('Cabeçalho incompleto');
- const block=parseInt(b.number,16);
- if(previousBlock>0&&block<previousBlock)throw Error('Altura da rede retrocedeu');
- return {block,hash:String(b.hash),parentHash:String(b.parentHash)};
-}
 
 export default function MobileNodeApp({onBack}:Props){
- const [node,setNode]=useState<State>(EMPTY);
- const [status,setStatus]=useState('Offline');
+ const [node,setNode]=useState<NativeNodeStatus>(EMPTY);
+ const [busy,setBusy]=useState(false);
  const [warning,setWarning]=useState('');
- const busy=useRef(false);
- const timer=useRef<ReturnType<typeof setInterval>|null>(null);
+ const available=nativeMobileNodeAvailable();
 
- useEffect(()=>{void boot();return()=>stopTimer()},[]);
- useEffect(()=>{const sub=AppState.addEventListener('change',s=>{if(s==='active'&&node.enabled){void round();startTimer()}else stopTimer()});return()=>sub.remove()},[node.enabled,node.lastBlock]);
- async function boot(){try{const raw=await AsyncStorage.getItem(STORAGE);if(raw){const saved={...EMPTY,...JSON.parse(raw)};setNode(saved);if(saved.enabled){setStatus('Ativo • verificando');setTimeout(()=>void round(saved),250);startTimer()}}}catch{}}
- function stopTimer(){if(timer.current){clearInterval(timer.current);timer.current=null}}
- function startTimer(){stopTimer();timer.current=setInterval(()=>void round(),INTERVAL_MS)}
- async function persist(next:State){setNode(next);await AsyncStorage.setItem(STORAGE,JSON.stringify(next))}
- async function round(base?:State){if(busy.current)return;busy.current=true;setStatus('Verificando rede…');setWarning('');try{const current=base||node;const proof=await verify(current.lastBlock);const next={...current,enabled:true,checks:current.checks+1,successfulChecks:current.successfulChecks+1,lastBlock:proof.block,lastHash:proof.hash,lastCheckedAt:new Date().toISOString(),startedAt:current.startedAt||new Date().toISOString()};await persist(next);setStatus(`Online • bloco ${proof.block}`)}catch(e:any){const current=base||node;const next={...current,enabled:true,checks:current.checks+1,lastCheckedAt:new Date().toISOString(),startedAt:current.startedAt||new Date().toISOString()};await persist(next);setStatus('Atenção na verificação');setWarning(e?.message||'RPC indisponível')}finally{busy.current=false}}
- async function activate(){const next={...node,enabled:true,startedAt:node.startedAt||new Date().toISOString()};await persist(next);await round(next);startTimer()}
- async function deactivate(){stopTimer();const next={...node,enabled:false};await persist(next);setStatus('Offline')}
- const successRate=node.checks?Math.round((node.successfulChecks/node.checks)*100):0;
+ useEffect(()=>{
+  let mounted=true;
+  async function refresh(){
+   if(!available)return;
+   try{const next=await getNativeMobileNodeStatus();if(mounted)setNode(next)}catch(e:any){if(mounted)setWarning(e?.message||'Native node status unavailable')}
+  }
+  void refresh();const id=setInterval(()=>void refresh(),5000);
+  return()=>{mounted=false;clearInterval(id)};
+ },[available]);
+
+ async function refresh(){if(!available)return;setNode(await getNativeMobileNodeStatus())}
+ async function notificationPermission(){
+  if(Platform.OS==='android'&&Number(Platform.Version)>=33){
+   await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+  }
+ }
+ async function activate(){
+  if(!available){setWarning('Este build não contém o serviço Android nativo do ZORYQ Mobile Node.');return}
+  setBusy(true);setWarning('');
+  try{
+   await notificationPermission();
+   await configureNativeMobileNode({wifiOnly:false,chargingOnly:false,allowMobileData:true,batteryMinimum:20});
+   await setNativeMobileNodeMode('BALANCED');
+   await startNativeMobileNode();
+   await refresh();
+  }catch(e:any){setWarning(e?.message||'Não foi possível iniciar o Mobile Node')}finally{setBusy(false)}
+ }
+ async function pause(){setBusy(true);setWarning('');try{await pauseNativeMobileNode();await refresh()}catch(e:any){setWarning(e?.message||'Não foi possível pausar')}finally{setBusy(false)}}
+ async function stop(){setBusy(true);setWarning('');try{await stopNativeMobileNode();await refresh()}catch(e:any){setWarning(e?.message||'Não foi possível parar')}finally{setBusy(false)}}
+ async function mode(next:NativeNodeMode){setBusy(true);setWarning('');try{await setNativeMobileNodeMode(next);if(next==='PAUSED')await pauseNativeMobileNode();else if(!node.running)await startNativeMobileNode();await refresh()}catch(e:any){setWarning(e?.message||'Não foi possível alterar o modo')}finally{setBusy(false)}}
+
+ const state=node.running?'● BACKGROUND NODE ACTIVE':node.resumeRequired?'◐ RESUME REQUIRED':node.paused?'Ⅱ PAUSED':'○ OFFLINE';
  return <SafeAreaView style={s.root}><ScrollView contentContainerStyle={s.content}>
   <View style={s.header}><Pressable onPress={onBack}><Text style={s.back}>← ZORYQ</Text></Pressable><View><Text style={s.kicker}>NETWORK PARTICIPATION</Text><Text style={s.title}>Mobile Node</Text></View></View>
-  <View style={[s.hero,node.enabled&&s.heroOn]}><Text style={s.state}>{node.enabled?'● ACTIVE WITNESS':'○ OFFLINE'}</Text><Text style={s.heroTitle}>Seu celular pode verificar a ZORYQ.</Text><Text style={s.copy}>O Mobile Witness Node confere a identidade da rede e o avanço dos blocos enquanto o app está ativo. Não minera, não guarda chaves de validador e não é apresentado como participante do consenso.</Text><Pressable style={[s.button,node.enabled&&s.stop]} onPress={()=>void(node.enabled?deactivate():activate())}><Text style={s.buttonText}>{node.enabled?'Parar Mobile Node':'Ativar Mobile Node'}</Text></Pressable></View>
-  <View style={s.grid}><Metric label="STATUS" value={status}/><Metric label="CHAIN ID" value="5919065"/><Metric label="ÚLTIMO BLOCO" value={node.lastBlock?String(node.lastBlock):'—'}/><Metric label="CHECKS OK" value={String(node.successfulChecks)}/><Metric label="TAXA DE SUCESSO" value={`${successRate}%`}/><Metric label="INTERVALO" value="20 s"/></View>
-  {warning?<View style={s.warn}><Text style={s.warnTitle}>Verificação não confirmada</Text><Text style={s.warnText}>{warning}</Text></View>:null}
-  <View style={s.card}><Text style={s.cardTitle}>O que esta versão faz</Text><Text style={s.line}>✓ Verifica o Chain ID da ZORYQ Testnet</Text><Text style={s.line}>✓ Lê cabeçalhos de blocos diretamente do RPC</Text><Text style={s.line}>✓ Rejeita retrocesso de altura observado</Text><Text style={s.line}>✓ Registra localmente verificações e uptime de sessão</Text><Text style={s.line}>✓ Interrompe o loop quando o app sai do primeiro plano para poupar bateria</Text></View>
-  <View style={s.card}><Text style={s.cardTitle}>Próxima camada de descentralização</Text><Text style={s.copy}>Quando houver múltiplos endpoints operados de forma independente, o app passará a exigir acordo entre peers/checkpoints. Só então essas instalações deverão contar como observadores independentes no painel público.</Text></View>
-  <View style={s.proof}><Text style={s.proofTitle}>Última prova local</Text><Text style={s.mono}>Block: {node.lastBlock||'—'}{`\n`}Hash: {node.lastHash||'—'}{`\n`}Checked: {node.lastCheckedAt||'—'}</Text></View>
+  <View style={[s.hero,node.running&&s.heroOn]}><Text style={s.state}>{state}</Text><Text style={s.heroTitle}>Seu celular verifica a ZORYQ em segundo plano.</Text><Text style={s.copy}>O serviço Android nativo valida a Chain ID, recebe desafios, verifica blocos e só registra XP depois que a prova assinada é aceita pelo backend. Heartbeat e tempo ocioso não geram XP. Este node não é validator.</Text>
+   <View style={s.actions}>{!node.running?<Pressable style={s.button} disabled={busy} onPress={()=>void activate()}><Text style={s.buttonText}>{busy?'Iniciando…':'Run Mobile Node'}</Text></Pressable>:<><Pressable style={s.secondary} disabled={busy} onPress={()=>void pause()}><Text style={s.secondaryText}>Pause</Text></Pressable><Pressable style={s.secondary} disabled={busy} onPress={()=>void stop()}><Text style={s.secondaryText}>Stop</Text></Pressable></>}</View>
+  </View>
+  <View style={s.grid}><Metric label="STATUS" value={node.state||'Offline'}/><Metric label="CHAIN ID" value={String(CHAIN_ID)}/><Metric label="MODE" value={node.mode||'BALANCED'}/><Metric label="ÚLTIMO BLOCO" value={node.lastBlock?String(Math.trunc(node.lastBlock)):'—'}/><Metric label="TOTAL XP" value={String(Math.trunc(node.totalXp||0))}/><Metric label="ÚLTIMO XP" value={node.lastXpAwarded?`+${Math.trunc(node.lastXpAwarded)}`:'0'}/></View>
+  <View style={s.card}><Text style={s.cardTitle}>Contribution mode</Text><View style={s.modeRow}>{(['ECO','BALANCED','MAX_CONTRIBUTION'] as NativeNodeMode[]).map(m=><Pressable key={m} disabled={busy} style={[s.mode,node.mode===m&&s.modeOn]} onPress={()=>void mode(m)}><Text style={s.modeText}>{m.replace('_',' ')}</Text></Pressable>)}</View><Text style={s.copy}>O Resource Governor pode interromper tarefas por bateria, temperatura, conectividade ou armazenamento. Nenhuma pausa de segurança gera XP.</Text></View>
+  {warning?<View style={s.warn}><Text style={s.warnTitle}>Atenção</Text><Text style={s.warnText}>{warning}</Text></View>:null}
+  {!available?<View style={s.warn}><Text style={s.warnTitle}>Native bridge ausente</Text><Text style={s.warnText}>Use o APK oficial gerado pelo workflow da ZORYQ. Expo Go não executa o Foreground Service nativo.</Text></View>:null}
+  <View style={s.card}><Text style={s.cardTitle}>Prova e XP</Text><Text style={s.line}>Proof: {node.proofStatus||'No verified proof yet'}</Text><Text style={s.line}>XP Event: {node.lastXpEventId||'—'}</Text><Text style={s.line}>Proof hash: {node.lastVerifiedProofHash||'—'}</Text><Text style={s.line}>Heartbeat: {node.heartbeatStatus||'Not sent yet'}</Text><Text style={s.line}>Heartbeat XP: {Math.trunc(node.lastHeartbeatXp||0)} (deve ser 0)</Text></View>
+  <View style={s.proof}><Text style={s.proofTitle}>Node identity / latest verification</Text><Text style={s.mono}>Node ID: {node.nodeId||'—'}{`\n`}Block: {node.lastBlock||'—'}{`\n`}Hash: {node.lastBlockHash||'—'}{`\n`}Checked: {node.lastCheck||'—'}{`\n`}Heartbeat: {node.lastHeartbeatAt||'—'}</Text></View>
+  <View style={s.card}><Text style={s.cardTitle}>Regras de verdade</Text><Text style={s.line}>✓ Wallet key e Node key permanecem separadas</Text><Text style={s.line}>✓ Node key é mantida no Android Keystore</Text><Text style={s.line}>✓ Challenge/proof inválido ou repetido = 0 XP</Text><Text style={s.line}>✓ Heartbeat = 0 XP</Text><Text style={s.line}>✓ Background usa Foreground Service visível</Text><Text style={s.line}>✓ Reinício exige retomada controlada pelo usuário quando o Android exigir</Text></View>
  </ScrollView></SafeAreaView>
 }
 function Metric({label,value}:{label:string;value:string}){return <View style={s.metric}><Text style={s.metricLabel}>{label}</Text><Text style={s.metricValue}>{value}</Text></View>}
-const s=StyleSheet.create({root:{flex:1,backgroundColor:ZORYQ_UI.background},content:{padding:18,paddingBottom:44},header:{flexDirection:'row',alignItems:'center',gap:16,marginBottom:18},back:{color:ZORYQ_UI.primary,fontWeight:'900'},kicker:{color:'#58E5CA',fontSize:10,fontWeight:'900',letterSpacing:1.4},title:{color:ZORYQ_UI.text,fontWeight:'900',fontSize:26},hero:{borderWidth:1,borderColor:ZORYQ_UI.border,borderRadius:22,padding:22,backgroundColor:ZORYQ_UI.panelSecondary},heroOn:{borderColor:'#35D49A'},state:{color:'#6FE6B1',fontSize:11,fontWeight:'900',letterSpacing:1.2},heroTitle:{color:ZORYQ_UI.text,fontSize:27,fontWeight:'900',marginTop:10},copy:{color:'#9FB0C4',fontSize:14,lineHeight:21,marginTop:8},button:{marginTop:20,paddingVertical:14,borderRadius:14,alignItems:'center',backgroundColor:'#35D49A'},stop:{backgroundColor:'#303B4B'},buttonText:{color:'#06100D',fontWeight:'900'},grid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:14},metric:{width:'48%',borderWidth:1,borderColor:ZORYQ_UI.border,borderRadius:15,padding:14,backgroundColor:'#0D1420'},metricLabel:{color:'#72869F',fontSize:9,fontWeight:'900',letterSpacing:1},metricValue:{color:ZORYQ_UI.text,fontSize:17,fontWeight:'900',marginTop:5},warn:{marginTop:14,borderRadius:15,padding:14,backgroundColor:'#2A1A11',borderWidth:1,borderColor:'#684324'},warnTitle:{color:'#FFC977',fontWeight:'900'},warnText:{color:'#D4B98F',marginTop:5},card:{marginTop:14,borderRadius:18,padding:18,backgroundColor:'#0D1420',borderWidth:1,borderColor:ZORYQ_UI.border},cardTitle:{color:ZORYQ_UI.text,fontWeight:'900',fontSize:17,marginBottom:8},line:{color:'#A9B9CA',lineHeight:24},proof:{marginTop:14,borderRadius:18,padding:18,backgroundColor:'#070B11',borderWidth:1,borderColor:ZORYQ_UI.border},proofTitle:{color:'#67E7D1',fontWeight:'900',marginBottom:8},mono:{color:'#92A6BC',fontFamily:'monospace',fontSize:11,lineHeight:18}});
+const s=StyleSheet.create({root:{flex:1,backgroundColor:ZORYQ_UI.background},content:{padding:18,paddingBottom:44},header:{flexDirection:'row',alignItems:'center',gap:16,marginBottom:18},back:{color:ZORYQ_UI.primary,fontWeight:'900'},kicker:{color:'#58E5CA',fontSize:10,fontWeight:'900',letterSpacing:1.4},title:{color:ZORYQ_UI.text,fontWeight:'900',fontSize:26},hero:{borderWidth:1,borderColor:ZORYQ_UI.border,borderRadius:22,padding:22,backgroundColor:ZORYQ_UI.panelSecondary},heroOn:{borderColor:'#35D49A'},state:{color:'#6FE6B1',fontSize:11,fontWeight:'900',letterSpacing:1.2},heroTitle:{color:ZORYQ_UI.text,fontSize:27,fontWeight:'900',marginTop:10},copy:{color:'#9FB0C4',fontSize:14,lineHeight:21,marginTop:8},actions:{flexDirection:'row',gap:10,marginTop:20},button:{flex:1,paddingVertical:14,borderRadius:14,alignItems:'center',backgroundColor:'#35D49A'},buttonText:{color:'#06100D',fontWeight:'900'},secondary:{flex:1,paddingVertical:14,borderRadius:14,alignItems:'center',backgroundColor:'#303B4B'},secondaryText:{color:'#F0F5FA',fontWeight:'900'},grid:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:14},metric:{width:'48%',borderWidth:1,borderColor:ZORYQ_UI.border,borderRadius:15,padding:14,backgroundColor:'#0D1420'},metricLabel:{color:'#72869F',fontSize:9,fontWeight:'900',letterSpacing:1},metricValue:{color:ZORYQ_UI.text,fontSize:15,fontWeight:'900',marginTop:5},warn:{marginTop:14,borderRadius:15,padding:14,backgroundColor:'#2A1A11',borderWidth:1,borderColor:'#684324'},warnTitle:{color:'#FFC977',fontWeight:'900'},warnText:{color:'#D4B98F',marginTop:5},card:{marginTop:14,borderRadius:18,padding:18,backgroundColor:'#0D1420',borderWidth:1,borderColor:ZORYQ_UI.border},cardTitle:{color:ZORYQ_UI.text,fontWeight:'900',fontSize:17,marginBottom:8},line:{color:'#A9B9CA',lineHeight:24},modeRow:{flexDirection:'row',flexWrap:'wrap',gap:8},mode:{paddingVertical:10,paddingHorizontal:12,borderRadius:12,backgroundColor:'#192231',borderWidth:1,borderColor:'#293A50'},modeOn:{borderColor:'#35D49A',backgroundColor:'#12352D'},modeText:{color:'#DCE6F2',fontWeight:'800',fontSize:11},proof:{marginTop:14,borderRadius:18,padding:18,backgroundColor:'#070B11',borderWidth:1,borderColor:ZORYQ_UI.border},proofTitle:{color:'#67E7D1',fontWeight:'900',marginBottom:8},mono:{color:'#92A6BC',fontFamily:'monospace',fontSize:11,lineHeight:18}});
