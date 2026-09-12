@@ -11,6 +11,7 @@ namespace Zoryq.Play.RushCity
         bool _playing;
 
         public bool HasGhost => _run != null && _run.frames != null && _run.frames.Count > 1;
+        public void Configure(Transform visual){ghostVisual=visual;if(ghostVisual)ghostVisual.gameObject.SetActive(false);}
 
         public bool LoadJson(string json)
         {
