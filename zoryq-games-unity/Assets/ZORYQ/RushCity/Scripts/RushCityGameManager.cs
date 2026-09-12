@@ -87,6 +87,7 @@ namespace Zoryq.Play.RushCity
             _magnetUntil = _overdriveUntil = _multiplierUntil = -1f;
             _lastCollectTime = -99f;
             Time.timeScale = 1f;
+            RushCityGhostRecorder.Instance?.ResetRecording();
             RushCityMissionDirector.Instance?.BeginSession(SessionId);
         }
 
@@ -183,6 +184,7 @@ namespace Zoryq.Play.RushCity
                 distanceMeters = DistanceMeters,
                 durationSeconds = DurationSeconds
             };
+            RushCityGhostRaceManager.Instance?.FinishAndStoreCurrentRun();
             Debug.Log($"[Rush City] run ended: {reason} telemetry={RushCityTelemetry.Instance?.SnapshotJson()}");
             ZoryqPlayBridge.ReportAndReturn(result);
         }
