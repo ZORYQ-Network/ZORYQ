@@ -1,0 +1,35 @@
+name: ZORYQ Consensus V2 Guard
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'infra/consensus-v2/**'
+      - '.github/workflows/zoryq-consensus-v2-guard.yml'
+  pull_request:
+    paths:
+      - 'infra/consensus-v2/**'
+      - '.github/workflows/zoryq-consensus-v2-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  topology-policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify multi-node consensus topology
+        run: node infra/consensus-v2/verify-topology.mjs
+      - name: Enforce parallel-only safety marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'PARALLEL TESTNET ONLY' infra/consensus-v2/network_params.yaml
+          ! grep -Eq -- '--dev([[:space:]]|$)' infra/consensus-v2/network_params.yaml
+          echo 'Consensus V2 topology guard passed.'
