@@ -13,10 +13,16 @@ node /app/mainnet-guard.mjs
 
 # Railway production currently runs inside a ~1 GB memory budget. Keep Reth
 # within conservative cache ceilings while preserving execution semantics.
+# P2P listening is explicit. Optional bootnodes/trusted peers are injected only
+# via environment variables; no peer identity or infrastructure secret is baked
+# into the image.
 mkdir -p /tmp/zoryq-bin
 cat > /tmp/zoryq-bin/reth <<'EOF'
 #!/bin/sh
-exec /usr/local/bin/reth "$@" \
+set -eu
+set -- "$@" \
+  --addr "${ZORYQ_RETH_P2P_ADDR:-0.0.0.0}" \
+  --port "${ZORYQ_RETH_P2P_PORT:-30303}" \
   --engine.cross-block-cache-size 64 \
   --engine.memory-block-buffer-target 2 \
   --engine.persistence-threshold 2 \
@@ -24,6 +30,15 @@ exec /usr/local/bin/reth "$@" \
   --engine.disable-prewarming \
   --tx-channel-memory-limit 33554432 \
   --rpc.evm-memory-limit 67108864
+
+if [ -n "${ZORYQ_RETH_BOOTNODES:-}" ]; then
+  set -- "$@" --bootnodes "$ZORYQ_RETH_BOOTNODES"
+fi
+if [ -n "${ZORYQ_RETH_TRUSTED_PEERS:-}" ]; then
+  set -- "$@" --trusted-peers "$ZORYQ_RETH_TRUSTED_PEERS"
+fi
+
+exec /usr/local/bin/reth "$@"
 EOF
 chmod +x /tmp/zoryq-bin/reth
 export PATH="/tmp/zoryq-bin:$PATH"
