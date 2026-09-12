@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import { generateKeyPairSync, sign } from 'node:crypto';
 import { RegistrationEngine, nodeIdFromPublicKeyBase64, registrationSigningPayload } from '../src/registration-engine.js';
+import { FileRegistrationStore } from '../src/registration-store.js';
 
 const SECRET='zoryq-registration-test-secret-32-bytes-minimum';
 function identity(){
@@ -52,4 +56,26 @@ test('rejects tampered server challenge',()=>{
   const id=identity(); const engine=new RegistrationEngine({secret:SECRET,now:()=>1000});
   const challenge=engine.issueChallenge({nodeId:id.nodeId}); const [body,sig]=challenge.split('.');
   assert.throws(()=>engine.inspectChallenge(`${body.slice(0,-1)}A.${sig}`),/(Invalid registration challenge signature|Malformed)/);
+});
+
+test('registration replay remains rejected after server restart',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'zoryq-registration-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const storePath=path.join(dir,'registrations.jsonl');
+  const id=identity();
+  const first=new RegistrationEngine({secret:SECRET,now:()=>1000,store:new FileRegistrationStore(storePath)});
+  const challenge=first.issueChallenge({nodeId:id.nodeId});
+  const signatureBase64=signChallenge(first,challenge,id);
+  first.register({challenge,nodeId:id.nodeId,publicKeyBase64:id.publicKeyBase64,signatureBase64});
+  const restarted=new RegistrationEngine({secret:SECRET,now:()=>1000,store:new FileRegistrationStore(storePath)});
+  assert.equal(restarted.get(id.nodeId)?.publicKeyBase64,id.publicKeyBase64);
+  assert.throws(()=>restarted.register({challenge,nodeId:id.nodeId,publicKeyBase64:id.publicKeyBase64,signatureBase64}),/replay/i);
+});
+
+test('corrupt registration store fails closed',t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'zoryq-registration-corrupt-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const storePath=path.join(dir,'registrations.jsonl');
+  fs.writeFileSync(storePath,'{broken-json}\n','utf8');
+  assert.throws(()=>new FileRegistrationStore(storePath),/Corrupt registration store/);
 });
