@@ -33,9 +33,25 @@
     }
   ],
   "evidence": {
-    "matchingBlockHashEvidence": null,
-    "restartRejoinEvidence": null,
-    "oneNodeOutageRecoveryEvidence": null,
-    "finalityEvidence": null
+    "matchingBlockHashEvidence": {
+      "path": "PATH_TO_MATCHING_BLOCK_HASH_EVIDENCE",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    },
+    "restartRejoinEvidence": {
+      "path": "PATH_TO_RESTART_REJOIN_EVIDENCE",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    },
+    "oneNodeOutageRecoveryEvidence": {
+      "path": "PATH_TO_OUTAGE_RECOVERY_EVIDENCE",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    },
+    "finalityEvidence": {
+      "path": "PATH_TO_FINALITY_EVIDENCE",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    },
+    "operatorIndependenceEvidence": {
+      "path": "PATH_TO_OPERATOR_INDEPENDENCE_EVIDENCE",
+      "sha256": "REPLACE_WITH_64_HEX_SHA256"
+    }
   }
 }

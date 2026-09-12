@@ -29,19 +29,19 @@ if (!m.consensus?.finalityModel) fail.push('finality_model_missing');
 if (!m.engineApi?.jwtSecretGeneratedPerOperator) fail.push('per_operator_engine_jwt_not_attested');
 if (m.engineApi?.jwtSecretCommitted === true) fail.push('engine_jwt_secret_must_not_be_committed');
 
-const requiredFiles = [
-  ['execution.genesisPath','execution.genesisSha256'],
-  ['consensus.configPath','consensus.configSha256']
-];
-for (const [pathKey, hashKey] of requiredFiles) {
-  const [section, field] = pathKey.split('.');
-  const [, hashField] = hashKey.split('.');
-  const p = m?.[section]?.[field];
-  const expected = String(m?.[section]?.[hashField] || '').toLowerCase();
-  if (!p || !nonEmpty(p)) { fail.push(`${pathKey}_missing`); continue; }
-  if (!/^[0-9a-f]{64}$/.test(expected)) { fail.push(`${hashKey}_invalid`); continue; }
-  if (sha256(p) !== expected) fail.push(`${hashKey}_mismatch`);
+function requireHashedFile(pathValue, expectedHash, label) {
+  const p = String(pathValue || '').trim();
+  const expected = String(expectedHash || '').trim().toLowerCase();
+  if (!p || !nonEmpty(p)) { fail.push(`${label}_missing_or_empty`); return null; }
+  if (!/^[0-9a-f]{64}$/.test(expected)) { fail.push(`${label}_sha256_invalid`); return null; }
+  const actual = sha256(p);
+  if (actual !== expected) { fail.push(`${label}_sha256_mismatch`); return null; }
+  return { path:p, sha256:actual };
 }
+
+const boundEvidence = {};
+boundEvidence.executionGenesis = requireHashedFile(m.execution?.genesisPath, m.execution?.genesisSha256, 'execution_genesis');
+boundEvidence.consensusConfig = requireHashedFile(m.consensus?.configPath, m.consensus?.configSha256, 'consensus_config');
 
 const operators = Array.isArray(m.operators) ? m.operators : [];
 if (operators.length < 2) fail.push('fewer_than_two_operators');
@@ -55,17 +55,26 @@ if (operators.length >= 2 && operators[0]?.controlBoundary === operators[1]?.con
   fail.push('operators_share_same_control_boundary');
 }
 
-for (const key of ['matchingBlockHashEvidence','restartRejoinEvidence','oneNodeOutageRecoveryEvidence','finalityEvidence']) {
-  if (!m.evidence?.[key]) fail.push(`${key}_missing`);
+const evidenceKeys = [
+  'matchingBlockHashEvidence',
+  'restartRejoinEvidence',
+  'oneNodeOutageRecoveryEvidence',
+  'finalityEvidence',
+  'operatorIndependenceEvidence'
+];
+for (const key of evidenceKeys) {
+  const e = m.evidence?.[key];
+  boundEvidence[key] = requireHashedFile(e?.path, e?.sha256, key);
 }
 
 const report = {
   ok: fail.length === 0,
-  schema: 'zoryq-nondev-candidate-gate/1.0',
+  schema: 'zoryq-nondev-candidate-gate/2.0',
   manifest: manifestPath,
   blockers: fail,
+  boundEvidence,
   claimBoundary: fail.length === 0
-    ? 'Candidate passed the minimum non-dev distributed-testnet gate. This is not mainnet readiness.'
+    ? 'Candidate passed the minimum non-dev distributed-testnet evidence gate. This is not mainnet readiness.'
     : 'Candidate must not be promoted as a distributed testnet.'
 };
 console.log(JSON.stringify(report, null, 2));
