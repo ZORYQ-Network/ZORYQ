@@ -54,7 +54,7 @@ class ZoryqGameModule(private val rc:ReactApplicationContext):ReactContextBaseJa
   @ReactMethod fun launch(gameId:String,payload:String,promise:Promise){
     try{
       if(pending!=null){promise.reject("GAME_BUSY","Another ZORYQ Play session is already active");return}
-      val activity=currentActivity
+      val activity=rc.currentActivity
       if(activity==null){promise.reject("GAME_ACTIVITY","Android activity unavailable");return}
       val intent=intentFor(gameId,payload)
       if(intent==null){promise.reject("GAME_ENGINE_UNAVAILABLE","Native game engine activity is not packaged for $gameId");return}
@@ -63,7 +63,7 @@ class ZoryqGameModule(private val rc:ReactApplicationContext):ReactContextBaseJa
     }catch(e:Throwable){pending=null;promise.reject("GAME_LAUNCH",e)}
   }
 
-  override fun onActivityResult(activity:Activity?,requestCode:Int,resultCode:Int,data:Intent?){
+  override fun onActivityResult(activity:Activity,requestCode:Int,resultCode:Int,data:Intent?){
     if(requestCode!=GAME_REQUEST_CODE)return
     val p=pending?:return
     pending=null
@@ -71,7 +71,7 @@ class ZoryqGameModule(private val rc:ReactApplicationContext):ReactContextBaseJa
     p.resolve(data?.getStringExtra("zoryq_play_result"))
   }
 
-  override fun onNewIntent(intent:Intent?){}
+  override fun onNewIntent(intent:Intent){}
 }
 
 class ZoryqGamePackage:ReactPackage{
@@ -92,4 +92,4 @@ function withNative(config){
 }
 
 function plugin(config){config=withApp(config);config=withNative(config);return config}
-module.exports=createRunOncePlugin(plugin,'zoryq-game-bridge-native','1.0.0');
+module.exports=createRunOncePlugin(plugin,'zoryq-game-bridge-native','1.0.1');
