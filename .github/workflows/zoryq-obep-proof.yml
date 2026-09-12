@@ -1,0 +1,47 @@
+name: ZORYQ OBEP Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'zoryq-developer/obep/**'
+      - '.github/workflows/zoryq-obep-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  obep-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Record environment
+        run: |
+          mkdir -p zoryq-evidence/obep
+          {
+            echo "commit_sha=${GITHUB_SHA}"
+            echo "node=$(node --version)"
+            echo "runner_os=${RUNNER_OS}"
+          } | tee zoryq-evidence/obep/environment.txt
+
+      - name: Run OBEP lifecycle and adversarial tests
+        run: |
+          set -o pipefail
+          node --test zoryq-developer/obep/obep.test.mjs | tee zoryq-evidence/obep/test-output.txt
+
+      - name: Generate independently-verifiable local Proof Pack fixture
+        run: |
+          node zoryq-developer/obep/proof-fixture.mjs > zoryq-evidence/obep/proof-pack.json
+          node zoryq-developer/obep/verify-proof-pack.mjs zoryq-evidence/obep/proof-pack.json | tee zoryq-evidence/obep/verification.txt
+
+      - name: Upload OBEP evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-obep-proof-${{ github.sha }}
+          path: zoryq-evidence/obep/
+          if-no-files-found: error
+          retention-days: 90
