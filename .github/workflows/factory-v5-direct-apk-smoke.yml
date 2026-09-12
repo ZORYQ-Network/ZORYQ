@@ -1,0 +1,44 @@
+name: ZORYQ Factory v0.5 Direct APK Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-evm-node/factory-v5-ui-preload.mjs'
+      - 'zoryq-evm-node/server-with-factory.mjs'
+      - 'Dockerfile'
+      - 'tools/factory-v5-live-proof/**'
+      - '.github/workflows/factory-v5-direct-apk-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify v0.5 UI wiring
+        run: |
+          node --check zoryq-evm-node/factory-v5-ui-preload.mjs
+          grep -Fq "import './factory-v5-ui-preload.mjs'" zoryq-evm-node/server-with-factory.mjs
+          grep -Fq 'factory-v5-ui-preload.mjs' Dockerfile
+          grep -Fq '/factory/studio-v5' zoryq-evm-node/factory-v5-ui-preload.mjs
+          grep -Fq '/factory/apk/build' zoryq-evm-node/factory-v5-ui-preload.mjs
+          grep -Fq 'Gerar APK exclusivo' zoryq-evm-node/factory-v5-ui-preload.mjs
+      - name: Prove direct signed APK builder live
+        run: |
+          mkdir -p evidence
+          node tools/factory-v5-live-proof/prove.mjs | tee evidence/factory-v5-direct-apk-proof.json
+      - name: Validate proof
+        run: node -e "const e=require('./evidence/factory-v5-direct-apk-proof.json'); if(!e.checks?.buildReady||!e.checks?.releaseSigningConfigured||!e.checks?.sha256Matches) process.exit(1); console.log('direct signed APK path verified')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Factory-v05-Direct-APK-Proof-${{ github.run_number }}
+          path: evidence/factory-v5-direct-apk-proof.json
+          if-no-files-found: error
+          retention-days: 30
