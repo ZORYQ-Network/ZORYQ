@@ -1,6 +1,6 @@
 import http from 'node:http';
 import {URL} from 'node:url';
-import {MobileNodeProtocol,ZORYQ_CHAIN_ID,registrationPayload} from './mobile-node.mjs';
+import {MobileNodeProtocol,ZORYQ_CHAIN_ID,registrationPayload,heartbeatPayload} from './mobile-node.mjs';
 
 const PORT=Number(process.env.PORT||8080);
 const ZEROX_API_KEY=String(process.env.ZEROX_API_KEY||'').trim();
@@ -69,6 +69,12 @@ async function handleMobileNode(req,res,u){
   if(req.method==='POST'&&u.pathname==='/mobile-node/proof'){
    const b=await readJson(req);const result=await mobileProtocol.submitProof(b);send(res,200,result);return true;
   }
+  if(req.method==='POST'&&u.pathname==='/mobile-node/heartbeat-challenge'){
+   const b=await readJson(req);const result=mobileProtocol.heartbeatChallenge(String(b.nodeId||''));send(res,200,{ok:true,...result});return true;
+  }
+  if(req.method==='POST'&&u.pathname==='/mobile-node/heartbeat'){
+   const b=await readJson(req);const result=mobileProtocol.submitHeartbeat(b);send(res,200,result);return true;
+  }
   if(req.method==='GET'&&u.pathname==='/mobile-node/status'){
    const nodeId=String(u.searchParams.get('nodeId')||'');send(res,200,mobileProtocol.status(nodeId));return true;
   }
@@ -116,7 +122,7 @@ async function getQuote(args){
 const server=http.createServer(async(req,res)=>{
  if(req.method==='OPTIONS')return send(res,204,{});
  const u=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`);
- if(req.method==='GET'&&u.pathname==='/health')return send(res,configured()?200:503,{ok:configured(),service:'zoryq-wallet-swap-backend',providerPreference:ZEROX_API_KEY.length>10?'0x-then-kyber':'kyberswap-public',feeBps:FEE_BPS,treasury:ADDRESS.test(TREASURY)?TREASURY:null,treasuryConfigured:ADDRESS.test(TREASURY),zeroXApiConfigured:ZEROX_API_KEY.length>10,kyberPublicConfigured:true,supportedChainIds:[...SUPPORTED],protection:{limitPerMinute:LIMIT_PER_MINUTE,maxInflight:MAX_INFLIGHT},mobileNode:{protocol:'zoryq-mobile-node-v1',chainId:ZORYQ_CHAIN_ID,xpIssuance:'verified-proof-only',heartbeatAwardsXp:false,stateFileConfigured:Boolean(MOBILE_STATE_FILE)}});
+ if(req.method==='GET'&&u.pathname==='/health')return send(res,configured()?200:503,{ok:configured(),service:'zoryq-wallet-swap-backend',providerPreference:ZEROX_API_KEY.length>10?'0x-then-kyber':'kyberswap-public',feeBps:FEE_BPS,treasury:ADDRESS.test(TREASURY)?TREASURY:null,treasuryConfigured:ADDRESS.test(TREASURY),zeroXApiConfigured:ZEROX_API_KEY.length>10,kyberPublicConfigured:true,supportedChainIds:[...SUPPORTED],protection:{limitPerMinute:LIMIT_PER_MINUTE,maxInflight:MAX_INFLIGHT},mobileNode:{protocol:'zoryq-mobile-node-v1',chainId:ZORYQ_CHAIN_ID,xpIssuance:'verified-proof-only',heartbeatAwardsXp:false,signedHeartbeat:true,stateFileConfigured:Boolean(MOBILE_STATE_FILE)}});
  if(await handleMobileNode(req,res,u))return;
  if(req.method==='POST'&&u.pathname==='/quote'){
   if(!configured())return send(res,503,{ok:false,error:'SWAP_BACKEND_NOT_CONFIGURED'});
