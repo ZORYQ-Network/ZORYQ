@@ -1,0 +1,1 @@
+Android integration will use a visible foreground-service model for long-running witness activity where required by the platform, with user-controlled start/stop and conservative default intervals.

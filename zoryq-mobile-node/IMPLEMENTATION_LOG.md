@@ -1,0 +1,1 @@
+2026-09-12: Created feature branch, witness verification core, Android project, foreground witness service, install UI, battery-mode model, TLS-only policy, APK CI/release workflow, PR #56 and rollout issue #57.
