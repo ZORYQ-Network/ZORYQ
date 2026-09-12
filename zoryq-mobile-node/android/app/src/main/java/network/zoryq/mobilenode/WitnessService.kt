@@ -2,6 +2,7 @@ package network.zoryq.mobilenode
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.Build
@@ -25,6 +26,7 @@ class WitnessService : Service() {
     companion object {
         const val ACTION_START = "network.zoryq.mobilenode.START"
         const val ACTION_STOP = "network.zoryq.mobilenode.STOP"
+        const val ACTION_PAUSE = "network.zoryq.mobilenode.PAUSE"
         private const val CHANNEL = "zoryq_mobile_node"
         private const val NOTIFICATION_ID = 5919065
         private const val RPC = "https://zoryq-evm-node-live-production.up.railway.app/rpc"
@@ -33,6 +35,7 @@ class WitnessService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO)
     private var witnessJob: Job? = null
+    private val nodeIdentity = NodeIdentity()
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(12, TimeUnit.SECONDS)
@@ -46,10 +49,23 @@ class WitnessService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopWitness()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_STOP -> {
+                stopWitness("Stopped")
+                return START_NOT_STICKY
+            }
+            ACTION_PAUSE -> {
+                stopWitness("Paused")
+                return START_NOT_STICKY
+            }
         }
+
+        val identity = nodeIdentity.publicIdentity()
+        getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE).edit()
+            .putString("nodeId", identity.nodeId)
+            .putBoolean("nodeKeyHardwareBacked", identity.hardwareBacked)
+            .apply()
+
         startForeground(NOTIFICATION_ID, notification("Starting witness verification…"))
         startWitness()
         return START_STICKY
@@ -95,11 +111,12 @@ class WitnessService : Service() {
         }
     }
 
-    private fun stopWitness() {
+    private fun stopWitness(state: String) {
         witnessJob?.cancel()
+        witnessJob = null
         getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE).edit()
             .putBoolean("running", false)
-            .putString("state", "Stopped")
+            .putString("state", state)
             .apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -137,16 +154,27 @@ class WitnessService : Service() {
         }
     }
 
-    private fun notification(text: String) = NotificationCompat.Builder(this, CHANNEL)
-        .setSmallIcon(android.R.drawable.stat_notify_sync)
-        .setContentTitle("ZORYQ Mobile Node")
-        .setContentText(text)
-        .setOngoing(true)
-        .setOnlyAlertOnce(true)
-        .build()
+    private fun notification(text: String): android.app.Notification {
+        val pauseIntent = Intent(this, WitnessService::class.java).setAction(ACTION_PAUSE)
+        val pausePendingIntent = PendingIntent.getService(
+            this,
+            5919065,
+            pauseIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        return NotificationCompat.Builder(this, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentTitle("ZORYQ Mobile Node")
+            .setContentText(text)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .addAction(android.R.drawable.ic_media_pause, "Pause", pausePendingIntent)
+            .build()
+    }
 
     override fun onDestroy() {
         witnessJob?.cancel()
+        witnessJob = null
         super.onDestroy()
     }
 }
