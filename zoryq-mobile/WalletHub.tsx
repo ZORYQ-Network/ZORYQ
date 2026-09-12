@@ -9,7 +9,7 @@ export default function WalletHub(){
  return <View style={s.root}>
   <View style={s.switcher}>
    <Pressable onPress={()=>setMode('zoryq')} style={[s.tab,mode==='zoryq'&&s.tabOn]}><Text style={[s.tabText,mode==='zoryq'&&s.tabTextOn]}>ZORYQ</Text></Pressable>
-   <Pressable onPress={()=>setMode('multi')} style={[s.tab,mode==='multi'&&s.tabOn]}><Text style={[s.tabText,mode==='multi'&&s.tabTextOn]}>MULTICHAIN</Text></Pressable>
+   <Pressable onPress={()=>setMode('multi')} style={[s.tab,mode==='multi'&&s.tabOn]}><Text style={[s.tabText,mode==='multi'&&s.tabTextOn]}>SWAP EVM</Text></Pressable>
    <Pressable onPress={()=>setMode('quests')} style={[s.tab,mode==='quests'&&s.tabOn]}><Text style={[s.tabText,mode==='quests'&&s.tabTextOn]}>XP QUESTS</Text></Pressable>
   </View>
   <View style={s.body}>{mode==='zoryq'?<WalletCore/>:mode==='multi'?<MultiChainWallet/>:<XGrowthQuests/>}</View>
