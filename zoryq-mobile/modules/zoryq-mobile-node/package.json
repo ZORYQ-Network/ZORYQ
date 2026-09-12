@@ -2,7 +2,7 @@
   "name": "zoryq-mobile-node",
   "version": "0.1.0",
   "private": true,
-  "main": "src/ZoryqMobileNodeModule.ts",
+  "main": "src/index.ts",
   "peerDependencies": {
     "expo": "*"
   }
