@@ -25,7 +25,7 @@ jobs:
           test -f zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           grep -Fq '6000.3.15f1' zoryq-games-unity/ProjectSettings/ProjectVersion.txt
           test -f zoryq-games-unity/Assets/ZORYQ/Core/ZoryqPlayBridge.cs
-          for f in RushCityGameManager RushCityPlayerController RushCityCharacterAnimator RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRunModeDirector RushCityProgression RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
+          for f in RushCityGameManager RushCityPlayerController RushCityCharacterAnimator RushCityTrackManager RushCityCameraController RushCityProceduralCity RushCityQualityManager RushCityMissionDirector RushCityPowerUp RushCityTelemetry RushCityChaseDirector RushCityNearMissZone RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityLiveOpsConfig RushCityRunModeDirector RushCityProgression RushCityRouteDirector RushCityRouteChoiceZone RushCityGameEvents RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityResultPresenter RushCityVfxDirector RushCityEnvironmentDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityWorldEventHazard; do
             test -f "$ROOT/Scripts/$f.cs"
           done
           test -f $ROOT/Editor/RushCitySceneBuilder.cs
@@ -120,16 +120,18 @@ jobs:
           grep -Fq 'WorldEventStarted' "$TELEMETRY"
           grep -Fq 'WorldEventCompleted' "$TELEMETRY"
 
-      - name: Verify presentation game feel and character adapter
+      - name: Verify presentation game feel character and results
         run: |
           ROOT=zoryq-games-unity/Assets/ZORYQ/RushCity/Scripts
           CAMERA=$ROOT/RushCityCameraController.cs
           PRESENT=$ROOT/RushCityPresentationDirector.cs
           AUDIO=$ROOT/RushCityAudioDirector.cs
           HUD=$ROOT/RushCityHudPresenter.cs
+          RESULT=$ROOT/RushCityResultPresenter.cs
           VFX=$ROOT/RushCityVfxDirector.cs
           ENV=$ROOT/RushCityEnvironmentDirector.cs
           CHARACTER=$ROOT/RushCityCharacterAnimator.cs
+          GAME=$ROOT/RushCityGameManager.cs
           grep -Fq 'Impulse' "$CAMERA"
           grep -Fq 'FovKick' "$CAMERA"
           grep -Fq 'RollKick' "$CAMERA"
@@ -144,6 +146,11 @@ jobs:
           grep -Fq 'EventBar' "$HUD"
           grep -Fq 'RushCityProgression.Instance' "$HUD"
           grep -Fq 'RushCityRunModeDirector.Instance' "$HUD"
+          grep -Fq 'RUN COMPLETE' "$RESULT"
+          grep -Fq 'RETURNING TO ZORYQ PLAY' "$RESULT"
+          grep -Fq 'RushCityGameEvents.RunEnded' "$RESULT"
+          grep -Fq 'resultScreenSeconds' "$GAME"
+          grep -Fq 'WaitForSecondsRealtime' "$GAME"
           grep -Fq 'ParticleSystem' "$VFX"
           grep -Fq 'WorldEventChanged' "$VFX"
           grep -Fq 'StormActive' "$ENV"
@@ -155,7 +162,7 @@ jobs:
       - name: Verify scene assembles production systems
         run: |
           SCENE=zoryq-games-unity/Assets/ZORYQ/RushCity/Editor/RushCitySceneBuilder.cs
-          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRunModeDirector RushCityProgression RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityVfxDirector RushCityChaseDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityCharacterAnimator; do
+          for marker in RushCityQualityManager RushCityTelemetry RushCityLiveOpsConfig RushCityRunModeDirector RushCityProgression RushCityRouteDirector RushCityEnvironmentDirector RushCityMissionDirector RushCityGhostRecorder RushCityGhostPlayback RushCityGhostRaceManager RushCityPresentationDirector RushCityAudioDirector RushCityHudPresenter RushCityResultPresenter RushCityVfxDirector RushCityChaseDirector RushCityWorldEventDirector RushCityWorldEventGameplay RushCityCharacterAnimator; do
             grep -Fq "$marker" "$SCENE"
           done
           grep -Fq 'Runner_GameplayRoot' "$SCENE"
