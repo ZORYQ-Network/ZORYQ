@@ -23,18 +23,22 @@ export type MobileNodeStatus = {
   lastLocalProofXp: number;
 };
 
+export type MobileNodeIdentity = {
+  nodeId: string;
+  publicKeyBase64: string;
+  hardwareBacked: boolean;
+  algorithm: string;
+  walletKeyReused: false;
+};
+
 type NativeModule = {
   start(): Promise<MobileNodeStatus>;
   pause(): Promise<MobileNodeStatus>;
   stop(): Promise<MobileNodeStatus>;
   getStatus(): Promise<MobileNodeStatus>;
-  getNodeIdentity(): Promise<{
-    nodeId: string;
-    publicKeyBase64: string;
-    hardwareBacked: boolean;
-    algorithm: string;
-    walletKeyReused: false;
-  }>;
+  getNodeIdentity(): Promise<MobileNodeIdentity>;
+  signRegistrationChallenge(challenge: string): Promise<string>;
+  signProof(challenge: string, nodeId: string, bestBlock: number, checkpoint: string, votes: number): Promise<string>;
   setPolicy(mode: NodeMode, minBatteryPct: number, chargingOnly: boolean, wifiOnly: boolean, mobileDataAllowed: boolean): Promise<MobileNodeStatus>;
 };
 
