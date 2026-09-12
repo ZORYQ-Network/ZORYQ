@@ -22,10 +22,11 @@ window.ZORYQ_CONFIG={
   // Empty means swaps remain available but NO ZORIQ integrator fee is claimed.
   lifiIntegrator:'',
   lifiFee:0.005,
-  // A rede só fica habilitada no Social Pay quando o router realmente estiver
-  // implantado e o endereço for preenchido aqui. null = bloqueada por segurança.
+  // Social Pay: the ZORYQ Testnet router below was deployed and validated by CI
+  // against chain 5919065, Treasury and feeBps=50. Mainnets stay null until
+  // their own router deployment is verified on the target chain.
   socialPayRouters:{
-    '5919065':null,
+    '5919065':'0xBa50D695D9d82f275973d332a75b16434Bc86344',
     '1':null,
     '8453':null,
     '42161':null,
