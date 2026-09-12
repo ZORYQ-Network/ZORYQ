@@ -1,0 +1,42 @@
+name: ZORYQ Factory v0.3 Live Proof
+
+on:
+  pull_request:
+    paths:
+      - 'tools/factory-v03-live-proof/**'
+      - '.github/workflows/factory-v03-live-proof.yml'
+  push:
+    branches:
+      - zoryq-evm-testnet-node
+    paths:
+      - 'zoryq-evm-node/factory-compiler.mjs'
+      - 'zoryq-evm-node/factory-cloud.mjs'
+      - 'zoryq-evm-node/factory-cloud-preload.mjs'
+      - 'tools/factory-v03-live-proof/**'
+      - '.github/workflows/factory-v03-live-proof.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run public Factory v0.3 proof
+        run: |
+          mkdir -p evidence
+          node tools/factory-v03-live-proof/prove.mjs | tee evidence/factory-v03-live-proof.json
+      - name: Validate evidence
+        run: node -e "const e=require('./evidence/factory-v03-live-proof.json'); if(e.checks?.compiler?.version!=='0.3'||!e.checks?.evolution?.vehicles||!e.checks?.evolution?.preservedData||e.checks?.cloud?.schema!==2) process.exit(1); console.log('Factory v0.3 live proof verified')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZORYQ-Factory-v0.3-Live-Proof-${{ github.run_number }}
+          path: evidence/factory-v03-live-proof.json
+          if-no-files-found: error
+          retention-days: 30
