@@ -1,0 +1,32 @@
+{
+  "schema": "zoryq-multi-operator-evidence/1.0",
+  "productionEvidence": false,
+  "chainId": 5919065,
+  "genesisSha256": "98cc8fd509be7822cd57c3999ee1c392d1f984580e145ee8b55db1092b80a5fd",
+  "operators": [
+    {
+      "operatorId": "external-operator-01",
+      "operatorControlledByCoreTeam": false,
+      "region": "region-a",
+      "validatorPublicKey": "<public-key>",
+      "p2pNodeId": "<p2p-node-id>",
+      "softwareCommit": "<40-char-commit>",
+      "observedAt": "YYYY-MM-DDTHH:mm:ss.sssZ",
+      "peerCount": 3,
+      "headHeight": 0,
+      "finalizedHeight": 0,
+      "finalizedHash": "0x...",
+      "restartRecoverySeconds": 0,
+      "independenceDeclaration": true,
+      "signature": "<operator-signature>"
+    }
+  ],
+  "tests": {
+    "producerLoss": false,
+    "partitionRecovery": false,
+    "restartRejoin": false,
+    "equivocationDetection": false,
+    "keyRotationRevocation": false
+  },
+  "claim": "NOT_DECENTRALIZED_UNTIL_ACCEPTANCE_MATRIX_PASSES"
+}
