@@ -164,8 +164,13 @@ jobs:
               exit 1
             fi
           }
-          check_marker 'Jogo da Velha'
-          check_marker 'ZORIQ MINI GAMES'
+          check_marker 'ZORYQ WALLET · GAME UNIVERSE'
+          check_marker 'Realm Rivals'
+          check_marker 'Battle Zone Heroes'
+          check_marker 'Rush City'
+          check_marker 'Wallet Quest'
+          check_marker 'Tycoon World'
+          check_marker 'ZQ é moeda de jogo'
           check_marker 'Alterar foto de perfil'
           check_marker 'Enviar cripto'
           check_marker 'APLICATIVOS'
