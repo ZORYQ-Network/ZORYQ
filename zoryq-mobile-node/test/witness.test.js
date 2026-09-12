@@ -4,7 +4,7 @@ import http from 'node:http';
 import { once } from 'node:events';
 import { verifyEndpoint, witnessRound } from '../src/witness.js';
 
-const GOOD_CHAIN = '0x5a5489'; // 5919065
+const GOOD_CHAIN = '0x5a5159'; // 5919065
 
 function block(number = 100, hash = '0xaaa') {
   return {
