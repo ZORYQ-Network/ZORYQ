@@ -1,0 +1,27 @@
+name: ZORYQ Factory v0.7 Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'zoryq-evm-node/factory-v7-ui-preload.mjs'
+      - 'zoryq-evm-node/server-with-factory.mjs'
+      - 'Dockerfile'
+      - '.github/workflows/factory-v07-smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify syntax and resilient behavior markers
+        run: |
+          node --check zoryq-evm-node/factory-v7-ui-preload.mjs
+          grep -Fq "factory-v7-ui-preload.mjs" zoryq-evm-node/server-with-factory.mjs
+          grep -Fq "factory-v7-ui-preload.mjs" Dockerfile
+          grep -Fq "retryable(e)" zoryq-evm-node/factory-v7-ui-preload.mjs
+          grep -Fq "e.status===502" zoryq-evm-node/factory-v7-ui-preload.mjs
+          grep -Fq ".cloud[hidden]{display:none!important}" zoryq-evm-node/factory-v7-ui-preload.mjs
+          grep -Fq "/factory/studio-v7" zoryq-evm-node/factory-v7-ui-preload.mjs
