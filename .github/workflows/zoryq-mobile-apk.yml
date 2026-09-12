@@ -140,6 +140,19 @@ jobs:
           grep -Fq 'ZoryqNodePackage()' "$MAIN"
           echo 'Persistent Mobile Node native integration verified.'
 
+      - name: Verify ZORYQ Play Android game bridge
+        run: |
+          GAME_NATIVE=$(find zoryq-mobile/android/app/src/main/java -name 'ZoryqGameBridgeNative.kt' | head -n 1)
+          MAIN=$(find zoryq-mobile/android/app/src/main/java -name 'MainApplication.kt' | head -n 1)
+          test -n "$GAME_NATIVE" && test -f "$GAME_NATIVE"
+          test -n "$MAIN" && test -f "$MAIN"
+          grep -Fq 'ZoryqGameBridge' "$GAME_NATIVE"
+          grep -Fq 'RushCityActivity' "$GAME_NATIVE"
+          grep -Fq 'GAME_ENGINE_UNAVAILABLE' "$GAME_NATIVE"
+          grep -Fq 'zoryq_play_result' "$GAME_NATIVE"
+          grep -Fq 'ZoryqGamePackage()' "$MAIN"
+          echo 'ZORYQ Play Android game bridge verified.'
+
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Build standalone release APK
