@@ -9,6 +9,7 @@
   "rewrites": [
     { "source": "/", "destination": "/home-v2.html" },
     { "source": "/start", "destination": "/start.html" },
+    { "source": "/autonomous", "destination": "/autonomous.html" },
     { "source": "/mobile-node", "destination": "/mobile-node.html" },
     { "source": "/download", "destination": "/mobile-node.html" },
     { "source": "/lab", "destination": "/testnet-lab.html" },
