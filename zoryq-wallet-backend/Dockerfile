@@ -3,11 +3,12 @@ WORKDIR /app
 COPY package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 COPY server.mjs ./server.mjs
+COPY mobile-node.mjs ./mobile-node.mjs
 COPY social.mjs ./social.mjs
 COPY media.mjs ./media.mjs
 COPY communities.mjs ./communities.mjs
 COPY messages.mjs ./messages.mjs
 COPY gateway.mjs ./gateway.mjs
-ENV NODE_ENV=production PORT=8080 SOCIAL_DATA_DIR=/data SOCIAL_MEDIA_DIR=/data/social-media COMMUNITY_DATA_DIR=/data MESSAGE_DATA_DIR=/data
+ENV NODE_ENV=production PORT=8080 SOCIAL_DATA_DIR=/data SOCIAL_MEDIA_DIR=/data/social-media COMMUNITY_DATA_DIR=/data MESSAGE_DATA_DIR=/data ZORYQ_MOBILE_STATE_FILE=/data/zoryq-mobile-node-state.jsonl
 EXPOSE 8080
 CMD ["node","/app/gateway.mjs"]
