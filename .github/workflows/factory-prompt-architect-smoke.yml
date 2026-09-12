@@ -1,0 +1,44 @@
+name: ZORYQ Factory Prompt Architect Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'Dockerfile'
+      - 'zoryq-evm-node/server-with-factory.mjs'
+      - 'zoryq-evm-node/factory-prompt-architect.mjs'
+      - 'zoryq-evm-node/factory-prompt-architect.test.mjs'
+      - 'zoryq-evm-node/factory-prompt-ui-preload.mjs'
+      - '.github/workflows/factory-prompt-architect-smoke.yml'
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'Dockerfile'
+      - 'zoryq-evm-node/server-with-factory.mjs'
+      - 'zoryq-evm-node/factory-prompt-architect.mjs'
+      - 'zoryq-evm-node/factory-prompt-ui-preload.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax
+        run: |
+          node --check zoryq-evm-node/factory-prompt-architect.mjs
+          node --check zoryq-evm-node/factory-prompt-ui-preload.mjs
+          node --check zoryq-evm-node/server-with-factory.mjs
+      - name: Prompt architect tests
+        run: node --test zoryq-evm-node/factory-prompt-architect.test.mjs
+      - name: Verify image wiring
+        run: |
+          grep -Fq 'factory-prompt-ui-preload.mjs' Dockerfile
+          grep -Fq 'factory-prompt-architect.mjs' Dockerfile
+          grep -Fq "import './factory-prompt-ui-preload.mjs'" zoryq-evm-node/server-with-factory.mjs
