@@ -76,6 +76,11 @@ class WitnessService : Service() {
             return
         }
         val publicKey = NodeIdentity.publicKeyBase64()
+        if (!prefs.contains("nodeMode")) prefs.edit().putString("nodeMode", NodeMode.BALANCED.name).apply()
+        if (!prefs.contains("batteryMinimum")) prefs.edit().putInt("batteryMinimum", 20).apply()
+        if (!prefs.contains("allowMobileData")) prefs.edit().putBoolean("allowMobileData", true).apply()
+        if (!prefs.contains("wifiOnly")) prefs.edit().putBoolean("wifiOnly", false).apply()
+        if (!prefs.contains("chargingOnly")) prefs.edit().putBoolean("chargingOnly", false).apply()
         prefs.edit()
             .putBoolean("running", true)
             .putBoolean("paused", false)
@@ -89,14 +94,20 @@ class WitnessService : Service() {
             var registered = false
             while (isActive) {
                 val resourceDecision = ResourceGovernor.evaluate(this@WitnessService)
+                prefs.edit()
+                    .putString("effectiveNodeMode", resourceDecision.mode.name)
+                    .putLong("effectiveIntervalMs", resourceDecision.intervalMs)
+                    .apply()
+
                 if (!resourceDecision.allowed) {
                     prefs.edit()
                         .putString("lastCheck", Instant.now().toString())
                         .putString("state", resourceDecision.reason)
+                        .putString("proofStatus", "No XP • ${resourceDecision.reason}")
                         .apply()
                     getSystemService(NotificationManager::class.java)
                         .notify(NOTIFICATION_ID, notification(resourceDecision.reason))
-                    delay(60_000)
+                    delay(resourceDecision.intervalMs)
                     continue
                 }
 
@@ -143,10 +154,10 @@ class WitnessService : Service() {
                         .putLong("lastXpAwarded", receipt.xpAwarded)
                         .putLong("totalXp", receipt.totalXp)
                         .putString("proofStatus", "Server verified • +${receipt.xpAwarded} XP")
-                        .putString("state", "Verified • block $blockNumber")
+                        .putString("state", "${resourceDecision.mode.name} • verified block $blockNumber")
                         .apply()
                     getSystemService(NotificationManager::class.java)
-                        .notify(NOTIFICATION_ID, notification("Verified ZORYQ block $blockNumber • +${receipt.xpAwarded} XP"))
+                        .notify(NOTIFICATION_ID, notification("${resourceDecision.mode.name} • verified block $blockNumber • +${receipt.xpAwarded} XP"))
                 } catch (e: Exception) {
                     prefs.edit()
                         .putString("lastCheck", Instant.now().toString())
@@ -156,7 +167,7 @@ class WitnessService : Service() {
                     getSystemService(NotificationManager::class.java)
                         .notify(NOTIFICATION_ID, notification("Verification warning • no XP"))
                 }
-                delay(30_000)
+                delay(resourceDecision.intervalMs)
             }
         }
     }
@@ -166,6 +177,9 @@ class WitnessService : Service() {
         return when {
             message.contains("CHALLENGE_ALREADY_USED") -> "challenge already used"
             message.contains("CHALLENGE_EXPIRED") -> "challenge expired"
+            message.contains("TASK_CHALLENGE_PENDING") -> "challenge already pending"
+            message.contains("TASK_CHALLENGE_COOLDOWN") -> "challenge cooldown active"
+            message.contains("XP_RATE_LIMITED") -> "XP rate limit reached"
             message.contains("INVALID_NODE_SIGNATURE") -> "signature rejected"
             message.contains("BLOCK_PROOF_MISMATCH") -> "block proof rejected"
             message.contains("NODE_NOT_REGISTERED") -> "node registration required"
@@ -180,6 +194,7 @@ class WitnessService : Service() {
             .putBoolean("running", false)
             .putBoolean("paused", true)
             .putBoolean("userEnabled", false)
+            .putString("nodeMode", NodeMode.PAUSED.name)
             .putString("state", "Paused by user")
             .apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
