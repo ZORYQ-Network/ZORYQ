@@ -14,10 +14,12 @@ namespace Zoryq.Play.RushCity
         void Start(){StartCoroutine(LoadPreviousGhost());}
 
         public void Configure(RushCityGhostPlayback ghostPlayback){playback=ghostPlayback;}
+        bool EnabledByLiveOps=>!RushCityLiveOpsConfig.Instance||RushCityLiveOpsConfig.Instance.Current.ghostRaceEnabled;
 
         IEnumerator LoadPreviousGhost()
         {
             yield return null;
+            if(!EnabledByLiveOps){playback?.StopGhost();yield break;}
             if(!playback)playback=FindObjectOfType<RushCityGhostPlayback>();
             var json=PlayerPrefs.GetString(BestGhostKey,string.Empty);
             if(!string.IsNullOrEmpty(json))playback?.LoadJson(json);
@@ -25,6 +27,7 @@ namespace Zoryq.Play.RushCity
 
         public void FinishAndStoreCurrentRun()
         {
+            if(!EnabledByLiveOps)return;
             var gm=RushCityGameManager.Instance;
             var recorder=RushCityGhostRecorder.Instance;
             if(!gm||!recorder)return;
@@ -40,6 +43,7 @@ namespace Zoryq.Play.RushCity
 
         public bool LoadExternalGhost(string json)
         {
+            if(!EnabledByLiveOps)return false;
             if(!playback)playback=FindObjectOfType<RushCityGhostPlayback>();
             return playback&&playback.LoadJson(json);
         }
