@@ -70,9 +70,16 @@ jobs:
           grep -q "MessagesApp" zoryq-mobile/WalletApp.tsx
           grep -q "MobileNodeApp" zoryq-mobile/WalletApp.tsx
           grep -q "CHAIN_ID=5919065" zoryq-mobile/MobileNodeApp.tsx
-          grep -q "eth_chainId" zoryq-mobile/MobileNodeApp.tsx
-          grep -q "eth_getBlockByNumber" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "nativeMobileNodeAvailable" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "startNativeMobileNode" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "Heartbeat XP" zoryq-mobile/MobileNodeApp.tsx
           grep -q "não é apresentado como participante do consenso" zoryq-mobile/MobileNodeApp.tsx
+          grep -q "withZoryqMobileNode" zoryq-mobile/app.json
+          grep -q "MobileDataMeter.kt" zoryq-mobile/plugins/withZoryqMobileNode.js
+          grep -q "AndroidKeyStore" zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/NodeIdentity.kt
+          grep -q "CHALLENGE_ALREADY_USED" zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          grep -q "HEARTBEAT_MUST_AWARD_ZERO_XP" zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/WitnessService.kt
+          grep -q "dailyMobileDataLimitBytes" zoryq-mobile-node/android/app/src/main/java/network/zoryq/mobilenode/ResourceGovernor.kt
           grep -q "signTypedData" zoryq-mobile/UnifiedSocialApp.tsx
           grep -q "5919065" zoryq-mobile/UnifiedSocialApp.tsx
           grep -q "/v1/profile/registration-challenge" zoryq-mobile/UnifiedSocialApp.tsx
@@ -114,6 +121,26 @@ jobs:
         env:
           CI: '1'
         run: npx expo prebuild --platform android --clean
+      - name: Prove native Mobile Node embedding
+        run: |
+          set -euo pipefail
+          NODE_DIR="zoryq-mobile/android/app/src/main/java/network/zoryq/mobilenode"
+          BRIDGE_DIR="zoryq-mobile/android/app/src/main/java/com/zoryq/wallet/mobilenodebridge"
+          test -f "$NODE_DIR/WitnessService.kt"
+          test -f "$NODE_DIR/NodeIdentity.kt"
+          test -f "$NODE_DIR/MobileNodeApi.kt"
+          test -f "$NODE_DIR/ResourceGovernor.kt"
+          test -f "$NODE_DIR/MobileDataMeter.kt"
+          test -f "$NODE_DIR/BootReceiver.kt"
+          test -f "$BRIDGE_DIR/ZoryqMobileNodeModule.kt"
+          test -f "$BRIDGE_DIR/ZoryqMobileNodePackage.kt"
+          grep -q "AndroidKeyStore" "$NODE_DIR/NodeIdentity.kt"
+          grep -q "CHAIN_ID = 5919065L" "$NODE_DIR/WitnessService.kt"
+          grep -q "HEARTBEAT_MUST_AWARD_ZERO_XP" "$NODE_DIR/WitnessService.kt"
+          grep -q "daily mobile data limit reached" "$NODE_DIR/ResourceGovernor.kt"
+          grep -q "ZoryqMobileNodePackage" zoryq-mobile/android/app/src/main/java/com/zoryq/wallet/MainApplication.kt
+          grep -q "network.zoryq.mobilenode.WitnessService" zoryq-mobile/android/app/src/main/AndroidManifest.xml
+          grep -q "android.permission.FOREGROUND_SERVICE_DATA_SYNC" zoryq-mobile/android/app/src/main/AndroidManifest.xml
       - uses: gradle/actions/setup-gradle@v4
       - name: Build standalone release APK
         working-directory: zoryq-mobile/android
