@@ -2,6 +2,7 @@ package network.zoryq.mobilenode
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.Build
@@ -18,12 +19,14 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 class WitnessService : Service() {
     companion object {
         const val ACTION_START = "network.zoryq.mobilenode.START"
+        const val ACTION_PAUSE = "network.zoryq.mobilenode.PAUSE"
         const val ACTION_STOP = "network.zoryq.mobilenode.STOP"
         private const val CHANNEL = "zoryq_mobile_node"
         private const val NOTIFICATION_ID = 5919065
@@ -46,11 +49,17 @@ class WitnessService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopWitness()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_PAUSE -> {
+                pauseWitness()
+                return START_NOT_STICKY
+            }
+            ACTION_STOP -> {
+                stopWitness()
+                return START_NOT_STICKY
+            }
         }
-        startForeground(NOTIFICATION_ID, notification("Starting witness verification…"))
+        startForeground(NOTIFICATION_ID, notification("Starting secure witness verification…"))
         startWitness()
         return START_STICKY
     }
@@ -58,10 +67,37 @@ class WitnessService : Service() {
     private fun startWitness() {
         if (witnessJob?.isActive == true) return
         val prefs = getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE)
-        prefs.edit().putBoolean("running", true).apply()
+        val nodeId = try {
+            NodeIdentity.nodeId()
+        } catch (e: Exception) {
+            prefs.edit().putBoolean("running", false).putString("state", "Node identity unavailable").apply()
+            getSystemService(NotificationManager::class.java)
+                .notify(NOTIFICATION_ID, notification("Node identity unavailable"))
+            stopSelf()
+            return
+        }
+        prefs.edit()
+            .putBoolean("running", true)
+            .putBoolean("paused", false)
+            .putString("nodeId", nodeId)
+            .putString("state", "Starting")
+            .apply()
+
         witnessJob = scope.launch {
             var previousBlock = prefs.getLong("lastBlock", -1)
             while (isActive) {
+                val resourceDecision = ResourceGovernor.evaluate(this@WitnessService)
+                if (!resourceDecision.allowed) {
+                    prefs.edit()
+                        .putString("lastCheck", Instant.now().toString())
+                        .putString("state", resourceDecision.reason)
+                        .apply()
+                    getSystemService(NotificationManager::class.java)
+                        .notify(NOTIFICATION_ID, notification(resourceDecision.reason))
+                    delay(60_000)
+                    continue
+                }
+
                 try {
                     val chainHex = rpc("eth_chainId", "[]")
                     val chainId = chainHex.removePrefix("0x").toLong(16)
@@ -70,18 +106,39 @@ class WitnessService : Service() {
                     val block = rpcObject("eth_getBlockByNumber", "[\"latest\",false]")
                     val numberHex = block.getString("number")
                     val blockNumber = numberHex.removePrefix("0x").toLong(16)
-                    require(block.has("hash") && block.getString("hash").startsWith("0x")) { "Missing block hash" }
-                    require(block.has("parentHash") && block.getString("parentHash").startsWith("0x")) { "Missing parent hash" }
+                    val blockHash = block.getString("hash")
+                    val parentHash = block.getString("parentHash")
+                    require(blockHash.startsWith("0x") && blockHash.length == 66) { "Invalid block hash" }
+                    require(parentHash.startsWith("0x") && parentHash.length == 66) { "Invalid parent hash" }
                     require(previousBlock < 0 || blockNumber >= previousBlock) { "Block height moved backwards" }
+
+                    val timestamp = Instant.now().toString()
+                    val proofPayload = listOf(
+                        "zoryq-mobile-proof-v1",
+                        nodeId,
+                        CHAIN_ID.toString(),
+                        blockNumber.toString(),
+                        blockHash,
+                        parentHash,
+                        timestamp
+                    ).joinToString("|")
+                    val signature = NodeIdentity.sign(proofPayload.toByteArray(Charsets.UTF_8))
+                    val proofHash = MessageDigest.getInstance("SHA-256")
+                        .digest(proofPayload.toByteArray(Charsets.UTF_8))
+                        .joinToString("") { "%02x".format(it) }
 
                     previousBlock = blockNumber
                     prefs.edit()
                         .putLong("lastBlock", blockNumber)
-                        .putString("lastCheck", Instant.now().toString())
+                        .putString("lastBlockHash", blockHash)
+                        .putString("lastCheck", timestamp)
+                        .putString("lastLocalProofHash", proofHash)
+                        .putString("lastLocalProofSignature", signature)
+                        .putString("proofStatus", "Locally signed • not server-verified • no XP")
                         .putString("state", "Verified • block $blockNumber")
                         .apply()
                     val nm = getSystemService(NotificationManager::class.java)
-                    nm.notify(NOTIFICATION_ID, notification("Verified ZORYQ block $blockNumber"))
+                    nm.notify(NOTIFICATION_ID, notification("Verified ZORYQ block $blockNumber • signed locally"))
                 } catch (e: Exception) {
                     prefs.edit()
                         .putString("lastCheck", Instant.now().toString())
@@ -95,10 +152,22 @@ class WitnessService : Service() {
         }
     }
 
+    private fun pauseWitness() {
+        witnessJob?.cancel()
+        getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE).edit()
+            .putBoolean("running", false)
+            .putBoolean("paused", true)
+            .putString("state", "Paused by user")
+            .apply()
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
     private fun stopWitness() {
         witnessJob?.cancel()
         getSharedPreferences("zoryq_mobile_node", MODE_PRIVATE).edit()
             .putBoolean("running", false)
+            .putBoolean("paused", false)
             .putString("state", "Stopped")
             .apply()
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -137,13 +206,29 @@ class WitnessService : Service() {
         }
     }
 
-    private fun notification(text: String) = NotificationCompat.Builder(this, CHANNEL)
-        .setSmallIcon(android.R.drawable.stat_notify_sync)
-        .setContentTitle("ZORYQ Mobile Node")
-        .setContentText(text)
-        .setOngoing(true)
-        .setOnlyAlertOnce(true)
-        .build()
+    private fun notification(text: String): android.app.Notification {
+        val pauseIntent = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, WitnessService::class.java).setAction(ACTION_PAUSE),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val stopIntent = PendingIntent.getService(
+            this,
+            2,
+            Intent(this, WitnessService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        return NotificationCompat.Builder(this, CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentTitle("ZORYQ Mobile Node")
+            .setContentText(text)
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .addAction(0, "Pause", pauseIntent)
+            .addAction(0, "Stop", stopIntent)
+            .build()
+    }
 
     override fun onDestroy() {
         witnessJob?.cancel()
