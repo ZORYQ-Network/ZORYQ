@@ -1,4 +1,4 @@
-name: ZORYQ Games Native
+name: ZORYQ Mobile Native
 
 on:
   workflow_dispatch:
@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: zoryq-games-native-${{ github.ref }}
+  group: zoryq-mobile-native-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -42,23 +42,26 @@ jobs:
         working-directory: mobile-games-native
         run: gradle :runtime:testDebugUnitTest --stacktrace
 
-      - name: Build runtime AAR and demo APK
+      - name: Build runtime, games demo and Wallet migration host
         working-directory: mobile-games-native
-        run: gradle :runtime:assembleDebug :demo:assembleDebug --stacktrace
+        run: gradle :runtime:assembleDebug :demo:assembleDebug :wallet-host:assembleDebug --stacktrace
 
       - name: Verify artifacts
         run: |
           test -f mobile-games-native/runtime/build/outputs/aar/runtime-debug.aar
           test -f mobile-games-native/demo/build/outputs/apk/debug/demo-debug.apk
+          test -f mobile-games-native/wallet-host/build/outputs/apk/debug/wallet-host-debug.apk
           sha256sum mobile-games-native/runtime/build/outputs/aar/runtime-debug.aar
           sha256sum mobile-games-native/demo/build/outputs/apk/debug/demo-debug.apk
+          sha256sum mobile-games-native/wallet-host/build/outputs/apk/debug/wallet-host-debug.apk
 
-      - name: Upload native games artifacts
+      - name: Upload native mobile artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: zoryq-games-native-${{ github.run_number }}
+          name: zoryq-mobile-native-${{ github.run_number }}
           path: |
             mobile-games-native/runtime/build/outputs/aar/runtime-debug.aar
             mobile-games-native/demo/build/outputs/apk/debug/demo-debug.apk
+            mobile-games-native/wallet-host/build/outputs/apk/debug/wallet-host-debug.apk
           if-no-files-found: error
           retention-days: 30
