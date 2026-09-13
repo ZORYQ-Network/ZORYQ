@@ -1,0 +1,67 @@
+name: ZORYQ Command Center Guard
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'command-center/**'
+      - 'docs/ARCHITECTURE.md'
+      - 'docs/PRODUCT_MAP.md'
+      - 'docs/NETWORK_STATUS.md'
+      - 'docs/MAINNET_READINESS.md'
+      - 'docs/WALLET_ARCHITECTURE.md'
+      - 'docs/SOCIAL_ARCHITECTURE.md'
+      - 'docs/GAMES_ARCHITECTURE.md'
+      - 'docs/SECURITY_MODEL.md'
+      - '.github/workflows/command-center.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'command-center/**'
+      - 'docs/ARCHITECTURE.md'
+      - 'docs/PRODUCT_MAP.md'
+      - 'docs/NETWORK_STATUS.md'
+      - 'docs/MAINNET_READINESS.md'
+      - 'docs/WALLET_ARCHITECTURE.md'
+      - 'docs/SOCIAL_ARCHITECTURE.md'
+      - 'docs/GAMES_ARCHITECTURE.md'
+      - 'docs/SECURITY_MODEL.md'
+      - '.github/workflows/command-center.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate status registry
+        run: |
+          set -euo pipefail
+          jq -e '.schemaVersion == 1' command-center/status.json >/dev/null
+          jq -e '.network.chainId == 5919065' command-center/status.json >/dev/null
+          jq -e '[.layers[].items[].status] | all(. == "PROVEN" or . == "WORKING" or . == "NOT_PROVEN")' command-center/status.json >/dev/null
+          jq -e '[.layers[].items[]] | length > 0' command-center/status.json >/dev/null
+
+      - name: Require source-of-truth documents
+        run: |
+          set -euo pipefail
+          for file in \
+            docs/ARCHITECTURE.md \
+            docs/PRODUCT_MAP.md \
+            docs/NETWORK_STATUS.md \
+            docs/MAINNET_READINESS.md \
+            docs/WALLET_ARCHITECTURE.md \
+            docs/SOCIAL_ARCHITECTURE.md \
+            docs/GAMES_ARCHITECTURE.md \
+            docs/SECURITY_MODEL.md \
+            command-center/index.html; do
+            test -s "$file"
+          done
+
+      - name: Prevent accidental mainnet claim
+        run: |
+          set -euo pipefail
+          jq -e '[.layers[].items[] | select(.name == "Mainnet readiness")][0].status == "NOT_PROVEN"' command-center/status.json >/dev/null
