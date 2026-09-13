@@ -66,9 +66,13 @@ async function main() {
   const safeCapability = await optionalBlockTag('safe');
   const finalizedCapability = await optionalBlockTag('finalized');
   const acceptanceLatencies = [], inclusionAfterAcceptanceLatencies = [], endToEndInclusionLatencies = [], samples = [];
+  // Fetch the canonical pending nonce once and advance it explicitly. This avoids
+  // provider-side nonce cache races while keeping every sample sequential and reproducible.
+  let nextNonce = Number(await rpc('eth_getTransactionCount', [sender.address, 'pending']));
   for (let i = 0; i < SAMPLES; i += 1) {
     const ingressAt = performance.now();
-    const tx = await sender.sendTransaction({ to: receiver.address, value: parseEther('0.000001') });
+    const tx = await sender.sendTransaction({ to: receiver.address, value: parseEther('0.000001'), nonce: nextNonce });
+    nextNonce += 1;
     const acceptedAt = performance.now();
     const { receipt, observedAt: includedObservedAt } = await waitReceipt(tx.hash);
     acceptanceLatencies.push(acceptedAt - ingressAt); inclusionAfterAcceptanceLatencies.push(includedObservedAt - acceptedAt); endToEndInclusionLatencies.push(includedObservedAt - ingressAt);
