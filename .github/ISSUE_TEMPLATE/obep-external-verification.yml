@@ -1,0 +1,75 @@
+name: OBEP external verification
+about: Submit independent verification evidence for a ZORYQ OBEP proof
+labels: [help wanted]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for independently checking ZORYQ OBEP. Do not include private keys, mnemonics, API tokens or infrastructure secrets.
+  - type: input
+    id: github_or_team
+    attributes:
+      label: Developer / team
+      description: Public GitHub handle or team name.
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: Commit tested
+      placeholder: 40-character commit SHA
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Node.js version and any relevant tooling.
+    validations:
+      required: true
+  - type: dropdown
+    id: challenge
+    attributes:
+      label: Challenge
+      options:
+        - Reference live proof (#129)
+        - Useful-task live proof (#130)
+        - Fresh independent reproduction
+    validations:
+      required: true
+  - type: textarea
+    id: commands
+    attributes:
+      label: Commands executed
+      render: shell
+    validations:
+      required: true
+  - type: input
+    id: transaction
+    attributes:
+      label: Transaction hash verified
+      placeholder: 0x...
+    validations:
+      required: true
+  - type: dropdown
+    id: result
+    attributes:
+      label: Verification result
+      options:
+        - All bindings passed
+        - Failed / mismatch found
+        - Inconclusive
+    validations:
+      required: true
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings
+      description: Report mismatches, ambiguities, security concerns or reproduction notes.
+    validations:
+      required: true
+  - type: input
+    id: fresh_tx
+    attributes:
+      label: Optional fresh reproduction transaction / Proof Pack hash
+      description: Leave blank if you only verified the reference proof.
