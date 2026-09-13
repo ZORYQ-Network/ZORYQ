@@ -12,7 +12,6 @@ import java.util.concurrent.Executors
 class ZoryqSocialApi(
     private val baseUrl: String = DEFAULT_BASE_URL
 ) {
-    data class AuthChallenge(val message: String)
     data class Session(val token: String, val profileRegistrationRequired: Boolean)
     data class RemotePost(
         val id: String,
@@ -71,8 +70,9 @@ class ZoryqSocialApi(
                         .put("bio", bio),
                     token
                 )
-                val typedData = challenge.getJSONObject("typedData").toString()
-                val signature = signTypedData(typedData)
+                val typedData = challenge.getJSONObject("typedData")
+                ensureEip712DomainType(typedData)
+                val signature = signTypedData(typedData.toString())
                 request(
                     "POST",
                     "/social/v1/profile/register",
@@ -92,19 +92,7 @@ class ZoryqSocialApi(
                 buildList {
                     for (index in 0 until items.length()) {
                         val item = items.optJSONObject(index) ?: continue
-                        val profile = item.optJSONObject("authorProfile")
-                        add(
-                            RemotePost(
-                                id = item.optString("id"),
-                                author = profile?.optString("handle")
-                                    ?.takeIf { it.isNotBlank() }
-                                    ?: item.optString("author").take(12),
-                                content = item.optString("content"),
-                                createdAt = item.optLong("createdAt"),
-                                likeCount = item.optInt("likeCount"),
-                                liked = item.optBoolean("liked")
-                            )
-                        )
+                        add(parsePost(item))
                     }
                 }
             })
@@ -150,6 +138,18 @@ class ZoryqSocialApi(
             createdAt = item.optLong("createdAt"),
             likeCount = item.optInt("likeCount"),
             liked = item.optBoolean("liked")
+        )
+    }
+
+    private fun ensureEip712DomainType(typedData: JSONObject) {
+        val types = typedData.getJSONObject("types")
+        if (types.has("EIP712Domain")) return
+        types.put(
+            "EIP712Domain",
+            JSONArray()
+                .put(JSONObject().put("name", "name").put("type", "string"))
+                .put(JSONObject().put("name", "version").put("type", "string"))
+                .put(JSONObject().put("name", "chainId").put("type", "uint256"))
         )
     }
 
