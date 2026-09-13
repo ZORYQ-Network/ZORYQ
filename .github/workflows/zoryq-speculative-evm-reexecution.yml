@@ -1,0 +1,83 @@
+name: ZORYQ Speculative EVM Reexecution Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/verification/speculative-evm-reexecution.mjs'
+      - '.github/workflows/zoryq-speculative-evm-reexecution.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  speculative-evm-reexecution:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build identical local ZORYQ node image
+        run: docker build -t zoryq-speculative-evidence ./zoryq-evm-node
+      - name: Start speculative candidate and serial reference nodes
+        run: |
+          set -euo pipefail
+          docker volume create zoryq-speculative-db
+          docker volume create zoryq-speculative-serial-db
+          docker run -d --name zoryq-speculative-candidate -p 8081:8080 -v zoryq-speculative-db:/data -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" zoryq-speculative-evidence
+          docker run -d --name zoryq-speculative-serial -p 8082:8080 -v zoryq-speculative-serial-db:/data -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" zoryq-speculative-evidence
+          for port in 8081 8082; do
+            ok=0
+            for i in $(seq 1 120); do
+              if curl -fsS "http://127.0.0.1:${port}/health" >/tmp/health-${port}.json; then
+                test "$(jq -r '.chain.chainId // .chainId' /tmp/health-${port}.json)" = "5919065"
+                ok=1
+                break
+              fi
+              sleep 1
+            done
+            test "$ok" = "1"
+          done
+      - name: Install verification-only dependencies
+        working-directory: zoryq-evm-node
+        run: npm install --no-save --no-audit --no-fund solc@0.8.30
+      - name: Run speculative EVM reexecution experiment
+        env:
+          ZORYQ_SPECULATIVE_RPC: http://127.0.0.1:8081/rpc
+          ZORYQ_SERIAL_RPC: http://127.0.0.1:8082/rpc
+          ZORYQ_SPECULATIVE_BASE: http://127.0.0.1:8081
+          ZORYQ_SERIAL_BASE: http://127.0.0.1:8082
+          ZORYQ_SPECULATIVE_CONTAINER: zoryq-speculative-candidate
+          ZORYQ_SPECULATIVE_EVM_OUT: speculative-evm-reexecution.json
+        run: node zoryq-developer/verification/speculative-evm-reexecution.mjs
+      - name: Enforce evidence semantics
+        run: |
+          set -euo pipefail
+          jq -e '.status == "EXPERIMENTAL_REAL_EVM_SPECULATIVE_REEXECUTION"' speculative-evm-reexecution.json >/dev/null
+          jq -e '.canonical == false' speculative-evm-reexecution.json >/dev/null
+          jq -e '.invalidationCount > 0' speculative-evm-reexecution.json >/dev/null
+          jq -e '.reexecutionCount > 0' speculative-evm-reexecution.json >/dev/null
+          jq -e '.equality.finalStorage == true' speculative-evm-reexecution.json >/dev/null
+          jq -e '.equality.receiptStatusAndGas == true' speculative-evm-reexecution.json >/dev/null
+          jq -e '.claimBoundary | contains("does not prove production speculative execution")' speculative-evm-reexecution.json >/dev/null
+          jq -e '.claimBoundary | contains("parallel EVM execution")' speculative-evm-reexecution.json >/dev/null
+          sha256sum speculative-evm-reexecution.json | tee speculative-evm-reexecution.sha256
+      - name: Capture node logs
+        if: always()
+        run: |
+          docker logs zoryq-speculative-candidate > speculative-candidate-node.log 2>&1 || true
+          docker logs zoryq-speculative-serial > speculative-serial-node.log 2>&1 || true
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-speculative-evm-reexecution-${{ github.sha }}
+          path: |
+            speculative-evm-reexecution.json
+            speculative-evm-reexecution.sha256
+            speculative-candidate-node.log
+            speculative-serial-node.log
+          if-no-files-found: error
+          retention-days: 30
