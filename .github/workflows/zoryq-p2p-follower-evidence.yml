@@ -7,48 +7,38 @@ on:
     paths:
       - '.github/workflows/zoryq-p2p-follower-evidence.yml'
       - 'zoryq-evm-node/zoryq-reth-genesis.json'
+      - 'zoryq-evm-node/engine-block-producer.mjs'
+      - 'zoryq-evm-node/engine-forkchoice-follower.mjs'
 
 permissions:
   contents: read
 
 jobs:
-  p2p-followers:
+  engine-driven-p2p-sync:
     runs-on: ubuntu-latest
     timeout-minutes: 35
-    env:
-      TEST_MNEMONIC: test test test test test test test test test test test junk
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build identical ZORYQ image
+      - name: Build identical ZORYQ Reth image
         run: docker build -t zoryq-p2p-evidence ./zoryq-evm-node
 
-      - name: Start isolated canonical dev sequencer
+      - name: Prepare isolated network and CI-only Engine JWT
         run: |
           set -euo pipefail
           docker network create zoryq-p2p-test
-          docker volume create zoryq-p2p-sequencer-db >/dev/null
-          docker run -d --name zoryq-p2p-sequencer --network zoryq-p2p-test \
-            -p 8081:8080 \
-            -v zoryq-p2p-sequencer-db:/data \
-            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
-            zoryq-p2p-evidence
-          for i in $(seq 1 120); do
-            if curl --max-time 3 -fsS http://127.0.0.1:8081/health >/tmp/sequencer-health.json 2>/dev/null; then
-              test "$(jq -r '.chain.chainId // .chainId' /tmp/sequencer-health.json)" = "5919065"
-              exit 0
-            fi
-            sleep 1
-          done
-          docker logs zoryq-p2p-sequencer || true
-          exit 1
+          docker volume create zoryq-p2p-a-db >/dev/null
+          docker volume create zoryq-p2p-b-db >/dev/null
+          printf '%s' 'zoryq-ci-engine-api-v3-research-only' | sha256sum | awk '{print $1}' > /tmp/zoryq-engine.jwt
+          test "$(wc -c < /tmp/zoryq-engine.jwt)" -eq 65
 
-      - name: Start P2P-enabled follower A using RPC consensus
+      - name: Start non-dev P2P-enabled Reth A with authenticated Engine API
         run: |
           set -euo pipefail
-          docker volume create zoryq-p2p-follower-a-db >/dev/null
-          docker run -d --name zoryq-p2p-follower-a --network zoryq-p2p-test \
-            -v zoryq-p2p-follower-a-db:/data \
+          docker run -d --name zoryq-reth-a --network zoryq-p2p-test \
+            -p 8545:8545 -p 8551:8551 \
+            -v zoryq-p2p-a-db:/data \
+            -v /tmp/zoryq-engine.jwt:/jwt.hex:ro \
             zoryq-p2p-evidence \
             reth node \
               --chain /app/zoryq-reth-genesis.json \
@@ -60,35 +50,57 @@ jobs:
               --http \
               --http.addr 0.0.0.0 \
               --http.port 8545 \
-              --http.api eth,net,web3,debug,admin \
-              --debug.rpc-consensus-url http://zoryq-p2p-sequencer:8080/rpc
+              --http.api eth,net,web3,admin \
+              --authrpc.addr 0.0.0.0 \
+              --authrpc.port 8551 \
+              --authrpc.jwtsecret /jwt.hex
           for i in $(seq 1 120); do
-            if docker exec zoryq-p2p-follower-a node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]}),signal:AbortSignal.timeout(2500)}).then(r=>r.json()).then(j=>{if(j.result!=='0x5a5159')process.exit(1)}).catch(()=>process.exit(1))" 2>/dev/null; then
+            if curl --max-time 3 -fsS http://127.0.0.1:8545 \
+              -H 'content-type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
+              | jq -e '.result == "0x5a5159"' >/dev/null 2>&1; then
               exit 0
+            fi
+            if ! docker inspect -f '{{.State.Running}}' zoryq-reth-a 2>/dev/null | grep -qx true; then
+              docker logs zoryq-reth-a || true
+              exit 1
             fi
             sleep 1
           done
-          docker logs zoryq-p2p-follower-a || true
+          docker logs zoryq-reth-a || true
           exit 1
 
-      - name: Derive follower A enode and start follower B as trusted peer
+      - name: Produce canonical ZORYQ blocks through Engine API V3
+        env:
+          ENGINE_URL: http://127.0.0.1:8551
+          RPC_URL: http://127.0.0.1:8545
+          JWT_SECRET_PATH: /tmp/zoryq-engine.jwt
+          BLOCK_COUNT: '8'
+          EVIDENCE_PATH: zoryq-engine-producer-evidence.json
         run: |
           set -euo pipefail
-          docker exec zoryq-p2p-follower-a node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'admin_nodeInfo',params:[]}),signal:AbortSignal.timeout(2500)}).then(r=>r.json()).then(j=>{if(j.error||!j.result?.enode)throw new Error(JSON.stringify(j.error||'missing enode'));process.stdout.write(JSON.stringify(j.result))}).catch(e=>{console.error(e);process.exit(1)})" > /tmp/nodeinfo.json
-          ENODE=$(jq -r '.enode' /tmp/nodeinfo.json)
-          test -n "$ENODE"
-          test "$ENODE" != "null"
-          PUBKEY=$(printf '%s' "$ENODE" | sed -nE 's#^enode://([^@]+)@.*#\1#p')
-          test -n "$PUBKEY"
-          test ${#PUBKEY} -eq 128
-          FOLLOWER_A_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' zoryq-p2p-follower-a)
-          test -n "$FOLLOWER_A_IP"
-          TRUSTED="enode://${PUBKEY}@${FOLLOWER_A_IP}:30303"
-          echo "Follower A P2P identity validated for isolated CI network."
+          node zoryq-evm-node/engine-block-producer.mjs
+          jq -e '.status == "ENGINE_API_V3_NON_DEV_CANONICAL_BLOCKS" and .finalCanonicalNumber == 8' zoryq-engine-producer-evidence.json >/dev/null
 
-          docker volume create zoryq-p2p-follower-b-db >/dev/null
-          docker run -d --name zoryq-p2p-follower-b --network zoryq-p2p-test \
-            -v zoryq-p2p-follower-b-db:/data \
+      - name: Derive Reth A public identity and start non-dev Reth B
+        run: |
+          set -euo pipefail
+          curl --max-time 5 -fsS http://127.0.0.1:8545 \
+            -H 'content-type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"admin_nodeInfo","params":[]}' \
+            | jq -e '.result.enode' > /tmp/nodeinfo.json
+          ENODE=$(jq -r '.result.enode' /tmp/nodeinfo.json)
+          PUBKEY=$(printf '%s' "$ENODE" | sed -nE 's#^enode://([^@]+)@.*#\1#p')
+          test ${#PUBKEY} -eq 128
+          A_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' zoryq-reth-a)
+          test -n "$A_IP"
+          TRUSTED="enode://${PUBKEY}@${A_IP}:30303"
+          echo "Reth A public P2P identity validated for isolated CI."
+
+          docker run -d --name zoryq-reth-b --network zoryq-p2p-test \
+            -p 8546:8545 -p 8552:8551 \
+            -v zoryq-p2p-b-db:/data \
+            -v /tmp/zoryq-engine.jwt:/jwt.hex:ro \
             zoryq-p2p-evidence \
             reth node \
               --chain /app/zoryq-reth-genesis.json \
@@ -101,104 +113,87 @@ jobs:
               --http \
               --http.addr 0.0.0.0 \
               --http.port 8545 \
-              --http.api eth,net,web3,debug,admin \
-              --debug.rpc-consensus-url http://zoryq-p2p-sequencer:8080/rpc
+              --http.api eth,net,web3 \
+              --authrpc.addr 0.0.0.0 \
+              --authrpc.port 8551 \
+              --authrpc.jwtsecret /jwt.hex
           for i in $(seq 1 120); do
-            if docker exec zoryq-p2p-follower-b node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]}),signal:AbortSignal.timeout(2500)}).then(r=>r.json()).then(j=>{if(j.result!=='0x5a5159')process.exit(1)}).catch(()=>process.exit(1))" 2>/dev/null; then
+            if curl --max-time 3 -fsS http://127.0.0.1:8546 \
+              -H 'content-type: application/json' \
+              --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' \
+              | jq -e '.result == "0x5a5159"' >/dev/null 2>&1; then
               exit 0
             fi
-            if ! docker inspect -f '{{.State.Running}}' zoryq-p2p-follower-b 2>/dev/null | grep -qx true; then
-              docker logs zoryq-p2p-follower-b || true
+            if ! docker inspect -f '{{.State.Running}}' zoryq-reth-b 2>/dev/null | grep -qx true; then
+              docker logs zoryq-reth-b || true
               exit 1
             fi
             sleep 1
           done
-          docker logs zoryq-p2p-follower-b || true
+          docker logs zoryq-reth-b || true
           exit 1
 
-      - name: Verify two P2P-enabled followers peer and track canonical chain
+      - name: Prove forkchoice-only target is fetched and canonicalized through P2P
+        env:
+          FOLLOWER_ENGINE_URL: http://127.0.0.1:8552
+          FOLLOWER_RPC_URL: http://127.0.0.1:8546
+          REFERENCE_RPC_URL: http://127.0.0.1:8545
+          JWT_SECRET_PATH: /tmp/zoryq-engine.jwt
+          EVIDENCE_PATH: zoryq-p2p-forkchoice-evidence.json
         run: |
           set -euo pipefail
-          rpc() {
-            local container="$1" method="$2" params="${3:-[]}";
-            timeout 5s docker exec "$container" node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:process.argv[1],params:JSON.parse(process.argv[2])}),signal:AbortSignal.timeout(2500)}).then(r=>r.json()).then(j=>{if(j.error){console.error(JSON.stringify(j.error));process.exit(1)};process.stdout.write(JSON.stringify(j.result))}).catch(()=>process.exit(1))" "$method" "$params"
-          }
+          node zoryq-evm-node/engine-forkchoice-follower.mjs
+          jq -e '.status == "FORKCHOICE_ONLY_P2P_CANONICAL_SYNC" and .peerCount > 0 and .payloadInjectedIntoFollowerViaRpc == false and .followerCanonicalHash == .targetHash' zoryq-p2p-forkchoice-evidence.json >/dev/null
 
-          ok=0
-          LAST_A_PEERS=unavailable
-          LAST_B_PEERS=unavailable
-          LAST_A_BLOCK=unavailable
-          LAST_B_BLOCK=unavailable
-          for i in $(seq 1 90); do
-            if A_PEERS=$(rpc zoryq-p2p-follower-a net_peerCount 2>/dev/null) && \
-               B_PEERS=$(rpc zoryq-p2p-follower-b net_peerCount 2>/dev/null) && \
-               A_BLOCK=$(rpc zoryq-p2p-follower-a eth_blockNumber 2>/dev/null) && \
-               B_BLOCK=$(rpc zoryq-p2p-follower-b eth_blockNumber 2>/dev/null); then
-              A_PEERS=$(printf '%s' "$A_PEERS" | jq -r '.')
-              B_PEERS=$(printf '%s' "$B_PEERS" | jq -r '.')
-              A_BLOCK=$(printf '%s' "$A_BLOCK" | jq -r '.')
-              B_BLOCK=$(printf '%s' "$B_BLOCK" | jq -r '.')
-              LAST_A_PEERS="$A_PEERS"
-              LAST_B_PEERS="$B_PEERS"
-              LAST_A_BLOCK="$A_BLOCK"
-              LAST_B_BLOCK="$B_BLOCK"
-              if [ $((A_PEERS)) -gt 0 ] && [ $((B_PEERS)) -gt 0 ] && [ $((A_BLOCK)) -gt 0 ] && [ $((B_BLOCK)) -gt 0 ]; then
-                ok=1
-                break
-              fi
-            fi
-            sleep 1
-          done
-          if [ "$ok" != "1" ]; then
-            echo "P2P convergence failed: followerA peers=$LAST_A_PEERS block=$LAST_A_BLOCK; followerB peers=$LAST_B_PEERS block=$LAST_B_BLOCK"
-            echo "--- follower A logs ---"
-            docker logs --tail 200 zoryq-p2p-follower-a || true
-            echo "--- follower B logs ---"
-            docker logs --tail 200 zoryq-p2p-follower-b || true
-            exit 1
-          fi
-
-          SHARED=$(( A_BLOCK < B_BLOCK ? A_BLOCK : B_BLOCK ))
-          TAG=$(printf '0x%x' "$SHARED")
-          A_HASH=$(rpc zoryq-p2p-follower-a eth_getBlockByNumber "[\"$TAG\",false]" | jq -r '.hash')
-          B_HASH=$(rpc zoryq-p2p-follower-b eth_getBlockByNumber "[\"$TAG\",false]" | jq -r '.hash')
-          S_HASH=$(curl --max-time 5 -fsS http://127.0.0.1:8081/rpc -H 'content-type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBlockByNumber\",\"params\":[\"$TAG\",false]}" | jq -r '.result.hash')
-          test -n "$A_HASH"
-          test "$A_HASH" != "null"
-          test "$A_HASH" = "$B_HASH"
-          test "$A_HASH" = "$S_HASH"
-
+      - name: Create combined evidence manifest
+        run: |
+          set -euo pipefail
+          A_PEERS=$(curl --max-time 5 -fsS http://127.0.0.1:8545 -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"net_peerCount","params":[]}' | jq -r '.result')
+          B_PEERS=$(curl --max-time 5 -fsS http://127.0.0.1:8546 -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"net_peerCount","params":[]}' | jq -r '.result')
+          TARGET_NUMBER=$(jq -r '.targetNumber' zoryq-p2p-forkchoice-evidence.json)
+          TARGET_HASH=$(jq -r '.targetHash' zoryq-p2p-forkchoice-evidence.json)
+          PRODUCER_SHA=$(cut -d' ' -f1 zoryq-engine-producer-evidence.json.sha256)
+          FOLLOWER_SHA=$(cut -d' ' -f1 zoryq-p2p-forkchoice-evidence.json.sha256)
+          test $((A_PEERS)) -gt 0
+          test $((B_PEERS)) -gt 0
           cat > zoryq-p2p-follower-evidence.json <<JSON
           {
-            "schemaVersion": 1,
-            "status": "P2P_ENABLED_RPC_CONSENSUS_FOLLOWERS",
+            "schemaVersion": 2,
+            "status": "ENGINE_DRIVEN_P2P_CANONICAL_SYNC",
             "chainId": 5919065,
-            "followerAPeerCount": $((A_PEERS)),
-            "followerBPeerCount": $((B_PEERS)),
-            "sharedCanonicalBlock": $SHARED,
-            "sharedCanonicalHash": "$A_HASH",
-            "sameCanonicalHashAsSequencer": true,
-            "claimBoundary": "This CI evidence proves two non-dev Reth follower processes on the ZORYQ chain can keep up through RPC-consensus and establish direct P2P connectivity in an isolated Docker network. It does not prove Internet reachability, an independent external operator, production consensus, decentralization, or mainnet readiness."
+            "rethMode": "non-dev",
+            "engineApi": "V3",
+            "producerPeerCount": $((A_PEERS)),
+            "followerPeerCount": $((B_PEERS)),
+            "canonicalBlock": $TARGET_NUMBER,
+            "canonicalHash": "$TARGET_HASH",
+            "payloadInjectedIntoFollowerViaRpc": false,
+            "engineProducerEvidenceSha256": "$PRODUCER_SHA",
+            "p2pFollowerEvidenceSha256": "$FOLLOWER_SHA",
+            "claimBoundary": "This isolated CI evidence proves an Engine-API-driven non-dev Reth node can create canonical ZORYQ test blocks and a second non-dev Reth node can establish direct P2P, receive forkchoice information without RPC payload injection, fetch the referenced execution data through P2P, and canonicalize the same chain. It does not prove Internet reachability, an independent external operator, production consensus, decentralization, Byzantine fault tolerance, or mainnet readiness."
           }
           JSON
           jq . zoryq-p2p-follower-evidence.json
           sha256sum zoryq-p2p-follower-evidence.json | tee zoryq-p2p-follower-evidence.sha256
 
-      - name: Capture logs
+      - name: Capture Reth logs
         if: always()
         run: |
-          for c in zoryq-p2p-sequencer zoryq-p2p-follower-a zoryq-p2p-follower-b; do docker logs "$c" > "$c.log" 2>&1 || true; done
+          for c in zoryq-reth-a zoryq-reth-b; do docker logs "$c" > "$c.log" 2>&1 || true; done
 
-      - name: Upload P2P follower evidence
+      - name: Upload Engine-driven P2P evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: zoryq-p2p-follower-evidence-${{ github.sha }}
+          name: zoryq-engine-p2p-evidence-${{ github.sha }}
           path: |
+            zoryq-engine-producer-evidence.json
+            zoryq-engine-producer-evidence.json.sha256
+            zoryq-p2p-forkchoice-evidence.json
+            zoryq-p2p-forkchoice-evidence.json.sha256
             zoryq-p2p-follower-evidence.json
             zoryq-p2p-follower-evidence.sha256
-            zoryq-p2p-sequencer.log
-            zoryq-p2p-follower-a.log
-            zoryq-p2p-follower-b.log
+            zoryq-reth-a.log
+            zoryq-reth-b.log
           if-no-files-found: warn
           retention-days: 30
