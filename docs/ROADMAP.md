@@ -1,83 +1,90 @@
-# ZORYQ Engineering Roadmap
+# ZORYQ Unified Roadmap
 
-This roadmap tracks technical maturity. Dates should be announced only when delivery capacity and evidence justify them.
+This roadmap is ordered by evidence and platform leverage. Dates are announced only when delivery capacity and proof justify them.
 
-## NOW — Repository and evidence foundation
+## NOW — Unify and make reproducible
 
-### Product/application
-- maintain ZORYQ brand consistency;
-- keep mobile build reproducible;
-- improve source reviewability and remove the packaged-source dependency safely;
-- strengthen security and contribution process;
-- maintain documentation for wallet, swap, SocialFi and XP boundaries.
+### Platform
+- establish `ARCHITECTURE.md`, `PRODUCT_MAP.md`, `NETWORK_STATUS.md`, `MAINNET_READINESS.md` and the Command Center as source of truth;
+- keep ZORYQ naming/brand consistent;
+- classify repository paths as KEEP / MERGE / REFACTOR / ARCHIVE / DELETE before destructive moves;
+- remove corrupt packaged-source archives from all active mobile build/export dependencies;
+- maintain evidence links for every green status.
 
-### Network/protocol
-- define current testnet/network evidence boundary;
-- establish protocol specification structure;
-- document state, execution, networking and finality semantics as implementation becomes reviewable;
-- establish RFC/ADR process;
-- establish reproducible benchmark methodology;
-- add protocol-level threat modeling.
+### Mobile / Identity
+- keep `mobile-games-native/` as canonical reviewable Android source during migration;
+- build Wallet + Social + Games from normal Git files;
+- maintain BIP-39/BIP-44 recovery and Android Keystore boundary;
+- harden session/replay/confirmation UX;
+- define exclusive production Android signing before any public production cutover.
 
-## NEXT — Testable engineering maturity
+### Autonomous Network
+- make Autonomous Company the primary differentiated platform experience;
+- connect objective → plan → bounded agents → task execution → proof → payment/accounting;
+- reuse OBEP/Proof Pack evidence rather than inventing parallel proof systems;
+- add spending-policy limits and explicit authority scopes.
 
-### Product/application
-- authentication/session hardening;
-- test-environment wallet send/receive;
-- provider-backed swap simulation/quotes;
-- server-side XP/event integrity;
-- privacy-safe crash/telemetry controls;
-- deeper security assessment.
+### Network
+- preserve public testnet reliability and onboarding;
+- complete independent Node 2 evidence;
+- distinguish same-operator redundancy from independent operators;
+- keep mainnet claim fail-closed.
 
-### Network/protocol
-- first-class node/protocol source tree;
-- deterministic transaction/state test vectors;
-- explicit EVM compatibility matrix;
-- node startup/configuration documentation;
-- state snapshot/recovery tests;
-- adversarial network tests;
-- observable RPC/network metrics;
-- baseline performance measurements with raw results.
+## NEXT — Demonstrable end-to-end product
+
+### Autonomous Company vertical slice
+A reproducible demo must accept a goal and budget, create bounded roles/tasks, execute at least one useful task, produce verifiable evidence and account for any testnet payment. External reproduction is required before the capability is promoted to PROVEN end-to-end.
+
+### Mobile unification
+- consolidate navigation around Wallet / Social / Autonomous / Games / Explore;
+- preserve module isolation while removing migration-only naming as release architecture stabilizes;
+- add physical-device performance and recovery tests;
+- add privacy-safe crash/ANR observability.
+
+### Social
+- replay-safe wallet challenges;
+- session expiration/revocation;
+- moderation/report/block flows;
+- backup/restore and rate-limit evidence.
+
+### Games
+- improve Rush production quality;
+- evolve Arena and Empire beyond vertical slices only after shared identity/progression contracts are stable;
+- keep gameplay offchain unless blockchain adds ownership/settlement/evidence value.
+
+### Developer experience
+- first contract / first application path after first transaction;
+- stable examples/SDK boundaries;
+- Command Center links to reproducible evidence;
+- independent builder feedback.
+
+## THEN — Production-readiness gates
+
+- exclusive release signing and secure CI release path;
+- independent wallet/protocol security assessment;
+- multi-operator network evidence;
+- disaster-recovery drill;
+- incident-response tabletop exercise;
+- deterministic compatibility/conformance evidence;
+- sustained observability;
+- upgrade and rollback drills;
+- mainnet launch manifest binding all required evidence by hash.
 
 ## RESEARCH — Prove before integration
 
-Candidate tracks include:
+Research may include adaptive/parallel execution, dependency-aware scheduling, proof receipts, congestion isolation, post-quantum migration and safer autonomous optimization.
 
-- adaptive / parallel execution;
-- dependency-aware scheduling and PSDG-style experiments;
-- proof receipts / verifiable execution;
-- explicit streaming confirmation/finality models;
-- congestion isolation;
-- safe autonomous optimization;
-- post-quantum migration research;
-- verifiable autonomous/AI execution.
-
-Each research item should progress through:
+Every research item advances through:
 
 `related work → hypothesis → specification → prototype → tests → benchmark → risk review`
 
-before being considered a proven ZORYQ protocol capability.
+before becoming a platform capability.
 
-## LONG TERM — Production-readiness gates
+## Never substitute
 
-Production/mainnet maturity should require evidence for:
-
-- deterministic state and conformance;
-- consensus/finality safety under supported fault assumptions;
-- crash/recovery correctness;
-- security review of critical components;
-- reproducible builds/releases;
-- dependency/supply-chain controls;
-- node/operator runbooks;
-- incident response;
-- upgrade/rollback procedures;
-- sustained public infrastructure observability;
-- documented known limitations.
-
-## Product launch track
-
-Where product maturity permits, the application roadmap may progress through closed alpha, testnet beta, limited production rollout and public launch. Wallet, swaps, fees, treasury and any future token functionality require their own security/legal/operational gates and must not be inferred from protocol roadmap milestones.
-
-## Token policy
-
-Any future token remains conditional on separate legal, tokenomics, security and infrastructure work. GitHub engineering documentation must not promise token price, investment return or guaranteed distribution.
+- green CI for adoption;
+- internal replicas for decentralization;
+- testnet success for mainnet readiness;
+- schemas for end-to-end autonomous execution;
+- a working APK for an audited production wallet;
+- marketing reach for external user/developer evidence.

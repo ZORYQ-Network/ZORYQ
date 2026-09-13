@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ZORYQ Command Center</title>
+  <style>
+    :root{color-scheme:dark;--bg:#05070c;--panel:#0c111b;--text:#edf7ff;--muted:#8ea2b7;--cyan:#2ee7ff;--violet:#9e6bff;--green:#42f5a1;--yellow:#ffd166;--red:#ff5f7a;--line:#1d2a3a}
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,sans-serif;background:radial-gradient(circle at 20% 0%,#122134 0,transparent 34%),radial-gradient(circle at 90% 10%,#23153f 0,transparent 28%),var(--bg);color:var(--text)}
+    main{max-width:1180px;margin:auto;padding:32px 20px 64px}.hero{padding:28px;border:1px solid #23354a;background:linear-gradient(135deg,rgba(46,231,255,.08),rgba(158,107,255,.08));border-radius:24px;box-shadow:0 0 60px rgba(46,231,255,.06)}
+    h1{margin:0 0 6px;font-size:clamp(32px,6vw,64px);letter-spacing:-.045em}.tag{color:var(--cyan);font-weight:700}.sub{color:var(--muted);max-width:760px;line-height:1.55}.live{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}.pill{padding:10px 14px;border:1px solid var(--line);border-radius:999px;background:#09101a;color:#cfe9f7}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px;margin-top:22px}.layer{border:1px solid var(--line);border-radius:20px;padding:18px;background:rgba(12,17,27,.88);backdrop-filter:blur(10px)}.layer h2{font-size:18px;margin:0 0 14px}.item{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:start;padding:12px 0;border-top:1px solid #162131}.item:first-of-type{border-top:0}.item a{color:#dcefff;text-decoration:none}.item a:hover{color:var(--cyan)}
+    .status{font-size:11px;font-weight:800;letter-spacing:.06em;padding:5px 8px;border-radius:999px}.PROVEN{color:#03130c;background:var(--green)}.WORKING{color:#1a1300;background:var(--yellow)}.NOT_PROVEN{color:white;background:var(--red)}
+    .legend{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:13px}.footer{margin-top:30px;color:var(--muted);font-size:13px;line-height:1.6}.footer a{color:var(--cyan)}
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="tag">ZORYQ UNIFIED PLATFORM</div>
+    <h1>Command Center</h1>
+    <p class="sub">Evidence-first status for Chain, Identity + Wallet, Autonomous Network, Applications and Economy. Green means reproducible evidence exists; it does not mean mainnet-ready.</p>
+    <div class="live">
+      <div class="pill" id="network">Network: checking…</div>
+      <div class="pill" id="chain">Chain ID: —</div>
+      <div class="pill" id="block">Block: —</div>
+      <div class="pill" id="updated">Status registry: —</div>
+    </div>
+  </section>
+  <section class="grid" id="layers"></section>
+  <section class="legend" id="legend"></section>
+  <div class="footer">Source of truth: <a href="../docs/ARCHITECTURE.md">architecture</a> · <a href="../docs/PRODUCT_MAP.md">product map</a> · <a href="../docs/NETWORK_STATUS.md">network status</a> · <a href="../docs/MAINNET_READINESS.md">mainnet readiness</a>. This dashboard intentionally separates working software from production claims.</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+function link(path){return path || '#'}
+async function load(){
+  const data=await fetch('./status.json',{cache:'no-store'}).then(r=>r.json());
+  $('updated').textContent=`Status registry: ${data.updatedAt}`;
+  $('layers').innerHTML=data.layers.map(layer=>`<article class="layer"><h2>${layer.name}</h2>${layer.items.map(i=>`<div class="item"><a href="${link(i.evidence)}">${i.name}</a><span class="status ${i.status}">${i.status.replace('_',' ')}</span></div>`).join('')}</article>`).join('');
+  $('legend').innerHTML=Object.entries(data.statusLegend).map(([k,v])=>`<span><b class="status ${k}">${k.replace('_',' ')}</b> ${v}</span>`).join('');
+  try{
+    const rpc=async(method,params=[])=>fetch(data.network.rpc,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})}).then(r=>r.json());
+    const [chain,block]=await Promise.all([rpc('eth_chainId'),rpc('eth_blockNumber')]);
+    $('network').textContent=`Network: ${data.network.name} online`;
+    $('chain').textContent=`Chain ID: ${parseInt(chain.result,16)}`;
+    $('block').textContent=`Block: ${parseInt(block.result,16).toLocaleString()}`;
+  }catch(e){$('network').textContent=`Network: live RPC unavailable from browser`; $('chain').textContent=`Expected Chain ID: ${data.network.chainId}`;}
+}
+load().catch(e=>{$('network').textContent='Status registry failed to load';console.error(e)});
+</script>
+</body>
+</html>
