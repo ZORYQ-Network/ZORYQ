@@ -1,0 +1,72 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-09-13",
+  "project": "ZORYQ",
+  "positioning": "Autonomous Economic Network",
+  "network": {
+    "name": "ZORYQ Testnet",
+    "chainId": 5919065,
+    "rpc": "https://zoryq-evm-node-live-production.up.railway.app/rpc",
+    "stage": "public experimental testnet"
+  },
+  "statusLegend": {
+    "PROVEN": "Reproducible evidence exists in source, CI or public proof.",
+    "WORKING": "Implemented or operating, but an important evidence or production gate remains.",
+    "NOT_PROVEN": "Required evidence is absent; no production claim is allowed."
+  },
+  "layers": [
+    {
+      "id": "chain",
+      "name": "ZORYQ Chain",
+      "items": [
+        {"name":"Public EVM testnet / RPC","status":"PROVEN","evidence":"../README.md#network"},
+        {"name":"Independent developer first-transaction reproduction","status":"PROVEN","evidence":"../docs/EXTERNAL_TRACTION_EVIDENCE.md"},
+        {"name":"Independent Node 2 / multi-operator evidence","status":"NOT_PROVEN","evidence":"../docs/EXTERNAL_NODE2_HANDOFF.md"},
+        {"name":"Mainnet readiness","status":"NOT_PROVEN","evidence":"../docs/MAINNET_RECOVERY_AND_AUDIT_GATES.md"}
+      ]
+    },
+    {
+      "id": "identity",
+      "name": "ZORYQ Identity + Wallet",
+      "items": [
+        {"name":"Native Android Wallet host","status":"PROVEN","evidence":"../mobile-games-native/wallet-host"},
+        {"name":"Watch-only balance / nonce","status":"PROVEN","evidence":"../mobile-games-native/wallet-host/src/main/java/network/zoryq/wallet/migration/WatchOnlyWalletActivity.kt"},
+        {"name":"BIP-39 + Ethereum BIP-44 recovery","status":"PROVEN","evidence":"../mobile-games-native/wallet-host/src/test/java/network/zoryq/wallet/migration/HdWalletDerivationTest.kt"},
+        {"name":"Android Keystore protected secret lifecycle","status":"PROVEN","evidence":"../mobile-games-native/wallet-host/src/main/java/network/zoryq/wallet/migration/SecureWalletStore.kt"},
+        {"name":"Production Android signing / audited release","status":"NOT_PROVEN","evidence":"../docs/WALLET_ARCHITECTURE.md"}
+      ]
+    },
+    {
+      "id": "autonomous",
+      "name": "ZORYQ Autonomous Network",
+      "items": [
+        {"name":"Autonomous Company schema and Proof Pack model","status":"PROVEN","evidence":"../autonomous"},
+        {"name":"Goal + budget end-to-end autonomous company execution","status":"WORKING","evidence":"../docs/ZORYQ_AUTONOMOUS_COMPANY.md"},
+        {"name":"Outcome-bound economic proof / OBEP tooling","status":"PROVEN","evidence":"../zoryq-developer/obep"},
+        {"name":"Independent autonomous-company reproduction","status":"NOT_PROVEN","evidence":"../docs/ZORYQ_AUTONOMOUS_MVP_CHECKLIST.md"}
+      ]
+    },
+    {
+      "id": "apps",
+      "name": "ZORYQ Applications",
+      "items": [
+        {"name":"Social local-first + remote API client","status":"PROVEN","evidence":"../mobile-games-native/wallet-host/src/main/java/network/zoryq/wallet/migration/SocialActivity.kt"},
+        {"name":"Games Hub + Rush","status":"PROVEN","evidence":"../mobile-games-native/runtime"},
+        {"name":"Arena vertical slice","status":"WORKING","evidence":"../mobile-games-native/runtime/src/main/java/network/zoryq/games/runtime/ZoryqArenaView.kt"},
+        {"name":"Empire vertical slice","status":"WORKING","evidence":"../mobile-games-native/runtime/src/main/java/network/zoryq/games/runtime/ZoryqEmpireView.kt"},
+        {"name":"AI App Factory arbitrary app generation","status":"WORKING","evidence":"../docs/AI_APP_FACTORY_FLAGSHIP.md"}
+      ]
+    },
+    {
+      "id": "economy",
+      "name": "ZORYQ Economy + Engineering",
+      "items": [
+        {"name":"Evolution payment reference module","status":"PROVEN","evidence":"../payments"},
+        {"name":"Brand Guard + CodeQL gates","status":"PROVEN","evidence":"../.github/workflows"},
+        {"name":"Canonical reviewable mobile source tree","status":"PROVEN","evidence":"../mobile-games-native"},
+        {"name":"Canonical source export / APK build migration","status":"WORKING","evidence":"../.github/workflows/mobile-source-export.yml"},
+        {"name":"Independent external security audit","status":"NOT_PROVEN","evidence":"../docs/MAINNET_SECURITY_AUDIT_SCOPE.md"}
+      ]
+    }
+  ]
+}
