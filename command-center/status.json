@@ -19,10 +19,10 @@
       "id": "chain",
       "name": "ZORYQ Chain",
       "items": [
-        {"name":"Public EVM testnet / RPC","status":"PROVEN","evidence":"../README.md#network"},
+        {"name":"Public EVM testnet / RPC","status":"PROVEN","evidence":"../README.md#zoryq-chain"},
         {"name":"Independent developer first-transaction reproduction","status":"PROVEN","evidence":"../docs/EXTERNAL_TRACTION_EVIDENCE.md"},
         {"name":"Independent Node 2 / multi-operator evidence","status":"NOT_PROVEN","evidence":"../docs/EXTERNAL_NODE2_HANDOFF.md"},
-        {"name":"Mainnet readiness","status":"NOT_PROVEN","evidence":"../docs/MAINNET_RECOVERY_AND_AUDIT_GATES.md"}
+        {"name":"Mainnet readiness","status":"NOT_PROVEN","evidence":"../docs/MAINNET_READINESS.md"}
       ]
     },
     {
@@ -64,7 +64,7 @@
         {"name":"Evolution payment reference module","status":"PROVEN","evidence":"../payments"},
         {"name":"Brand Guard + CodeQL gates","status":"PROVEN","evidence":"../.github/workflows"},
         {"name":"Canonical reviewable mobile source tree","status":"PROVEN","evidence":"../mobile-games-native"},
-        {"name":"Canonical source export / APK build migration","status":"WORKING","evidence":"../.github/workflows/mobile-source-export.yml"},
+        {"name":"Canonical source export / APK build migration","status":"PROVEN","evidence":"../docs/MOBILE_BUILD_EVIDENCE.md"},
         {"name":"Independent external security audit","status":"NOT_PROVEN","evidence":"../docs/MAINNET_SECURITY_AUDIT_SCOPE.md"}
       ]
     }

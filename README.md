@@ -153,15 +153,17 @@ Future agent spending must be bounded by policy and never default to unlimited a
 
 ## Mobile reproducibility
 
-The canonical mobile source now exists as normal reviewable repository files under `mobile-games-native/`.
+The canonical mobile source exists as normal reviewable repository files under `mobile-games-native/`.
 
-Active mobile CI is being consolidated around that tree:
+Canonical mobile CI now uses that same source tree end to end:
 
-- `Build ZORYQ Android APK` builds Wallet/Games from reviewable source;
-- `Export reviewable mobile source` exports the same source tree with deterministic inventory/checksums;
+- `Build ZORYQ Android APK` tests and builds Wallet/Games directly from reviewable source;
+- `Export reviewable mobile source` exports the same source tree with deterministic inventory, checksums, secret gates and provenance;
 - `ZORYQ Mobile Native` tests/builds runtime and Wallet host.
 
-The historical `zoryq-src.tgz` archive is legacy debt and is **not** the canonical source. Its removal/quarantine is tracked as repository cleanup after workflow migration evidence is green.
+The migration was reproduced successfully on `main` at commit `7954a353d75f61f1bde49bb9999d827c5c49c5e1`. The obsolete corrupt `zoryq-src.tgz` archive has been removed from the current tree; its historical blob remains available through Git history only.
+
+See [`docs/MOBILE_BUILD_EVIDENCE.md`](docs/MOBILE_BUILD_EVIDENCE.md) for workflow IDs, artifact IDs and SHA-256 digests.
 
 ## Mainnet
 
