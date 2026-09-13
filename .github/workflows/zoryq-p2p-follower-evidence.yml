@@ -34,7 +34,7 @@ jobs:
             -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
             zoryq-p2p-evidence
           for i in $(seq 1 120); do
-            if curl -fsS http://127.0.0.1:8081/health >/tmp/sequencer-health.json; then
+            if curl -fsS http://127.0.0.1:8081/health >/tmp/sequencer-health.json 2>/dev/null; then
               test "$(jq -r '.chain.chainId // .chainId' /tmp/sequencer-health.json)" = "5919065"
               exit 0
             fi
@@ -63,7 +63,7 @@ jobs:
               --http.api eth,net,web3,debug,admin \
               --debug.rpc-consensus-url http://zoryq-p2p-sequencer:8080/rpc
           for i in $(seq 1 120); do
-            if docker exec zoryq-p2p-follower-a node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]})}).then(r=>r.json()).then(j=>{if(j.result!=='0x5a5159')process.exit(1)})"; then
+            if docker exec zoryq-p2p-follower-a node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]})}).then(r=>r.json()).then(j=>{if(j.result!=='0x5a5159')process.exit(1)}).catch(()=>process.exit(1))" 2>/dev/null; then
               exit 0
             fi
             sleep 1
@@ -71,20 +71,20 @@ jobs:
           docker logs zoryq-p2p-follower-a || true
           exit 1
 
-      - name: Derive follower A public enode and start follower B as trusted peer
+      - name: Derive follower A enode and start follower B as trusted peer
         run: |
           set -euo pipefail
-          docker exec zoryq-p2p-follower-a node - <<'NODE' > /tmp/nodeinfo.json
-          fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'admin_nodeInfo',params:[]})})
-            .then(r=>r.json()).then(j=>{if(j.error)throw new Error(JSON.stringify(j.error));process.stdout.write(JSON.stringify(j.result))}).catch(e=>{console.error(e);process.exit(1)})
-          NODE
-          cat /tmp/nodeinfo.json
+          docker exec zoryq-p2p-follower-a node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'admin_nodeInfo',params:[]})}).then(r=>r.json()).then(j=>{if(j.error||!j.result?.enode)throw new Error(JSON.stringify(j.error||'missing enode'));process.stdout.write(JSON.stringify(j.result))}).catch(e=>{console.error(e);process.exit(1)})" > /tmp/nodeinfo.json
           ENODE=$(jq -r '.enode' /tmp/nodeinfo.json)
+          test -n "$ENODE"
           test "$ENODE" != "null"
-          PUBKEY=$(printf '%s' "$ENODE" | sed -E 's#^enode://([^@]+)@.*#\1#')
+          PUBKEY=$(printf '%s' "$ENODE" | sed -nE 's#^enode://([^@]+)@.*#\1#p')
+          test -n "$PUBKEY"
+          test ${#PUBKEY} -eq 128
           FOLLOWER_A_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' zoryq-p2p-follower-a)
+          test -n "$FOLLOWER_A_IP"
           TRUSTED="enode://${PUBKEY}@${FOLLOWER_A_IP}:30303"
-          echo "Follower A public P2P identity prepared for isolated CI network."
+          echo "Follower A P2P identity validated for isolated CI network."
 
           docker volume create zoryq-p2p-follower-b-db >/dev/null
           docker run -d --name zoryq-p2p-follower-b --network zoryq-p2p-test \
@@ -103,24 +103,41 @@ jobs:
               --http.port 8545 \
               --http.api eth,net,web3,debug,admin \
               --debug.rpc-consensus-url http://zoryq-p2p-sequencer:8080/rpc
+          for i in $(seq 1 120); do
+            if docker exec zoryq-p2p-follower-b node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]})}).then(r=>r.json()).then(j=>{if(j.result!=='0x5a5159')process.exit(1)}).catch(()=>process.exit(1))" 2>/dev/null; then
+              exit 0
+            fi
+            if ! docker inspect -f '{{.State.Running}}' zoryq-p2p-follower-b 2>/dev/null | grep -qx true; then
+              docker logs zoryq-p2p-follower-b || true
+              exit 1
+            fi
+            sleep 1
+          done
+          docker logs zoryq-p2p-follower-b || true
+          exit 1
 
       - name: Verify two P2P-enabled followers peer and track canonical chain
         run: |
           set -euo pipefail
           rpc() {
             local container="$1" method="$2" params="${3:-[]}";
-            docker exec "$container" node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:process.argv[1],params:JSON.parse(process.argv[2])})}).then(r=>r.json()).then(j=>{if(j.error){console.error(JSON.stringify(j.error));process.exit(1)};process.stdout.write(JSON.stringify(j.result))})" "$method" "$params"
+            docker exec "$container" node -e "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:process.argv[1],params:JSON.parse(process.argv[2])})}).then(r=>r.json()).then(j=>{if(j.error){console.error(JSON.stringify(j.error));process.exit(1)};process.stdout.write(JSON.stringify(j.result))}).catch(()=>process.exit(1))" "$method" "$params"
           }
 
           ok=0
           for i in $(seq 1 180); do
-            A_PEERS=$(rpc zoryq-p2p-follower-a net_peerCount | jq -r '.')
-            B_PEERS=$(rpc zoryq-p2p-follower-b net_peerCount | jq -r '.')
-            A_BLOCK=$(rpc zoryq-p2p-follower-a eth_blockNumber | jq -r '.')
-            B_BLOCK=$(rpc zoryq-p2p-follower-b eth_blockNumber | jq -r '.')
-            if [ $((A_PEERS)) -gt 0 ] && [ $((B_PEERS)) -gt 0 ] && [ $((A_BLOCK)) -gt 0 ] && [ $((B_BLOCK)) -gt 0 ]; then
-              ok=1
-              break
+            if A_PEERS=$(rpc zoryq-p2p-follower-a net_peerCount 2>/dev/null) && \
+               B_PEERS=$(rpc zoryq-p2p-follower-b net_peerCount 2>/dev/null) && \
+               A_BLOCK=$(rpc zoryq-p2p-follower-a eth_blockNumber 2>/dev/null) && \
+               B_BLOCK=$(rpc zoryq-p2p-follower-b eth_blockNumber 2>/dev/null); then
+              A_PEERS=$(printf '%s' "$A_PEERS" | jq -r '.')
+              B_PEERS=$(printf '%s' "$B_PEERS" | jq -r '.')
+              A_BLOCK=$(printf '%s' "$A_BLOCK" | jq -r '.')
+              B_BLOCK=$(printf '%s' "$B_BLOCK" | jq -r '.')
+              if [ $((A_PEERS)) -gt 0 ] && [ $((B_PEERS)) -gt 0 ] && [ $((A_BLOCK)) -gt 0 ] && [ $((B_BLOCK)) -gt 0 ]; then
+                ok=1
+                break
+              fi
             fi
             sleep 1
           done
@@ -135,6 +152,8 @@ jobs:
           A_HASH=$(rpc zoryq-p2p-follower-a eth_getBlockByNumber "[\"$TAG\",false]" | jq -r '.hash')
           B_HASH=$(rpc zoryq-p2p-follower-b eth_getBlockByNumber "[\"$TAG\",false]" | jq -r '.hash')
           S_HASH=$(curl -fsS http://127.0.0.1:8081/rpc -H 'content-type: application/json' --data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"eth_getBlockByNumber\",\"params\":[\"$TAG\",false]}" | jq -r '.result.hash')
+          test -n "$A_HASH"
+          test "$A_HASH" != "null"
           test "$A_HASH" = "$B_HASH"
           test "$A_HASH" = "$S_HASH"
 
