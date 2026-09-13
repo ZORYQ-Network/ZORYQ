@@ -11,8 +11,8 @@ android {
         applicationId = "network.zoryq.wallet.migration"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.2.0-watch-only"
+        versionCode = 3
+        versionName = "0.3.0-secure-testnet"
     }
 
     compileOptions {
@@ -27,5 +27,6 @@ android {
 
 dependencies {
     implementation(project(":runtime"))
+    implementation("org.web3j:crypto:4.14.0")
     testImplementation("junit:junit:4.13.2")
 }
