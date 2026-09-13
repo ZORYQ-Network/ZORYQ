@@ -43,32 +43,36 @@ class ZoryqTransactionRpc(
         }
     }
 
-    fun signAndBroadcast(
+    /**
+     * Signs synchronously so Credentials never escape the protected Keystore
+     * scope in SecureWalletStore.withCredentials().
+     */
+    fun signTransfer(
         transfer: NativeTransfer,
         fee: FeeContext,
-        credentials: Credentials,
-        callback: (SendResult) -> Unit
-    ) {
-        val validation = transfer.validate()
-        if (validation != null) {
-            callback(SendResult(null, validation))
-            return
-        }
+        credentials: Credentials
+    ): String {
+        transfer.validate()?.let { error(it) }
+        val raw = RawTransaction.createEtherTransaction(
+            fee.nonce,
+            fee.gasPriceWei,
+            fee.gasLimit,
+            transfer.normalizedTo(),
+            transfer.valueWei()
+        )
+        val signed = TransactionEncoder.signMessage(
+            raw,
+            ZoryqReadOnlyRpc.EXPECTED_CHAIN_ID,
+            credentials
+        )
+        return Numeric.toHexString(signed)
+    }
+
+    fun broadcastSigned(rawTransactionHex: String, callback: (SendResult) -> Unit) {
+        require(rawTransactionHex.startsWith("0x")) { "Signed transaction must be hex encoded" }
         executor.execute {
             val result = runCatching {
-                val raw = RawTransaction.createEtherTransaction(
-                    fee.nonce,
-                    fee.gasPriceWei,
-                    fee.gasLimit,
-                    transfer.normalizedTo(),
-                    transfer.valueWei()
-                )
-                val signed = TransactionEncoder.signMessage(
-                    raw,
-                    ZoryqReadOnlyRpc.EXPECTED_CHAIN_ID,
-                    credentials
-                )
-                call("eth_sendRawTransaction", JSONArray().put(Numeric.toHexString(signed)))
+                call("eth_sendRawTransaction", JSONArray().put(rawTransactionHex))
             }.fold(
                 onSuccess = { SendResult(it, null) },
                 onFailure = { SendResult(null, it.message ?: it.javaClass.simpleName) }
