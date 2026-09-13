@@ -2,7 +2,7 @@
 
 ## Finding
 
-The historical mobile application was committed as opaque archives rather than as normal reviewable source files. The original `kyvo-source.zip` blob and its later `kyvo-src.tgz` / `zoryq-src.tgz` replacement do not provide a reliable canonical source recovery path today.
+The historical mobile application was committed as opaque archives rather than as normal reviewable source files. The original legacy ZIP blob `7745f1a20cd3ecbca231a66db945025a2eaba381` and its later TGZ replacement blob `3391a4e5a07f0e289f5f692e52f703abe5c6fed9` do not provide a reliable canonical source recovery path today.
 
 The released APK remains useful as a behavioral reference, but compiled Hermes bytecode must not be represented as original React Native source.
 
