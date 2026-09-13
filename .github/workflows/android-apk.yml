@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'zoryq-src.tgz'
+      - 'mobile-games-native/**'
       - '.github/workflows/android-apk.yml'
 
 permissions:
@@ -17,75 +17,61 @@ concurrency:
 
 jobs:
   build-apk:
-    name: Android APK
+    name: Canonical Android APK
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
-      - name: Checkout
+      - name: Checkout canonical source
         uses: actions/checkout@v6
 
-      - name: Extract ZORYQ source
-        run: |
-          mkdir -p appsrc
-          tar -xzf zoryq-src.tgz -C appsrc
-          test -f appsrc/package.json
-          test -f appsrc/app.json
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.13.1'
-
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Install dependencies
-        working-directory: appsrc
-        run: npm install --no-audit --no-fund
-
-      - name: Align Expo SDK dependencies
-        working-directory: appsrc
-        run: npx expo install --fix
-
-      - name: TypeScript check
-        working-directory: appsrc
-        run: npm run typecheck
-
-      - name: Expo Doctor
-        working-directory: appsrc
-        run: npx expo-doctor@latest
-
-      - name: Generate Android native project
-        working-directory: appsrc
-        run: npx expo prebuild --platform android --clean
-        env:
-          CI: '1'
-
-      - name: Setup Gradle cache
+      - name: Setup Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
 
-      - name: Build installable APK
-        working-directory: appsrc/android
-        run: ./gradlew :app:assembleDebug --no-daemon
-
-      - name: Rename APK
+      - name: Verify canonical source tree
         run: |
+          set -euo pipefail
+          test -f mobile-games-native/settings.gradle.kts
+          test -f mobile-games-native/wallet-host/build.gradle.kts
+          test -f mobile-games-native/runtime/build.gradle.kts
+          test -f mobile-games-native/demo/build.gradle.kts
+          test ! -e mobile-games-native/zoryq-src.tgz
+
+      - name: Test Wallet and Games runtime
+        working-directory: mobile-games-native
+        run: gradle :runtime:testDebugUnitTest :wallet-host:testDebugUnitTest --no-daemon
+
+      - name: Build Wallet and Games APKs
+        working-directory: mobile-games-native
+        run: gradle :runtime:assembleDebug :demo:assembleDebug :wallet-host:assembleDebug --no-daemon
+
+      - name: Stage installable artifacts
+        run: |
+          set -euo pipefail
           mkdir -p dist
-          cp appsrc/android/app/build/outputs/apk/debug/app-debug.apk dist/ZORYQ-${{ github.run_number }}.apk
+          cp mobile-games-native/wallet-host/build/outputs/apk/debug/wallet-host-debug.apk \
+            dist/ZORYQ-Wallet-Testnet-${{ github.run_number }}.apk
+          cp mobile-games-native/demo/build/outputs/apk/debug/demo-debug.apk \
+            dist/ZORYQ-Games-Testnet-${{ github.run_number }}.apk
+          sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
+          printf 'commit=%s\nworkflow_run=%s\nsource=mobile-games-native\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" > dist/BUILD_PROVENANCE.txt
 
-      - name: APK checksum
-        run: sha256sum dist/*.apk | tee dist/SHA256SUMS.txt
-
-      - name: Upload ZORYQ APK
+      - name: Upload ZORYQ Android artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ZORYQ-Android-APK-${{ github.run_number }}
+          name: ZORYQ-Android-Canonical-${{ github.run_number }}
           path: |
             dist/*.apk
             dist/SHA256SUMS.txt
+            dist/BUILD_PROVENANCE.txt
           if-no-files-found: error
           retention-days: 30
