@@ -38,6 +38,10 @@ jobs:
         with:
           gradle-version: '8.13'
 
+      - name: Test runtime
+        working-directory: mobile-games-native
+        run: gradle :runtime:testDebugUnitTest --stacktrace
+
       - name: Build runtime AAR and demo APK
         working-directory: mobile-games-native
         run: gradle :runtime:assembleDebug :demo:assembleDebug --stacktrace
