@@ -2,6 +2,11 @@ name: ZORYQ Non-Dev Cluster Smoke
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/nondev/**'
+      - '.github/workflows/nondev-cluster-smoke.yml'
   pull_request:
     paths:
       - 'infra/nondev/**'
@@ -25,20 +30,17 @@ jobs:
           echo 'deb [trusted=yes] https://sdk.kurtosis.com/kurtosis-cli-release-artifacts/ /' | sudo tee /etc/apt/sources.list.d/kurtosis.list
           sudo apt-get update
           sudo apt-get install -y kurtosis-cli
+          docker --version
           kurtosis version
 
-      - name: Start Kurtosis engine
-        run: kurtosis engine start
-
-      - name: Launch two-node Reth + Lighthouse network
+      - name: Reproduce non-dev cluster exactly as an external operator would
+        env:
+          ZORYQ_NONDEV_ENCLAVE: zoryq-nondev
+          ZORYQ_NONDEV_EVIDENCE: /tmp/zoryq-nondev-evidence.json
+          ZORYQ_NONDEV_KEEP_ENCLAVE: '1'
         run: |
-          kurtosis run --enclave zoryq-nondev github.com/ethpandaops/ethereum-package --args-file infra/nondev/network_params.yaml
-          kurtosis enclave inspect zoryq-nondev
-
-      - name: Verify convergence, finality and peers
-        run: |
-          chmod +x infra/nondev/verify-cluster.sh
-          infra/nondev/verify-cluster.sh zoryq-nondev | tee /tmp/zoryq-nondev-evidence.json
+          chmod +x infra/nondev/run-external-reproduction.sh infra/nondev/verify-cluster.sh
+          infra/nondev/run-external-reproduction.sh
 
       - name: Upload non-secret evidence
         uses: actions/upload-artifact@v4
