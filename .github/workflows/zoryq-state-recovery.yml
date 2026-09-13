@@ -48,12 +48,12 @@ jobs:
       - name: Capture deterministic funded state in isolated node
         run: |
           set -euo pipefail
-          TEST_ADDRESS=$(docker exec zoryq-recovery node --input-type=module -e 'import {HDNodeWallet} from "ethers"; console.log(HDNodeWallet.fromPhrase(process.env.ZORYQ_RETH_MNEMONIC,"","m/44'"'"'/60'"'"'/0'"'"'/0/0").address.toLowerCase())')
+          TEST_ADDRESS=$(docker exec zoryq-recovery node --input-type=module -e 'import {HDNodeWallet} from "ethers"; console.log(HDNodeWallet.fromPhrase(process.env.ZORYQ_RETH_MNEMONIC, "", "m/44'"'"'/60'"'"'/0'"'"'/0/0").address.toLowerCase())')
           test "$TEST_ADDRESS" != '0x0000000000000000000000000000000000000000'
           echo "$TEST_ADDRESS" >/tmp/test-address
           echo "canonical_operator=$TEST_ADDRESS"
 
-          GENESIS_BALANCE=$(docker exec zoryq-recovery node --input-type=module -e 'import fs from "node:fs"; import {HDNodeWallet} from "ethers"; const g=JSON.parse(fs.readFileSync("/data/zoryq-reth-effective-genesis.json","utf8")); const a=HDNodeWallet.fromPhrase(process.env.ZORYQ_RETH_MNEMONIC,"","m/44'"'"'/60'"'"'/0'"'"'/0/0").address; const v=g.alloc[a]||g.alloc[a.toLowerCase()]; if(!v?.balance) process.exit(2); console.log(v.balance)')
+          GENESIS_BALANCE=$(docker exec zoryq-recovery node --input-type=module -e 'import fs from "node:fs"; import {HDNodeWallet} from "ethers"; const g=JSON.parse(fs.readFileSync("/data/zoryq-reth-effective-genesis.json","utf8")); const a=HDNodeWallet.fromPhrase(process.env.ZORYQ_RETH_MNEMONIC, "", "m/44'"'"'/60'"'"'/0'"'"'/0/0").address; const v=g.alloc[a]||g.alloc[a.toLowerCase()]; if(!v?.balance) process.exit(2); console.log(v.balance)')
           GENESIS_BALANCE_HEX=$(node -e 'process.stdout.write("0x"+BigInt(process.argv[1]).toString(16))' "$GENESIS_BALANCE")
           test "$GENESIS_BALANCE_HEX" != '0x0'
           echo "effective_genesis_balance_raw=$GENESIS_BALANCE"
