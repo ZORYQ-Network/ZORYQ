@@ -1,0 +1,60 @@
+name: ZORYQ Games Native
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'mobile-games-native/**'
+      - '.github/workflows/zoryq-games-native.yml'
+  pull_request:
+    paths:
+      - 'mobile-games-native/**'
+      - '.github/workflows/zoryq-games-native.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zoryq-games-native-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Build runtime AAR and demo APK
+        working-directory: mobile-games-native
+        run: gradle :runtime:assembleDebug :demo:assembleDebug --stacktrace
+
+      - name: Verify artifacts
+        run: |
+          test -f mobile-games-native/runtime/build/outputs/aar/runtime-debug.aar
+          test -f mobile-games-native/demo/build/outputs/apk/debug/demo-debug.apk
+          sha256sum mobile-games-native/runtime/build/outputs/aar/runtime-debug.aar
+          sha256sum mobile-games-native/demo/build/outputs/apk/debug/demo-debug.apk
+
+      - name: Upload native games artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-games-native-${{ github.run_number }}
+          path: |
+            mobile-games-native/runtime/build/outputs/aar/runtime-debug.aar
+            mobile-games-native/demo/build/outputs/apk/debug/demo-debug.apk
+          if-no-files-found: error
+          retention-days: 30
