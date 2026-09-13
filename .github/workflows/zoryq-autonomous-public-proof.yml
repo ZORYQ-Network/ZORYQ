@@ -1,0 +1,40 @@
+name: ZORYQ Autonomous Public Proof
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/scripts/verify-autonomous-external-proof.mjs'
+      - 'zoryq-web/autonomous-external-proof.js'
+      - 'zoryq-web/config.js'
+      - 'zoryq-evm-node/deploy-external-work-proof.mjs'
+      - '.github/workflows/zoryq-autonomous-public-proof.yml'
+  pull_request:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/scripts/verify-autonomous-external-proof.mjs'
+      - 'zoryq-web/autonomous-external-proof.js'
+      - 'zoryq-web/config.js'
+      - 'zoryq-evm-node/deploy-external-work-proof.mjs'
+      - '.github/workflows/zoryq-autonomous-public-proof.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-public-proof:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check verifier
+        run: node --check zoryq-developer/scripts/verify-autonomous-external-proof.mjs
+      - name: Reproduce canonical public proof
+        env:
+          ZORYQ_VERIFY_ATTEMPTS: '12'
+          ZORYQ_VERIFY_DELAY_MS: '10000'
+        run: node zoryq-developer/scripts/verify-autonomous-external-proof.mjs
