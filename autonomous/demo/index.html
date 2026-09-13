@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ZORYQ Autonomous Company</title>
+<style>
+:root{color-scheme:dark;--bg:#05070b;--panel:#0b121d;--line:#1c3044;--text:#edf8ff;--muted:#8da5b9;--cyan:#2de7ff;--green:#42f5a1;--violet:#a071ff;--yellow:#ffd166}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:radial-gradient(circle at 10% 0%,#12324a 0,transparent 32%),radial-gradient(circle at 90% 5%,#2b174a 0,transparent 28%),var(--bg);color:var(--text)}main{max-width:1100px;margin:auto;padding:28px 18px 60px}h1{font-size:clamp(34px,7vw,68px);letter-spacing:-.05em;margin:4px 0}.kicker{color:var(--cyan);font-weight:800}.muted{color:var(--muted);line-height:1.55}.notice{border:1px solid #614d1c;background:#1b1608;color:#ffe39b;padding:12px 14px;border-radius:14px;margin:18px 0}.panel{background:rgba(11,18,29,.9);border:1px solid var(--line);border-radius:20px;padding:18px;margin-top:18px}.form{display:grid;grid-template-columns:2fr 1fr;gap:12px}.full{grid-column:1/-1}label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}input,select,textarea,button{width:100%;border-radius:12px;border:1px solid #24415a;background:#07101a;color:var(--text);padding:12px;font:inherit}textarea{min-height:90px;resize:vertical}button{cursor:pointer;background:linear-gradient(90deg,#0b6475,#5b3fb6);font-weight:800;border:0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.card{border:1px solid var(--line);border-radius:16px;background:#09111b;padding:14px}.card strong{color:var(--cyan)}.metric{font-size:26px;font-weight:900}.status{display:inline-block;font-size:11px;font-weight:900;padding:5px 8px;border-radius:999px;background:var(--green);color:#03120c}.yellow{background:var(--yellow);color:#211900}.flow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.flow span{padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:#07101a}.arrow{color:var(--violet)}pre{white-space:pre-wrap;word-break:break-word;max-height:420px;overflow:auto;background:#04090f;border-radius:14px;padding:14px;border:1px solid #16283a}.actions{display:flex;gap:10px;flex-wrap:wrap}.actions button{width:auto;padding:10px 16px}@media(max-width:700px){.form{grid-template-columns:1fr}.full{grid-column:auto}}
+</style>
+</head>
+<body><main>
+<div class="kicker">ZORYQ AUTONOMOUS NETWORK</div>
+<h1>Give it a goal.<br/>Give it a budget.</h1>
+<p class="muted">This reference interface creates a bounded company structure locally: specialist agents, tasks, internal hires, budget allocation and policy boundaries. It does not submit transactions.</p>
+<div class="notice"><b>SIMULATION / PLANNING ONLY.</b> No private key is requested. No ZQ is spent. No onchain receipt is fabricated. Evidence-backed goal progress stays at 0% until real verified execution exists.</div>
+
+<section class="panel">
+<div class="form">
+<div class="full"><label>Goal</label><textarea id="goal">Ship a verifiable ZORYQ developer demo</textarea></div>
+<div><label>Budget (testnet ZQ)</label><input id="budget" type="number" min="0.000001" step="0.000001" value="10" /></div>
+<div><label>Autonomy</label><select id="autonomy"><option>supervised</option><option>balanced</option><option>autonomous</option></select></div>
+<div class="full"><label>Root controller (public EVM address only)</label><input id="controller" value="0x1111111111111111111111111111111111111111" /></div>
+<div class="full"><button id="create">CREATE BOUNDED COMPANY</button></div>
+</div>
+</section>
+
+<section id="result" hidden>
+<div class="grid" style="margin-top:18px">
+<div class="card"><div class="muted">Company</div><div class="metric" id="companyId">—</div><span class="status">ACTIVE PLAN</span></div>
+<div class="card"><div class="muted">Initial budget</div><div class="metric" id="initial">—</div><div class="muted">ZQ_TESTNET</div></div>
+<div class="card"><div class="muted">Committed to hires</div><div class="metric" id="committed">—</div><div class="muted">not spent</div></div>
+<div class="card"><div class="muted">Evidence-backed progress</div><div class="metric">0%</div><span class="status yellow">NO REAL RECEIPT</span></div>
+</div>
+
+<div class="panel"><h2>Company flow</h2><div class="flow"><span>Goal</span><b class="arrow">→</b><span>Planner</span><b class="arrow">→</b><span>Builder</span><b class="arrow">→</b><span>Verifier</span><b class="arrow">→</b><span>Accountant</span><b class="arrow">→</b><span>Proof Pack</span></div></div>
+<div class="panel"><h2>Agents & task budgets</h2><div class="grid" id="agents"></div></div>
+<div class="panel"><h2>Internal hires</h2><div class="grid" id="hires"></div></div>
+<div class="panel"><h2>Policy</h2><div class="grid"><div class="card"><strong>Authority</strong><p>Bounded and explicit.</p></div><div class="card"><strong>Emergency stop</strong><p>Available in company policy.</p></div><div class="card"><strong>Simulation permissions</strong><p>Zero-value only; no transaction submission.</p></div><div class="card"><strong>Proof rule</strong><p>No real receipt = no real progress claim.</p></div></div></div>
+<div class="panel"><h2>Reference output</h2><div class="actions"><button id="download">DOWNLOAD PLAN JSON</button></div><pre id="json"></pre></div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);let latest=null;
+const hex=buf=>[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+async function hash(text){return '0x'+hex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))}
+function amount(n){return Number(n.toFixed(6)).toString()}
+async function build(){
+ const goal=$('goal').value.trim(),budget=Number($('budget').value),controller=$('controller').value.trim(),autonomy=$('autonomy').value;
+ if(!goal)return alert('Goal is required.');if(!(budget>0))return alert('Budget must be greater than zero.');if(!/^0x[a-fA-F0-9]{40}$/.test(controller))return alert('Controller must be a public EVM address.');
+ const seed=JSON.stringify({goal,budget:amount(budget),controller:controller.toLowerCase(),autonomy});const digest=await hash(seed);const companyId='zoryq-company-'+digest.slice(2,14);
+ const roles=[['Planner','Define constraints, plan and evidence',.10],['Builder','Produce the goal deliverable',.55],['Verifier','Independently verify evidence',.20],['Accountant','Reconcile budget and Proof Pack',.15]];
+ const agents=roles.map(([role,task,pct],i)=>({agentId:`${companyId}:${role.toLowerCase()}`,role,task,budgetAllocation:amount(budget*pct),authority:'bounded'}));
+ const hires=[{hireId:`${companyId}:hire:builder`,requestedBy:'Planner',agentId:agents[1].agentId,compensation:agents[1].budgetAllocation,status:'accepted',settlement:'not-executed'},{hireId:`${companyId}:hire:verifier`,requestedBy:'Planner',agentId:agents[2].agentId,compensation:agents[2].budgetAllocation,status:'accepted',settlement:'not-executed'}];
+ latest={version:'0.1-demo',mode:'planning-simulation-only',companyId,chainId:5919065,rootController:controller,goal:{description:goal,goalHash:await hash(goal)},budget:{asset:'ZQ_TESTNET',initial:amount(budget),committed:amount(budget*.75),spent:'0',received:'0'},autonomy,agents,hires,policy:{bounded:true,emergencyStop:false,realTransactionAuthority:false},goalProgress:{percent:0,basis:['No verified real execution/payment/outcome receipt exists.']}};
+ $('companyId').textContent=companyId.replace('zoryq-company-','');$('initial').textContent=amount(budget);$('committed').textContent=latest.budget.committed;
+ $('agents').innerHTML=agents.map(a=>`<div class="card"><strong>${a.role}</strong><p>${a.task}</p><div class="muted">Budget: ${a.budgetAllocation} ZQ</div><div class="muted">Authority: bounded</div></div>`).join('');
+ $('hires').innerHTML=hires.map(h=>`<div class="card"><strong>${h.requestedBy} → ${h.agentId.split(':').pop()}</strong><p>${h.compensation} ZQ committed</p><div class="muted">Settlement: ${h.settlement}</div></div>`).join('');
+ $('json').textContent=JSON.stringify(latest,null,2);$('result').hidden=false;$('result').scrollIntoView({behavior:'smooth'});
+}
+$('create').onclick=build;$('download').onclick=()=>{if(!latest)return;const blob=new Blob([JSON.stringify(latest,null,2)+'\n'],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`${latest.companyId}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+</script></body></html>
