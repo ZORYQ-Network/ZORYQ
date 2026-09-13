@@ -8,6 +8,7 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.Toast
 import network.zoryq.games.runtime.ZoryqGameBridge
 
@@ -28,22 +29,26 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
 
-        val watchButton = Button(this).apply {
-            text = "WATCH WALLET"
-            textSize = 11f
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(35, 45, 91))
-            setOnClickListener {
-                startActivity(Intent(this@MainActivity, WatchOnlyWalletActivity::class.java))
-            }
-        }
         val density = resources.displayMetrics.density
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+        }
+        actions.addView(topButton("WATCH") {
+            startActivity(Intent(this, WatchOnlyWalletActivity::class.java))
+        })
+        actions.addView(topButton("SECURE") {
+            startActivity(Intent(this, SecureWalletActivity::class.java))
+        })
+        actions.addView(topButton("SOCIAL") {
+            startActivity(Intent(this, SocialActivity::class.java))
+        })
         root.addView(
-            watchButton,
-            FrameLayout.LayoutParams((142 * density).toInt(), (42 * density).toInt()).apply {
+            actions,
+            FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, (44 * density).toInt()).apply {
                 gravity = Gravity.TOP or Gravity.END
                 topMargin = (92 * density).toInt()
-                marginEnd = (18 * density).toInt()
+                marginEnd = (12 * density).toInt()
             }
         )
         setContentView(root)
@@ -62,6 +67,14 @@ class MainActivity : Activity() {
                 Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun topButton(label: String, action: () -> Unit) = Button(this).apply {
+        text = label
+        textSize = 9f
+        setTextColor(Color.WHITE)
+        setBackgroundColor(Color.rgb(35, 45, 91))
+        setOnClickListener { action() }
     }
 
     override fun onDestroy() {

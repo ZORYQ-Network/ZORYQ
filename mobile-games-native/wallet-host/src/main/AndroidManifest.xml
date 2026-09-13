@@ -8,6 +8,14 @@
         android:supportsRtl="true"
         android:theme="@style/ZoryqWalletMigrationTheme">
         <activity
+            android:name=".SecureWalletActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
+            android:name=".SocialActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".WatchOnlyWalletActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
