@@ -52,10 +52,10 @@ class ZoryqGamesHubView(
         GameCard(
             ZoryqGameBridge.GAME_EMPIRE,
             "ZORYQ EMPIRE",
-            "Construa, produza, evolua e dispute o ranking global.",
-            "PLANEJADO",
+            "Construa, produza, evolua e desenvolva sua cidade.",
+            "ALPHA JOGÁVEL",
             Color.rgb(171, 111, 255),
-            false
+            true
         )
     )
 

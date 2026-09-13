@@ -16,5 +16,10 @@
             android:exported="false"
             android:screenOrientation="portrait"
             android:theme="@style/ZoryqGamesTheme" />
+        <activity
+            android:name=".ZoryqEmpireActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/ZoryqGamesTheme" />
     </application>
 </manifest>
