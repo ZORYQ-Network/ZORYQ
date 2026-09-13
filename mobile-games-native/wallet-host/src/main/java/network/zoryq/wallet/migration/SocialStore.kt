@@ -19,8 +19,8 @@ class SocialStore(context: Context) {
     fun handle(): String = prefs.getString(KEY_HANDLE, "zoryq_user") ?: "zoryq_user"
 
     fun saveHandle(value: String) {
-        val clean = value.trim().replace(Regex("[^A-Za-z0-9_.-]"), "").take(24)
-        require(clean.length >= 3) { "Handle must have at least 3 valid characters" }
+        val clean = normalizeHandle(value)
+        require(HANDLE.matches(clean)) { "Use 3–24 caracteres: a-z, 0-9 e _" }
         prefs.edit().putString(KEY_HANDLE, clean).apply()
     }
 
@@ -72,9 +72,17 @@ class SocialStore(context: Context) {
     }
 
     companion object {
+        private val HANDLE = Regex("^[a-z0-9_]{3,24}$")
         private const val PREFS = "zoryq_social_local_v1"
         private const val KEY_HANDLE = "handle"
         private const val KEY_POSTS = "posts"
         private const val MAX_POSTS = 100
+
+        fun normalizeHandle(value: String): String = value
+            .trim()
+            .lowercase()
+            .removePrefix("@")
+            .replace(Regex("[^a-z0-9_]"), "")
+            .take(24)
     }
 }
