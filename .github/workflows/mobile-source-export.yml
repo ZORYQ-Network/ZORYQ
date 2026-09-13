@@ -2,6 +2,10 @@ name: Export reviewable mobile source
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/mobile-source-export.yml'
+      - 'mobile-games-native/**'
   push:
     branches: [main]
     paths:
