@@ -14,6 +14,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ZoryqGamesNative"
+rootProject.name = "ZoryqMobile"
 include(":runtime")
 include(":demo")
+include(":wallet-host")
