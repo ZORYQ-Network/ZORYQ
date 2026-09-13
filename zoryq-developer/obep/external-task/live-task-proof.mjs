@@ -23,13 +23,23 @@ const BASE = (process.env.ZORYQ_PUBLIC_BASE_URL || 'https://zoryq-evm-node-live-
 const RPC = `${BASE}/rpc`;
 const CHAIN_ID = 5919065;
 const PAYMENT_WEI = process.env.ZORYQ_OBEP_TASK_PAYMENT_WEI || parseEther('1').toString();
-const OUT = process.argv[2] || 'zoryq-evidence/obep/external-task-live-proof.json';
+const EVIDENCE_ROOT = path.resolve(process.cwd(), 'zoryq-evidence', 'obep');
+const OUT = resolveEvidenceOutput(process.argv[2] || 'zoryq-evidence/obep/external-task-live-proof.json');
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const INPUT = path.join(HERE, 'records.json');
 const COMPUTE = path.join(HERE, 'compute-task.mjs');
 
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function resolveEvidenceOutput(requested) {
+  const resolved = path.resolve(process.cwd(), requested);
+  const relative = path.relative(EVIDENCE_ROOT, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('useful-task evidence output must stay under zoryq-evidence/obep');
+  }
+  return resolved;
+}
 
 function computeTask() {
   const run = spawnSync(process.execPath, [COMPUTE, INPUT], { encoding: 'utf8' });
@@ -42,11 +52,7 @@ function independentlyRecompute(expected) {
   if (run.status !== 0) return { accepted: false, reason: run.stderr || 'recompute failed', recomputed: null };
   const recomputed = JSON.parse(run.stdout);
   const accepted = JSON.stringify(recomputed) === JSON.stringify(expected);
-  return {
-    accepted,
-    reason: accepted ? 'independent deterministic recomputation matched byte-for-byte' : 'independent deterministic recomputation mismatch',
-    recomputed,
-  };
+  return { accepted, reason: accepted ? 'independent deterministic recomputation matched byte-for-byte' : 'independent deterministic recomputation mismatch', recomputed };
 }
 
 async function waitForBalance(provider, address, minimum, timeoutMs = 120000) {
@@ -72,15 +78,12 @@ async function main() {
   assert(faucetStatusResponse.ok && faucetStatus?.ok === true, 'faucet status unavailable');
   if (faucetStatus.xAttestationRequired === true) throw new Error('task proof blocked: faucet requires external X attestation');
 
-  // Ephemeral role keys live only for this proof process and are never serialized.
   const treasury = Wallet.createRandom().connect(provider);
   const executor = Wallet.createRandom();
   const verifier = Wallet.createRandom();
 
   const claimResponse = await fetch(`${BASE}/faucet/claim`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ address: treasury.address }),
+    method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ address: treasury.address }),
   });
   const claim = await claimResponse.json();
   assert(claimResponse.ok && claim?.ok === true, `faucet claim failed: ${JSON.stringify(claim)}`);
@@ -94,66 +97,30 @@ async function main() {
 
   const inputRecords = JSON.parse(fs.readFileSync(INPUT, 'utf8'));
   const now = Math.floor(Date.now() / 1000);
-  const task = {
-    type: 'ZORYQ_OBEP_EXTERNAL_TASK_V1',
-    inputDigest: taskResult.inputDigest,
-    recordCount: inputRecords.length,
-    specification: 'zoryq-developer/obep/external-task/README.md',
-  };
+  const task = { type: 'ZORYQ_OBEP_EXTERNAL_TASK_V1', inputDigest: taskResult.inputDigest, recordCount: inputRecords.length, specification: 'zoryq-developer/obep/external-task/README.md' };
 
   const intent = createIntentEnvelope({
     companyId: `company:obep-useful-task:${treasury.address.toLowerCase()}`,
     goal: 'Compute, independently verify, and settle a deterministic useful dataset-summary task on ZORYQ Testnet',
-    task,
-    executor: executor.address,
-    verifier: verifier.address,
-    treasury: treasury.address,
-    budget: PAYMENT_WEI,
-    chainId: CHAIN_ID,
-    nonce: `useful-task-${Date.now()}-${treasury.address.toLowerCase()}`,
-    validFrom: now - 30,
-    validUntil: now + 900,
-    policy: {
-      maxPayment: PAYMENT_WEI,
-      asset: 'ZQ_TESTNET_NATIVE',
-      capability: 'ZORYQ_OBEP_EXTERNAL_TASK_V1',
-      revocable: true,
-    },
+    task, executor: executor.address, verifier: verifier.address, treasury: treasury.address, budget: PAYMENT_WEI, chainId: CHAIN_ID,
+    nonce: `useful-task-${Date.now()}-${treasury.address.toLowerCase()}`, validFrom: now - 30, validUntil: now + 900,
+    policy: { maxPayment: PAYMENT_WEI, asset: 'ZQ_TESTNET_NATIVE', capability: 'ZORYQ_OBEP_EXTERNAL_TASK_V1', revocable: true },
   });
 
   const authorization = authorizeIntent(intent, { authorizer: treasury.address, issuedAt: now });
   const authorizationMessage = `ZORYQ_OBEP_AUTH|${intent.intentId}|${authorization.authorizationId}`;
   const authorizationSignature = await treasury.signMessage(authorizationMessage);
-
-  const execution = recordExecution(intent, authorization, {
-    executor: executor.address,
-    output: taskResult,
-    startedAt: now + 1,
-    completedAt: now + 2,
-  });
+  const execution = recordExecution(intent, authorization, { executor: executor.address, output: taskResult, startedAt: now + 1, completedAt: now + 2 });
   const executionMessage = `ZORYQ_OBEP_EXECUTION|${execution.executionId}|${execution.outputHash}`;
   const executionSignature = await executor.signMessage(executionMessage);
-
-  const outcome = verifyOutcome(intent, execution, {
-    verifier: verifier.address,
-    accepted: verification.accepted,
-    reason: verification.reason,
-    verifiedAt: now + 3,
-  });
+  const outcome = verifyOutcome(intent, execution, { verifier: verifier.address, accepted: verification.accepted, reason: verification.reason, verifiedAt: now + 3 });
   assert(outcome.accepted === true, 'payment must not proceed without accepted outcome');
   const outcomeMessage = `ZORYQ_OBEP_OUTCOME|${outcome.outcomeId}|${outcome.outputHash}`;
   const outcomeSignature = await verifier.signMessage(outcomeMessage);
 
-  const binding = {
-    protocol: 'ZORYQ_OBEP_ONCHAIN_V1',
-    chainId: CHAIN_ID,
-    intentId: intent.intentId,
-    outcomeId: outcome.outcomeId,
-    outputHash: outcome.outputHash,
-  };
+  const binding = { protocol: 'ZORYQ_OBEP_ONCHAIN_V1', chainId: CHAIN_ID, intentId: intent.intentId, outcomeId: outcome.outcomeId, outputHash: outcome.outputHash };
   const commitment = hashObject(binding);
   const calldata = hexlify(toUtf8Bytes(`ZORYQ_OBEP_V1|${commitment}`));
-
   const tx = await treasury.sendTransaction({ to: executor.address, value: BigInt(PAYMENT_WEI), data: calldata });
   const mined = await tx.wait(1);
   assert(mined && mined.status === 1, 'payment transaction reverted');
@@ -168,74 +135,27 @@ async function main() {
 
   const ledger = new ObepLedger();
   ledger.register(intent);
-  const receipt = ledger.settle(intent, authorization, execution, outcome, {
-    txHash: tx.hash,
-    from: treasury.address,
-    to: executor.address,
-    amount: PAYMENT_WEI,
-    chainId: CHAIN_ID,
-    status: 'SUCCESS',
-  });
+  const receipt = ledger.settle(intent, authorization, execution, outcome, { txHash: tx.hash, from: treasury.address, to: executor.address, amount: PAYMENT_WEI, chainId: CHAIN_ID, status: 'SUCCESS' });
   const accounting = ledger.reconcile(intent, receipt);
   const proofPack = exportProofPack({ intent, authorization, execution, outcome, receipt, accounting });
   verifyProofPack(proofPack);
 
   const evidence = {
-    protocol: 'ZORYQ_OBEP_USEFUL_TASK_LIVE_PROOF',
-    version: '0.2.0',
-    generatedAt: new Date().toISOString(),
-    rpc: RPC,
-    chainId: CHAIN_ID,
-    taskVerification: {
-      specification: task.specification,
-      inputDigest: taskResult.inputDigest,
-      taskOutputHash: taskResult.outputHash,
-      recomputationAccepted: verification.accepted,
-    },
+    protocol: 'ZORYQ_OBEP_USEFUL_TASK_LIVE_PROOF', version: '0.2.0', generatedAt: new Date().toISOString(), rpc: RPC, chainId: CHAIN_ID,
+    taskVerification: { specification: task.specification, inputDigest: taskResult.inputDigest, taskOutputHash: taskResult.outputHash, recomputationAccepted: verification.accepted },
     proofPack,
     roleAttestations: {
       authorization: { address: treasury.address, message: authorizationMessage, signature: authorizationSignature },
       execution: { address: executor.address, message: executionMessage, signature: executionSignature },
       outcome: { address: verifier.address, message: outcomeMessage, signature: outcomeSignature },
     },
-    onchainBinding: {
-      binding,
-      commitment,
-      calldata,
-      txHash: tx.hash,
-      blockNumber: rpcReceipt.blockNumber,
-      blockHash: rpcReceipt.blockHash,
-      from: rpcTx.from,
-      to: rpcTx.to,
-      value: rpcTx.value.toString(),
-      status: rpcReceipt.status,
-      faucetFundingTxHash: claim.txHash,
-    },
-    securityBoundary: {
-      privateKeysPersisted: false,
-      privateKeysEmitted: false,
-      rolesIndependentWithinProof: true,
-      externalHumanOrProjectIndependence: false,
-      walletType: 'ephemeral-ci-only',
-      network: 'public-centralized-testnet',
-      productionClaim: false,
-    },
+    onchainBinding: { binding, commitment, calldata, txHash: tx.hash, blockNumber: rpcReceipt.blockNumber, blockHash: rpcReceipt.blockHash, from: rpcTx.from, to: rpcTx.to, value: rpcTx.value.toString(), status: rpcReceipt.status, faucetFundingTxHash: claim.txHash },
+    securityBoundary: { privateKeysPersisted: false, privateKeysEmitted: false, rolesIndependentWithinProof: true, externalHumanOrProjectIndependence: false, walletType: 'ephemeral-ci-only', network: 'public-centralized-testnet', productionClaim: false },
   };
 
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  fs.writeFileSync(OUT, JSON.stringify(evidence, null, 2) + '\n');
-  console.log(JSON.stringify({
-    ok: true,
-    protocol: evidence.protocol,
-    chainId: CHAIN_ID,
-    taskOutputHash: taskResult.outputHash,
-    intentId: intent.intentId,
-    outcomeId: outcome.outcomeId,
-    txHash: tx.hash,
-    blockNumber: rpcReceipt.blockNumber,
-    commitment,
-    proofPackHash: proofPack.proofPackHash,
-  }));
+  fs.writeFileSync(OUT, JSON.stringify(evidence, null, 2) + '\n', { flag: 'w' });
+  console.log(JSON.stringify({ ok: true, protocol: evidence.protocol, chainId: CHAIN_ID, taskOutputHash: taskResult.outputHash, intentId: intent.intentId, outcomeId: outcome.outcomeId, txHash: tx.hash, blockNumber: rpcReceipt.blockNumber, commitment, proofPackHash: proofPack.proofPackHash }));
 }
 
 main().catch((error) => {
