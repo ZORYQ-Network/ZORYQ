@@ -1,0 +1,159 @@
+{
+  "protocol": "ZORYQ_OBEP_USEFUL_TASK_LIVE_PROOF",
+  "version": "0.2.0",
+  "generatedAt": "2026-09-12T22:42:08.107Z",
+  "rpc": "https://zoryq-evm-node-live-production.up.railway.app/rpc",
+  "chainId": 5919065,
+  "taskVerification": {
+    "specification": "zoryq-developer/obep/external-task/README.md",
+    "inputDigest": "0x8c81ca54f8bd32d6d02d082c3ad3a1c92d403e724cd0520b798746d352589955",
+    "taskOutputHash": "0x1198ac0402951123aa977a0d16cdca317f61e5448108da67629125c6c721cf4c",
+    "recomputationAccepted": true
+  },
+  "proofPack": {
+    "protocol": "ZORYQ_OBEP",
+    "version": "0.1.0",
+    "intent": {
+      "version": "0.1.0",
+      "companyId": "company:obep-useful-task:0xca28d52d040d6cb4c40cf02b86d5e85cb7ec9560",
+      "goal": "Compute, independently verify, and settle a deterministic useful dataset-summary task on ZORYQ Testnet",
+      "task": {
+        "type": "ZORYQ_OBEP_EXTERNAL_TASK_V1",
+        "inputDigest": "0x8c81ca54f8bd32d6d02d082c3ad3a1c92d403e724cd0520b798746d352589955",
+        "recordCount": 6,
+        "specification": "zoryq-developer/obep/external-task/README.md"
+      },
+      "executor": "0x0a1f5393ecd48e5f5b70f0317393bb0b93933442",
+      "verifier": "0xb2ef93ebaa3ea87e6d820781241dddfc9f6f5979",
+      "treasury": "0xca28d52d040d6cb4c40cf02b86d5e85cb7ec9560",
+      "budget": "1000000000000000000",
+      "chainId": 5919065,
+      "nonce": "useful-task-1789252923706-0xca28d52d040d6cb4c40cf02b86d5e85cb7ec9560",
+      "validFrom": 1789252893,
+      "validUntil": 1789253823,
+      "policy": {
+        "maxPayment": "1000000000000000000",
+        "asset": "ZQ_TESTNET_NATIVE",
+        "capability": "ZORYQ_OBEP_EXTERNAL_TASK_V1",
+        "revocable": true
+      },
+      "intentId": "0x321a133dbcdb44b43870e1d25ab059932a9a8353033b9445d0d6566f8d3131c7"
+    },
+    "authorization": {
+      "type": "OBEP_AUTHORIZATION",
+      "version": "0.1.0",
+      "intentId": "0x321a133dbcdb44b43870e1d25ab059932a9a8353033b9445d0d6566f8d3131c7",
+      "authorizer": "0xca28d52d040d6cb4c40cf02b86d5e85cb7ec9560",
+      "nonce": "useful-task-1789252923706-0xca28d52d040d6cb4c40cf02b86d5e85cb7ec9560",
+      "issuedAt": 1789252923,
+      "validUntil": 1789253823,
+      "revoked": false,
+      "authorizationId": "0x2ed8dc9a1472ddae744d787d562203a421380d8a11e5a1baa8ee19637688af5c"
+    },
+    "execution": {
+      "type": "OBEP_EXECUTION",
+      "version": "0.1.0",
+      "intentId": "0x321a133dbcdb44b43870e1d25ab059932a9a8353033b9445d0d6566f8d3131c7",
+      "authorizationId": "0x2ed8dc9a1472ddae744d787d562203a421380d8a11e5a1baa8ee19637688af5c",
+      "executor": "0x0a1f5393ecd48e5f5b70f0317393bb0b93933442",
+      "taskHash": "0x9c564c19b543c93dd69dbe471bcd74760457994d66af5ebd841f208c2c6996bb",
+      "outputHash": "0x0919efc9b65fd437ad6a118f5c07d0ae287f81a0cacdd2c4a4475e40ebfd971c",
+      "startedAt": 1789252924,
+      "completedAt": 1789252925,
+      "executionId": "0x5c4ceecac546e599c98455e416d13105543faba776bd12c11a5e0f24de184079",
+      "output": {
+        "spec": "ZORYQ_OBEP_EXTERNAL_TASK_V1",
+        "inputDigest": "0x8c81ca54f8bd32d6d02d082c3ad3a1c92d403e724cd0520b798746d352589955",
+        "recordCount": 6,
+        "activeRecordCount": 4,
+        "activeAmountTotal": 78,
+        "categoryTotals": {
+          "compute": 17,
+          "storage": 42,
+          "verification": 19
+        },
+        "outputHash": "0x1198ac0402951123aa977a0d16cdca317f61e5448108da67629125c6c721cf4c"
+      }
+    },
+    "outcome": {
+      "type": "OBEP_OUTCOME",
+      "version": "0.1.0",
+      "intentId": "0x321a133dbcdb44b43870e1d25ab059932a9a8353033b9445d0d6566f8d3131c7",
+      "executionId": "0x5c4ceecac546e599c98455e416d13105543faba776bd12c11a5e0f24de184079",
+      "verifier": "0xb2ef93ebaa3ea87e6d820781241dddfc9f6f5979",
+      "outputHash": "0x0919efc9b65fd437ad6a118f5c07d0ae287f81a0cacdd2c4a4475e40ebfd971c",
+      "accepted": true,
+      "reason": "independent deterministic recomputation matched byte-for-byte",
+      "verifiedAt": 1789252926,
+      "outcomeId": "0xaebba31f940705c9ca662c44d842263874a3f176594341acb04b1f9c0f06b588"
+    },
+    "receipt": {
+      "type": "OBEP_SETTLEMENT",
+      "version": "0.1.0",
+      "intentId": "0x321a133dbcdb44b43870e1d25ab059932a9a8353033b9445d0d6566f8d3131c7",
+      "outcomeId": "0xaebba31f940705c9ca662c44d842263874a3f176594341acb04b1f9c0f06b588",
+      "outputHash": "0x0919efc9b65fd437ad6a118f5c07d0ae287f81a0cacdd2c4a4475e40ebfd971c",
+      "chainId": 5919065,
+      "txHash": "0x472716d15ffe9b4440a818fec15bdf3a426cfa653e8e147a6be04fec1ab7ee4d",
+      "from": "0xca28d52d040d6cb4c40cf02b86d5e85cb7ec9560",
+      "to": "0x0a1f5393ecd48e5f5b70f0317393bb0b93933442",
+      "amount": "1000000000000000000",
+      "asset": "ZQ_TESTNET_NATIVE",
+      "status": "VERIFIED",
+      "receiptId": "0xabca411e1748087854a8e19ace0b34340055b4556c5b6a55b633609f69d03a8d"
+    },
+    "accounting": {
+      "intentId": "0x321a133dbcdb44b43870e1d25ab059932a9a8353033b9445d0d6566f8d3131c7",
+      "debit": "1000000000000000000",
+      "asset": "ZQ_TESTNET_NATIVE",
+      "txHash": "0x472716d15ffe9b4440a818fec15bdf3a426cfa653e8e147a6be04fec1ab7ee4d",
+      "reconciled": true
+    },
+    "proofPackHash": "0x34422480f23741db1d507712bc3d572d92686c5f72a315afdeabbd51953e41c3"
+  },
+  "roleAttestations": {
+    "authorization": {
+      "address": "0xcA28d52d040D6cB4c40CF02B86d5e85cB7ec9560",
+      "message": "ZORYQ_OBEP_AUTH|0x321a133dbcdb44b43870e1d25ab059932a9a8353033b9445d0d6566f8d3131c7|0x2ed8dc9a1472ddae744d787d562203a421380d8a11e5a1baa8ee19637688af5c",
+      "signature": "0x205d148dfd25249658889ce73e11054072280b2641d15d94387631e973208a6322e96090f828695d394b8cf7a1ff5236a0b0e5737a7f6884dbe23e33a4adcad01c"
+    },
+    "execution": {
+      "address": "0x0A1f5393eCD48E5f5B70F0317393bb0B93933442",
+      "message": "ZORYQ_OBEP_EXECUTION|0x5c4ceecac546e599c98455e416d13105543faba776bd12c11a5e0f24de184079|0x0919efc9b65fd437ad6a118f5c07d0ae287f81a0cacdd2c4a4475e40ebfd971c",
+      "signature": "0x903120f8759648c0613d8d32d12d7fad15239b0e1e46f2cf6912b769b2960e2759e874e0038070df75115a972f9610c15894d8560aa9969ec5bc61c8aa59f8e11c"
+    },
+    "outcome": {
+      "address": "0xB2ef93ebaa3eA87e6d820781241DDDfc9f6f5979",
+      "message": "ZORYQ_OBEP_OUTCOME|0xaebba31f940705c9ca662c44d842263874a3f176594341acb04b1f9c0f06b588|0x0919efc9b65fd437ad6a118f5c07d0ae287f81a0cacdd2c4a4475e40ebfd971c",
+      "signature": "0x41c126076b92c05482927e727138053caa25e8eaabc04e80e64d8c2df331da1f2d9d652dc8ccfcdb67ce4c614a3292ed0adb23815854c43d2251e9b26cc932361c"
+    }
+  },
+  "onchainBinding": {
+    "binding": {
+      "protocol": "ZORYQ_OBEP_ONCHAIN_V1",
+      "chainId": 5919065,
+      "intentId": "0x321a133dbcdb44b43870e1d25ab059932a9a8353033b9445d0d6566f8d3131c7",
+      "outcomeId": "0xaebba31f940705c9ca662c44d842263874a3f176594341acb04b1f9c0f06b588",
+      "outputHash": "0x0919efc9b65fd437ad6a118f5c07d0ae287f81a0cacdd2c4a4475e40ebfd971c"
+    },
+    "commitment": "0x8713c7d91ce98c2ad58755942529be6ac9724587fc870d9790b191b2451ed7df",
+    "calldata": "0x5a4f5259515f4f4245505f56317c307838373133633764393163653938633261643538373535393432353239626536616339373234353837666338373064393739306231393162323435316564376466",
+    "txHash": "0x472716d15ffe9b4440a818fec15bdf3a426cfa653e8e147a6be04fec1ab7ee4d",
+    "blockNumber": 127339,
+    "blockHash": "0xa9911b0fa35003712f7a71fbf568cb75a38285d72fe48fecea8b905605735589",
+    "from": "0xcA28d52d040D6cB4c40CF02B86d5e85cB7ec9560",
+    "to": "0x0A1f5393eCD48E5f5B70F0317393bb0B93933442",
+    "value": "1000000000000000000",
+    "status": 1,
+    "faucetFundingTxHash": "0xfc9fbf33b2569aa7e635e7ffb7ed3a6781496563eca8c0628153baf5fb52409a"
+  },
+  "securityBoundary": {
+    "privateKeysPersisted": false,
+    "privateKeysEmitted": false,
+    "rolesIndependentWithinProof": true,
+    "externalHumanOrProjectIndependence": false,
+    "walletType": "ephemeral-ci-only",
+    "network": "public-centralized-testnet",
+    "productionClaim": false
+  }
+}
