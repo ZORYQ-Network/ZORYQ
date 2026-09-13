@@ -1,9 +1,9 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import {
   Wallet,
   JsonRpcProvider,
   hexlify,
-  keccak256,
   parseEther,
   toUtf8Bytes,
 } from 'ethers';
@@ -22,10 +22,20 @@ const BASE = (process.env.ZORYQ_PUBLIC_BASE_URL || 'https://zoryq-evm-node-live-
 const RPC = `${BASE}/rpc`;
 const CHAIN_ID = 5919065;
 const PAYMENT_WEI = process.env.ZORYQ_OBEP_PAYMENT_WEI || parseEther('1').toString();
-const OUT = process.argv[2] || 'zoryq-evidence/obep/live-proof.json';
+const EVIDENCE_ROOT = path.resolve(process.cwd(), 'zoryq-evidence', 'obep');
+const OUT = resolveEvidenceOutput(process.argv[2] || 'zoryq-evidence/obep/live-proof.json');
 
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function resolveEvidenceOutput(requested) {
+  const resolved = path.resolve(process.cwd(), requested);
+  const relative = path.relative(EVIDENCE_ROOT, resolved);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('live OBEP evidence output must stay under zoryq-evidence/obep');
+  }
+  return resolved;
+}
 
 async function waitForBalance(provider, address, minimum, timeoutMs = 120000) {
   const started = Date.now();
@@ -53,7 +63,6 @@ async function main() {
     throw new Error('live OBEP proof intentionally blocked: faucet requires external X attestation');
   }
 
-  // Keys exist only in this process and are never serialized into evidence.
   const treasury = Wallet.createRandom().connect(provider);
   const executor = Wallet.createRandom();
   const verifier = Wallet.createRandom();
@@ -71,16 +80,8 @@ async function main() {
   assert(fundedBalance > BigInt(PAYMENT_WEI), 'funded balance insufficient for payment plus gas');
 
   const now = Math.floor(Date.now() / 1000);
-  const task = {
-    type: 'OBEP_LIVE_TESTNET_RESULT',
-    input: { a: 21, b: 2 },
-    expected: 42,
-  };
-  const output = {
-    result: 42,
-    method: '21*2',
-    evidenceClass: 'deterministic-ci-execution',
-  };
+  const task = { type: 'OBEP_LIVE_TESTNET_RESULT', input: { a: 21, b: 2 }, expected: 42 };
+  const output = { result: 42, method: '21*2', evidenceClass: 'deterministic-ci-execution' };
 
   const intent = createIntentEnvelope({
     companyId: `company:obep-live:${treasury.address.toLowerCase()}`,
@@ -94,54 +95,26 @@ async function main() {
     nonce: `live-${Date.now()}-${treasury.address.toLowerCase()}`,
     validFrom: now - 30,
     validUntil: now + 900,
-    policy: {
-      maxPayment: PAYMENT_WEI,
-      asset: 'ZQ_TESTNET_NATIVE',
-      capability: 'OBEP_LIVE_TESTNET_RESULT',
-      revocable: true,
-    },
+    policy: { maxPayment: PAYMENT_WEI, asset: 'ZQ_TESTNET_NATIVE', capability: 'OBEP_LIVE_TESTNET_RESULT', revocable: true },
   });
 
-  const authorization = authorizeIntent(intent, {
-    authorizer: treasury.address,
-    issuedAt: now,
-  });
+  const authorization = authorizeIntent(intent, { authorizer: treasury.address, issuedAt: now });
   const authorizationMessage = `ZORYQ_OBEP_AUTH|${intent.intentId}|${authorization.authorizationId}`;
   const authorizationSignature = await treasury.signMessage(authorizationMessage);
 
-  const execution = recordExecution(intent, authorization, {
-    executor: executor.address,
-    output,
-    startedAt: now + 1,
-    completedAt: now + 2,
-  });
+  const execution = recordExecution(intent, authorization, { executor: executor.address, output, startedAt: now + 1, completedAt: now + 2 });
   const executionMessage = `ZORYQ_OBEP_EXECUTION|${execution.executionId}|${execution.outputHash}`;
   const executionSignature = await executor.signMessage(executionMessage);
 
-  const outcome = verifyOutcome(intent, execution, {
-    verifier: verifier.address,
-    accepted: output.result === task.expected,
-    reason: 'deterministic expected result matched',
-    verifiedAt: now + 3,
-  });
+  const outcome = verifyOutcome(intent, execution, { verifier: verifier.address, accepted: output.result === task.expected, reason: 'deterministic expected result matched', verifiedAt: now + 3 });
   const outcomeMessage = `ZORYQ_OBEP_OUTCOME|${outcome.outcomeId}|${outcome.outputHash}`;
   const outcomeSignature = await verifier.signMessage(outcomeMessage);
 
-  const binding = {
-    protocol: 'ZORYQ_OBEP_ONCHAIN_V1',
-    chainId: CHAIN_ID,
-    intentId: intent.intentId,
-    outcomeId: outcome.outcomeId,
-    outputHash: outcome.outputHash,
-  };
+  const binding = { protocol: 'ZORYQ_OBEP_ONCHAIN_V1', chainId: CHAIN_ID, intentId: intent.intentId, outcomeId: outcome.outcomeId, outputHash: outcome.outputHash };
   const commitment = hashObject(binding);
   const calldata = hexlify(toUtf8Bytes(`ZORYQ_OBEP_V1|${commitment}`));
 
-  const tx = await treasury.sendTransaction({
-    to: executor.address,
-    value: BigInt(PAYMENT_WEI),
-    data: calldata,
-  });
+  const tx = await treasury.sendTransaction({ to: executor.address, value: BigInt(PAYMENT_WEI), data: calldata });
   const mined = await tx.wait(1);
   assert(mined && mined.status === 1, 'payment transaction reverted');
 
@@ -156,65 +129,25 @@ async function main() {
 
   const ledger = new ObepLedger();
   ledger.register(intent);
-  const receipt = ledger.settle(intent, authorization, execution, outcome, {
-    txHash: tx.hash,
-    from: treasury.address,
-    to: executor.address,
-    amount: PAYMENT_WEI,
-    chainId: CHAIN_ID,
-    status: 'SUCCESS',
-  });
+  const receipt = ledger.settle(intent, authorization, execution, outcome, { txHash: tx.hash, from: treasury.address, to: executor.address, amount: PAYMENT_WEI, chainId: CHAIN_ID, status: 'SUCCESS' });
   const accounting = ledger.reconcile(intent, receipt);
   const proofPack = exportProofPack({ intent, authorization, execution, outcome, receipt, accounting });
   verifyProofPack(proofPack);
 
   const evidence = {
-    protocol: 'ZORYQ_OBEP_LIVE_TESTNET_PROOF',
-    version: '0.1.0',
-    generatedAt: new Date().toISOString(),
-    rpc: RPC,
-    chainId: CHAIN_ID,
-    proofPack,
+    protocol: 'ZORYQ_OBEP_LIVE_TESTNET_PROOF', version: '0.1.0', generatedAt: new Date().toISOString(), rpc: RPC, chainId: CHAIN_ID, proofPack,
     roleAttestations: {
       authorization: { address: treasury.address, message: authorizationMessage, signature: authorizationSignature },
       execution: { address: executor.address, message: executionMessage, signature: executionSignature },
       outcome: { address: verifier.address, message: outcomeMessage, signature: outcomeSignature },
     },
-    onchainBinding: {
-      binding,
-      commitment,
-      calldata,
-      txHash: tx.hash,
-      blockNumber: rpcReceipt.blockNumber,
-      blockHash: rpcReceipt.blockHash,
-      from: rpcTx.from,
-      to: rpcTx.to,
-      value: rpcTx.value.toString(),
-      status: rpcReceipt.status,
-      faucetFundingTxHash: claim.txHash,
-    },
-    securityBoundary: {
-      privateKeysPersisted: false,
-      privateKeysEmitted: false,
-      walletType: 'ephemeral-ci-only',
-      network: 'public-centralized-testnet',
-      productionClaim: false,
-    },
+    onchainBinding: { binding, commitment, calldata, txHash: tx.hash, blockNumber: rpcReceipt.blockNumber, blockHash: rpcReceipt.blockHash, from: rpcTx.from, to: rpcTx.to, value: rpcTx.value.toString(), status: rpcReceipt.status, faucetFundingTxHash: claim.txHash },
+    securityBoundary: { privateKeysPersisted: false, privateKeysEmitted: false, walletType: 'ephemeral-ci-only', network: 'public-centralized-testnet', productionClaim: false },
   };
 
-  fs.mkdirSync(new URL('.', `file://${process.cwd()}/${OUT}`).pathname, { recursive: true });
-  fs.writeFileSync(OUT, JSON.stringify(evidence, null, 2) + '\n');
-  console.log(JSON.stringify({
-    ok: true,
-    protocol: evidence.protocol,
-    chainId: CHAIN_ID,
-    intentId: intent.intentId,
-    outcomeId: outcome.outcomeId,
-    txHash: tx.hash,
-    blockNumber: rpcReceipt.blockNumber,
-    commitment,
-    proofPackHash: proofPack.proofPackHash,
-  }));
+  fs.mkdirSync(path.dirname(OUT), { recursive: true });
+  fs.writeFileSync(OUT, JSON.stringify(evidence, null, 2) + '\n', { flag: 'w' });
+  console.log(JSON.stringify({ ok: true, protocol: evidence.protocol, chainId: CHAIN_ID, intentId: intent.intentId, outcomeId: outcome.outcomeId, txHash: tx.hash, blockNumber: rpcReceipt.blockNumber, commitment, proofPackHash: proofPack.proofPackHash }));
 }
 
 main().catch((error) => {
