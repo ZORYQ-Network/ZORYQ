@@ -1,14 +1,18 @@
 package network.zoryq.wallet.migration
 
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.math.BigDecimal
+import java.math.BigInteger
+import java.math.RoundingMode
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
 
 /**
- * Read-only JSON-RPC probe for the public ZORYQ Testnet.
+ * Read-only JSON-RPC client for the public ZORYQ Testnet.
  *
  * This class has no signing method and accepts no private key material.
  */
@@ -19,6 +23,15 @@ class ZoryqReadOnlyRpc(
         val online: Boolean,
         val chainId: Long?,
         val blockNumber: Long?,
+        val error: String? = null
+    )
+
+    data class AccountSnapshot(
+        val address: String,
+        val online: Boolean,
+        val balanceWei: BigInteger?,
+        val balanceZq: String?,
+        val nonce: Long?,
         val error: String? = null
     )
 
@@ -39,11 +52,38 @@ class ZoryqReadOnlyRpc(
         }
     }
 
+    fun fetchAccount(address: String, callback: (AccountSnapshot) -> Unit) {
+        val normalized = ZoryqAddress.normalize(address)
+        if (!ZoryqAddress.isValid(normalized)) {
+            callback(AccountSnapshot(normalized, false, null, null, null, "Invalid EVM address"))
+            return
+        }
+
+        executor.execute {
+            val result = runCatching {
+                val balanceHex = call("eth_getBalance", JSONArray().put(normalized).put("latest"))
+                val nonceHex = call("eth_getTransactionCount", JSONArray().put(normalized).put("latest"))
+                val balanceWei = balanceHex.hexToBigInteger()
+                val nonce = nonceHex.removePrefix("0x").ifEmpty { "0" }.toLong(16)
+                AccountSnapshot(
+                    address = normalized,
+                    online = true,
+                    balanceWei = balanceWei,
+                    balanceZq = formatNative(balanceWei),
+                    nonce = nonce
+                )
+            }.getOrElse { error ->
+                AccountSnapshot(normalized, false, null, null, null, error.message ?: error.javaClass.simpleName)
+            }
+            callback(result)
+        }
+    }
+
     fun shutdown() {
         executor.shutdownNow()
     }
 
-    private fun call(method: String): String {
+    private fun call(method: String, params: JSONArray = JSONArray()): String {
         val connection = (URL(rpcUrl).openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 5_000
@@ -57,7 +97,7 @@ class ZoryqReadOnlyRpc(
             .put("jsonrpc", "2.0")
             .put("id", 1)
             .put("method", method)
-            .put("params", org.json.JSONArray())
+            .put("params", params)
             .toString()
 
         connection.outputStream.use { out ->
@@ -78,5 +118,15 @@ class ZoryqReadOnlyRpc(
     companion object {
         const val EXPECTED_CHAIN_ID = 5_919_065L
         const val DEFAULT_RPC = "https://zoryq-evm-node-live-production.up.railway.app/rpc"
+        private val WEI_PER_ZQ = BigDecimal("1000000000000000000")
+
+        internal fun String.hexToBigInteger(): BigInteger =
+            removePrefix("0x").ifEmpty { "0" }.let { BigInteger(it, 16) }
+
+        internal fun formatNative(wei: BigInteger): String =
+            BigDecimal(wei)
+                .divide(WEI_PER_ZQ, 6, RoundingMode.DOWN)
+                .stripTrailingZeros()
+                .toPlainString()
     }
 }
