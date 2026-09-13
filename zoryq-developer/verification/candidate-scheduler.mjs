@@ -50,40 +50,74 @@ function conflicts(a, b) {
 export function buildCandidateSchedule(items) {
   const enriched = items.map((item, index) => ({ ...item, canonicalIndex: index, resources: keyset(item) }));
   const waves = [];
+  const assigned = [];
   const conflictsFound = [];
 
+  // Dependencies are directed by canonical input order. A transaction that
+  // conflicts with an earlier transaction must be scheduled strictly after
+  // that earlier transaction, not merely in a different wave. This matters
+  // especially for same-sender nonce chains: placing nonce N+1 in an earlier
+  // wave than nonce N can strand the higher-nonce transaction in the mempool.
   for (const item of enriched) {
-    let placed = false;
-    for (let waveIndex = 0; waveIndex < waves.length; waveIndex += 1) {
-      const wave = waves[waveIndex];
-      const blockers = wave.filter((other) => conflicts(item, other));
-      if (blockers.length === 0) {
-        wave.push(item);
-        placed = true;
-        break;
-      }
-      for (const blocker of blockers) {
-        conflictsFound.push({ earlier: blocker.canonicalIndex, later: item.canonicalIndex, resources: item.resources.filter((r) => blocker.resources.includes(r)) });
-      }
+    let earliestWave = 0;
+    for (const prior of assigned) {
+      if (!conflicts(item, prior)) continue;
+      const shared = item.resources.filter((resource) => prior.resources.includes(resource));
+      conflictsFound.push({
+        earlier: prior.canonicalIndex,
+        later: item.canonicalIndex,
+        earlierWave: prior.schedulerWave,
+        resources: shared,
+      });
+      earliestWave = Math.max(earliestWave, prior.schedulerWave + 1);
     }
-    if (!placed) waves.push([item]);
+
+    while (waves.length <= earliestWave) waves.push([]);
+    const scheduled = { ...item, schedulerWave: earliestWave };
+    waves[earliestWave].push(scheduled);
+    assigned.push(scheduled);
+  }
+
+  const dependencyOrderValid = conflictsFound.every(({ earlier, later, earlierWave }) => {
+    const laterWave = assigned.find((item) => item.canonicalIndex === later)?.schedulerWave;
+    return earlier < later && Number.isInteger(laterWave) && earlierWave < laterWave;
+  });
+
+  const senderNonceOrder = new Map();
+  let senderNonceOrderValid = true;
+  for (const item of assigned) {
+    const from = String(item.from || '').toLowerCase();
+    if (!from || item.nonce === undefined || item.nonce === null) continue;
+    const nonce = Number(item.nonce);
+    const previous = senderNonceOrder.get(from);
+    if (previous && (nonce <= previous.nonce || item.schedulerWave <= previous.wave)) {
+      senderNonceOrderValid = false;
+      break;
+    }
+    senderNonceOrder.set(from, { nonce, wave: item.schedulerWave });
   }
 
   const telemetry = {
-    schemaVersion: 1,
+    schemaVersion: 2,
     scheduler: 'zoryq-candidate-wave-scheduler',
-    schedulerMode: 'dependency-aware-wave-scheduling',
+    schedulerMode: 'directed-dependency-wave-scheduling',
     transactionCount: enriched.length,
     waveCount: waves.length,
     maxWaveWidth: Math.max(0, ...waves.map((wave) => wave.length)),
     conflictCount: conflictsFound.length,
     conflictPairs: conflictsFound,
+    dependencyOrderValid,
+    senderNonceOrderValid,
     reexecutionCount: 0,
     fallbackToSerialCount: waves.filter((wave) => wave.length === 1).length,
-    fallbackReason: 'conflicting transactions are isolated into later waves; no speculative state execution is claimed',
+    fallbackReason: 'conflicting transactions are ordered into strictly later waves; no speculative state execution is claimed',
     workloadDigest: sha256(JSON.stringify(enriched.map(({ raw, ...item }) => item))),
     claimBoundary: 'This telemetry proves scheduler decisions in the ZORYQ candidate scheduling layer only. It does not prove parallel EVM state execution inside Reth.'
   };
+
+  if (!dependencyOrderValid || !senderNonceOrderValid) {
+    throw new Error('candidate scheduler produced an invalid directed dependency or sender nonce order');
+  }
 
   return { waves, telemetry };
 }
