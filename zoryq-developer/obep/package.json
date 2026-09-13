@@ -7,6 +7,7 @@
     "test": "node --test obep.test.mjs interop-profile.test.mjs external-task.test.mjs",
     "verify:reference": "node verify-live-proof.mjs reference-live-proof.json",
     "verify:useful-reference": "node external-task/verify-live-task-proof.mjs external-task/reference-live-task-proof.json",
+    "reproduce": "npm test && npm run verify:reference && npm run verify:useful-reference",
     "task:compute": "node external-task/compute-task.mjs external-task/records.json",
     "task:verify": "node external-task/verify-task.mjs external-task/records.json external-task/result.json"
   },
