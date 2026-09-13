@@ -13,7 +13,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
-import java.math.BigDecimal
 
 class SecureWalletActivity : Activity() {
     private lateinit var store: SecureWalletStore
@@ -26,6 +25,8 @@ class SecureWalletActivity : Activity() {
     private lateinit var recipientInput: EditText
     private lateinit var amountInput: EditText
     private lateinit var createButton: Button
+    private lateinit var importButton: Button
+    private lateinit var revealButton: Button
     private lateinit var deleteButton: Button
     private lateinit var sendButton: Button
 
@@ -60,32 +61,26 @@ class SecureWalletActivity : Activity() {
 
         addressText = label("Nenhuma carteira protegida criada")
         balanceText = label("Saldo: —")
-        statusText = label("A chave privada permanece criptografada pelo Android Keystore.")
+        statusText = label("Segredos criptografados pelo Android Keystore.")
         root.addView(addressText)
         root.addView(balanceText)
         root.addView(statusText)
 
-        createButton = actionButton("CRIAR CARTEIRA PROTEGIDA") {
-            runCatching { store.create() }
-                .onSuccess {
-                    toast("Carteira criada localmente")
+        createButton = actionButton("CRIAR CARTEIRA + RECUPERAÇÃO") {
+            runCatching { store.createRecoverable() }
+                .onSuccess { bundle ->
+                    showNewRecoveryPhrase(bundle.mnemonic)
                     refreshIdentity()
                 }
                 .onFailure { toast(it.message ?: "Falha ao criar carteira") }
         }
-        deleteButton = actionButton("APAGAR CARTEIRA LOCAL") {
-            AlertDialog.Builder(this)
-                .setTitle("Apagar carteira local?")
-                .setMessage("Isto apaga o material criptográfico desta instalação. Como esta etapa é seedless, não há recuperação automática.")
-                .setNegativeButton("Cancelar", null)
-                .setPositiveButton("Apagar") { _, _ ->
-                    store.delete()
-                    refreshIdentity()
-                    toast("Carteira local apagada")
-                }
-                .show()
-        }
+        importButton = actionButton("IMPORTAR FRASE BIP-39") { showImportDialog() }
+        revealButton = actionButton("MOSTRAR FRASE DE RECUPERAÇÃO") { confirmReveal() }
+        deleteButton = actionButton("APAGAR CARTEIRA LOCAL") { confirmDelete() }
+
         root.addView(createButton)
+        root.addView(importButton)
+        root.addView(revealButton)
         root.addView(deleteButton)
 
         root.addView(section("ENVIAR ZQ — TESTNET"))
@@ -110,7 +105,7 @@ class SecureWalletActivity : Activity() {
         root.addView(sendButton)
 
         root.addView(TextView(this).apply {
-            text = "SEGURANÇA\n• Nenhuma seed ou private key é enviada aos jogos/social.\n• A assinatura só acontece após confirmação explícita.\n• O envio está limitado à ZORYQ Testnet nesta etapa."
+            text = "SEGURANÇA\n• BIP-39 + ${HdWalletDerivation.PATH}.\n• A frase fica criptografada pelo Android Keystore e nunca vai para Games/Social.\n• A assinatura exige confirmação explícita.\n• Guarde a frase offline: quem possui as palavras controla a carteira.\n• Este candidato permanece limitado à ZORYQ Testnet."
             textSize = 12f
             setTextColor(Color.rgb(154, 166, 200))
             setPadding(0, dp(26), 0, 0)
@@ -146,28 +141,117 @@ class SecureWalletActivity : Activity() {
         ).apply { topMargin = 12 }
     }
 
+    private fun showNewRecoveryPhrase(mnemonic: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Anote sua frase de recuperação")
+            .setMessage(
+                "Escreva estas 12 palavras em papel e guarde offline. Não envie por mensagem, não tire print e não compartilhe.\n\n" +
+                    mnemonic +
+                    "\n\nCaminho: ${HdWalletDerivation.PATH}\n\nA ZORYQ não consegue recuperar estas palavras para você."
+            )
+            .setCancelable(false)
+            .setPositiveButton("ANOTEI E GUARDEI") { _, _ ->
+                toast("Carteira recuperável criada")
+            }
+            .show()
+    }
+
+    private fun showImportDialog() {
+        if (store.exists()) return toast("Apague a carteira local atual antes de importar outra")
+        val input = EditText(this).apply {
+            hint = "12/15/18/21/24 palavras BIP-39"
+            minLines = 4
+            maxLines = 8
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Importar carteira")
+            .setMessage("Digite a frase somente neste aparelho. Ela será validada e criptografada localmente.")
+            .setView(input)
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("IMPORTAR") { _, _ ->
+                runCatching { store.importMnemonic(input.text.toString()) }
+                    .onSuccess {
+                        input.text.clear()
+                        toast("Carteira importada")
+                        refreshIdentity()
+                    }
+                    .onFailure { toast(it.message ?: "Frase inválida") }
+            }
+            .show()
+    }
+
+    private fun confirmReveal() {
+        if (!store.exists()) return toast("Nenhuma carteira criada")
+        if (!store.isRecoverable()) return toast("Esta carteira antiga de teste não possui frase recuperável")
+        AlertDialog.Builder(this)
+            .setTitle("Mostrar palavras secretas?")
+            .setMessage("Certifique-se de que ninguém esteja olhando a tela. Nunca compartilhe estas palavras.")
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("MOSTRAR") { _, _ ->
+                val phrase = runCatching { store.revealRecoveryPhrase() }.getOrNull()
+                if (phrase.isNullOrBlank()) {
+                    toast("Não foi possível revelar a frase")
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle("Frase de recuperação")
+                        .setMessage("$phrase\n\nCaminho: ${HdWalletDerivation.PATH}")
+                        .setPositiveButton("OCULTAR", null)
+                        .show()
+                }
+            }
+            .show()
+    }
+
+    private fun confirmDelete() {
+        AlertDialog.Builder(this)
+            .setTitle("Apagar carteira local?")
+            .setMessage(
+                if (store.isRecoverable()) {
+                    "Só continue se você já guardou a frase de recuperação. Sem ela, os fundos não poderão ser recuperados."
+                } else {
+                    "Esta carteira de teste antiga não possui frase de recuperação. Apagá-la é irreversível."
+                }
+            )
+            .setNegativeButton("Cancelar", null)
+            .setPositiveButton("APAGAR") { _, _ ->
+                store.delete()
+                refreshIdentity()
+                toast("Carteira local apagada")
+            }
+            .show()
+    }
+
     private fun refreshIdentity() {
         val identity = store.identity()
         val hasWallet = identity != null && store.exists()
         createButton.isEnabled = !hasWallet
+        importButton.isEnabled = !hasWallet
+        revealButton.isEnabled = hasWallet && store.isRecoverable()
         deleteButton.isEnabled = hasWallet
         sendButton.isEnabled = hasWallet
 
         if (!hasWallet) {
             addressText.text = "Nenhuma carteira protegida criada"
             balanceText.text = "Saldo: —"
-            statusText.text = "Crie uma carteira para habilitar assinatura local na ZORYQ Testnet."
+            statusText.text = "Crie ou importe uma carteira BIP-39 para habilitar assinatura local."
             return
         }
 
         addressText.text = "Endereço: ${identity!!.address}"
         balanceText.text = "Saldo: carregando..."
-        statusText.text = "Consultando ZORYQ Testnet..."
+        statusText.text = if (store.isRecoverable()) {
+            "Carteira BIP-39 • ${HdWalletDerivation.PATH} • consultando Testnet..."
+        } else {
+            "Carteira seedless legada de teste • faça migração para uma carteira recuperável"
+        }
         readRpc.fetchAccount(identity.address) { snapshot ->
             runOnUiThread {
                 if (snapshot.online) {
                     balanceText.text = "Saldo: ${snapshot.balanceZq ?: "0"} ZQ"
-                    statusText.text = "Conta online • nonce ${snapshot.nonce ?: 0}"
+                    statusText.text = (if (store.isRecoverable()) "BIP-39 protegida" else "Legada seedless") +
+                        " • online • nonce ${snapshot.nonce ?: 0}"
                 } else {
                     balanceText.text = "Saldo: indisponível"
                     statusText.text = snapshot.error ?: "RPC indisponível"
