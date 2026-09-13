@@ -43,6 +43,12 @@ jobs:
           set -o pipefail
           npm run verify:reference | tee ../../zoryq-evidence/obep/reference-verification.txt
 
+      - name: Verify versioned useful-task live reference
+        working-directory: zoryq-developer/obep
+        run: |
+          set -o pipefail
+          npm run verify:useful-reference | tee ../../zoryq-evidence/obep/useful-reference-verification.txt
+
       - name: Generate independently-verifiable local Proof Pack fixture
         run: |
           node zoryq-developer/obep/proof-fixture.mjs > zoryq-evidence/obep/proof-pack.json
