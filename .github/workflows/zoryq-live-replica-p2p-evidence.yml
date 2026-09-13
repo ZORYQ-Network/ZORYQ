@@ -1,0 +1,198 @@
+name: ZORYQ Live-Topology Replica P2P Evidence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - '.github/workflows/zoryq-live-replica-p2p-evidence.yml'
+      - 'zoryq-evm-node/rpc-engine-canonical-importer.mjs'
+      - 'zoryq-evm-node/engine-forkchoice-follower.mjs'
+      - 'zoryq-evm-node/prepare-reth-genesis.mjs'
+      - 'zoryq-evm-node/zoryq-reth-genesis.json'
+
+permissions:
+  contents: read
+
+jobs:
+  dev-source-to-p2p-replica:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ZORYQ image
+        run: docker build -t zoryq-live-replica ./zoryq-evm-node
+
+      - name: Prepare isolated topology and CI Engine JWT
+        run: |
+          set -euo pipefail
+          docker network create zoryq-live-replica-test
+          for volume in source replica follower; do docker volume create "zoryq-${volume}-db" >/dev/null; done
+          printf '%s' 'zoryq-live-replica-ci-engine-v3' | sha256sum | awk '{print $1}' > /tmp/zoryq-engine.jwt
+
+      - name: Start canonical dev-mode source with deterministic effective genesis
+        run: |
+          set -euo pipefail
+          docker run -d --name zoryq-source --network zoryq-live-replica-test \
+            -p 8081:8080 \
+            -v zoryq-source-db:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-live-replica
+          for i in $(seq 1 120); do
+            if curl --max-time 3 -fsS http://127.0.0.1:8081/health >/tmp/source-health.json 2>/dev/null && \
+               test "$(jq -r '.chain.chainId // .chainId' /tmp/source-health.json)" = "5919065"; then exit 0; fi
+            sleep 1
+          done
+          docker logs zoryq-source || true
+          exit 1
+
+      - name: Submit one signed source transaction
+        run: |
+          set -euo pipefail
+          docker exec -e TEST_MNEMONIC="$TEST_MNEMONIC" zoryq-source node --input-type=module -e "
+            import { HDNodeWallet, JsonRpcProvider } from 'ethers';
+            const provider=new JsonRpcProvider('http://127.0.0.1:8080/rpc',5919065);
+            const wallet=HDNodeWallet.fromPhrase(process.env.TEST_MNEMONIC,'',\"m/44'/60'/0'/0/0\").connect(provider);
+            const to=HDNodeWallet.fromPhrase(process.env.TEST_MNEMONIC,'',\"m/44'/60'/0'/0/1\").address;
+            const tx=await wallet.sendTransaction({to,value:1n});
+            const receipt=await tx.wait();
+            if(!receipt || receipt.status!==1) throw new Error('source transaction failed');
+            console.log(JSON.stringify({hash:tx.hash,blockNumber:receipt.blockNumber,status:receipt.status}));
+          " | tee /tmp/source-tx.json
+
+      - name: Prepare identical effective genesis for non-dev replica
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v zoryq-replica-db:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-live-replica node /app/prepare-reth-genesis.mjs
+          docker run -d --name zoryq-replica --network zoryq-live-replica-test \
+            -p 8545:8545 -p 8551:8551 \
+            -v zoryq-replica-db:/data \
+            -v /tmp/zoryq-engine.jwt:/jwt.hex:ro \
+            zoryq-live-replica \
+            reth node \
+              --chain /data/zoryq-reth-effective-genesis.json \
+              --datadir /data/reth \
+              --addr 0.0.0.0 --port 30303 --network-id 5919065 --nat none \
+              --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3,admin \
+              --authrpc.addr 0.0.0.0 --authrpc.port 8551 --authrpc.jwtsecret /jwt.hex
+          for i in $(seq 1 120); do
+            if curl --max-time 3 -fsS http://127.0.0.1:8545 -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -e '.result=="0x5a5159"' >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          docker logs zoryq-replica || true
+          exit 1
+
+      - name: Replicate canonical source blocks through Engine API V3
+        env:
+          SOURCE_RPC_URL: http://127.0.0.1:8081/rpc
+          TARGET_RPC_URL: http://127.0.0.1:8545
+          TARGET_ENGINE_URL: http://127.0.0.1:8551
+          JWT_SECRET_PATH: /tmp/zoryq-engine.jwt
+          MAX_BLOCKS: '8'
+          EVIDENCE_PATH: zoryq-rpc-engine-replica-evidence.json
+        run: |
+          set -euo pipefail
+          node zoryq-evm-node/rpc-engine-canonical-importer.mjs
+          jq -e '.status=="RPC_TO_ENGINE_CANONICAL_REPLICA" and .hashesMatchSource==true and .importedBlocks==8' zoryq-rpc-engine-replica-evidence.json >/dev/null
+          jq -e '[.imported[].transactionCount] | add > 0' zoryq-rpc-engine-replica-evidence.json >/dev/null
+
+      - name: Prepare identical genesis and start independent-process follower
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -v zoryq-follower-db:/data \
+            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
+            zoryq-live-replica node /app/prepare-reth-genesis.mjs
+          curl --max-time 5 -fsS http://127.0.0.1:8545 -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"admin_nodeInfo","params":[]}' > /tmp/replica-nodeinfo.json
+          ENODE=$(jq -r '.result.enode' /tmp/replica-nodeinfo.json)
+          PUBKEY=$(printf '%s' "$ENODE" | sed -nE 's#^enode://([^@]+)@.*#\1#p')
+          test ${#PUBKEY} -eq 128
+          REPLICA_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' zoryq-replica)
+          TRUSTED="enode://${PUBKEY}@${REPLICA_IP}:30303"
+          docker run -d --name zoryq-follower --network zoryq-live-replica-test \
+            -p 8546:8545 -p 8552:8551 \
+            -v zoryq-follower-db:/data \
+            -v /tmp/zoryq-engine.jwt:/jwt.hex:ro \
+            zoryq-live-replica \
+            reth node \
+              --chain /data/zoryq-reth-effective-genesis.json \
+              --datadir /data/reth \
+              --addr 0.0.0.0 --port 30303 --network-id 5919065 --nat none \
+              --trusted-peers "$TRUSTED" \
+              --http --http.addr 0.0.0.0 --http.port 8545 --http.api eth,net,web3 \
+              --authrpc.addr 0.0.0.0 --authrpc.port 8551 --authrpc.jwtsecret /jwt.hex
+          for i in $(seq 1 120); do
+            if curl --max-time 3 -fsS http://127.0.0.1:8546 -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' | jq -e '.result=="0x5a5159"' >/dev/null 2>&1; then exit 0; fi
+            sleep 1
+          done
+          docker logs zoryq-follower || true
+          exit 1
+
+      - name: Prove replica serves canonical source chain to follower over P2P
+        env:
+          FOLLOWER_ENGINE_URL: http://127.0.0.1:8552
+          FOLLOWER_RPC_URL: http://127.0.0.1:8546
+          REFERENCE_RPC_URL: http://127.0.0.1:8545
+          JWT_SECRET_PATH: /tmp/zoryq-engine.jwt
+          EVIDENCE_PATH: zoryq-live-topology-p2p-evidence.json
+        run: |
+          set -euo pipefail
+          node zoryq-evm-node/engine-forkchoice-follower.mjs
+          jq -e '.status=="FORKCHOICE_ONLY_P2P_CANONICAL_SYNC" and .peerCount>0 and .payloadInjectedIntoFollowerViaRpc==false and .followerCanonicalHash==.targetHash' zoryq-live-topology-p2p-evidence.json >/dev/null
+          SOURCE_HASH=$(curl --max-time 5 -fsS http://127.0.0.1:8081/rpc -H 'content-type: application/json' --data '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["0x8",false]}' | jq -r '.result.hash')
+          test "$SOURCE_HASH" = "$(jq -r '.targetHash' zoryq-live-topology-p2p-evidence.json)"
+
+      - name: Build combined migration-path evidence
+        run: |
+          set -euo pipefail
+          REPLICA_SHA=$(cut -d' ' -f1 zoryq-rpc-engine-replica-evidence.json.sha256)
+          FOLLOWER_SHA=$(cut -d' ' -f1 zoryq-live-topology-p2p-evidence.json.sha256)
+          HASH=$(jq -r '.targetHash' zoryq-live-topology-p2p-evidence.json)
+          cat > zoryq-dev-to-p2p-migration-evidence.json <<JSON
+          {
+            "schemaVersion": 1,
+            "status": "DEV_SOURCE_TO_NON_DEV_P2P_REPLICA_VERIFIED_IN_CI",
+            "chainId": 5919065,
+            "sourceMode": "reth-dev",
+            "replicaMode": "reth-non-dev-engine-api-v3",
+            "followerMode": "reth-non-dev-p2p",
+            "testedThroughBlock": 8,
+            "canonicalHash": "$HASH",
+            "transactionBearingBlockRequired": true,
+            "followerPayloadInjectedViaRpc": false,
+            "replicaEvidenceSha256": "$REPLICA_SHA",
+            "followerEvidenceSha256": "$FOLLOWER_SHA",
+            "claimBoundary": "This isolated CI evidence verifies a bounded migration path from a deterministic ZORYQ dev-mode source into a non-dev Reth replica through Engine API V3, followed by canonical execution-data retrieval by another non-dev Reth process over direct P2P. It does not prove continuous production replication, Internet reachability, an independent external operator, production consensus, decentralization, Byzantine fault tolerance, or mainnet readiness."
+          }
+          JSON
+          sha256sum zoryq-dev-to-p2p-migration-evidence.json | tee zoryq-dev-to-p2p-migration-evidence.sha256
+          jq . zoryq-dev-to-p2p-migration-evidence.json
+
+      - name: Capture logs
+        if: always()
+        run: |
+          for c in zoryq-source zoryq-replica zoryq-follower; do docker logs "$c" > "$c.log" 2>&1 || true; done
+
+      - name: Upload migration-path evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-dev-to-p2p-replica-${{ github.sha }}
+          path: |
+            zoryq-rpc-engine-replica-evidence.json
+            zoryq-rpc-engine-replica-evidence.json.sha256
+            zoryq-live-topology-p2p-evidence.json
+            zoryq-live-topology-p2p-evidence.json.sha256
+            zoryq-dev-to-p2p-migration-evidence.json
+            zoryq-dev-to-p2p-migration-evidence.sha256
+            zoryq-source.log
+            zoryq-replica.log
+            zoryq-follower.log
+          if-no-files-found: warn
+          retention-days: 30
