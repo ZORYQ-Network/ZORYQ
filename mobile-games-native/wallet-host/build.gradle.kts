@@ -41,6 +41,6 @@ android {
 
 dependencies {
     implementation(project(":runtime"))
-    implementation("org.web3j:crypto:4.14.0")
+    implementation("org.web3j:crypto:4.13.0")
     testImplementation("junit:junit:4.13.2")
 }
