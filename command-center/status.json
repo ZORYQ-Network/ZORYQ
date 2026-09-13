@@ -41,6 +41,7 @@
       "name": "ZORYQ Autonomous Network",
       "items": [
         {"name":"Autonomous Company schema and Proof Pack model","status":"PROVEN","evidence":"../autonomous"},
+        {"name":"Goal + budget bounded planner / policy simulation","status":"PROVEN","evidence":"../autonomous/README.md"},
         {"name":"Goal + budget end-to-end autonomous company execution","status":"WORKING","evidence":"../docs/ZORYQ_AUTONOMOUS_COMPANY.md"},
         {"name":"Outcome-bound economic proof / OBEP tooling","status":"PROVEN","evidence":"../zoryq-developer/obep"},
         {"name":"Independent autonomous-company reproduction","status":"NOT_PROVEN","evidence":"../docs/ZORYQ_AUTONOMOUS_MVP_CHECKLIST.md"}

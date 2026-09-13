@@ -1,0 +1,76 @@
+name: ZORYQ Autonomous Company MVP
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'autonomous/**'
+      - '.github/workflows/autonomous-company.yml'
+      - 'command-center/status.json'
+      - 'docs/ZORYQ_AUTONOMOUS_COMPANY.md'
+  push:
+    branches: [main]
+    paths:
+      - 'autonomous/**'
+      - '.github/workflows/autonomous-company.yml'
+      - 'command-center/status.json'
+      - 'docs/ZORYQ_AUTONOMOUS_COMPANY.md'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-reference-mvp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Unit-test planner, policy and proof invariants
+        run: node --test autonomous/test/*.test.mjs
+
+      - name: Generate deterministic bounded company simulation
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/zoryq-autonomous-mvp
+          node autonomous/cli.mjs simulate \
+            --goal 'Ship a verifiable ZORYQ developer demo' \
+            --budget 10 \
+            --controller 0x1111111111111111111111111111111111111111 \
+            --autonomy supervised \
+            --now 2026-09-13T18:00:00.000Z \
+            --out /tmp/zoryq-autonomous-mvp
+
+      - name: Validate company and Proof Pack
+        run: |
+          set -euo pipefail
+          node autonomous/validate.mjs /tmp/zoryq-autonomous-mvp/company.json
+          node autonomous/verify-proof.mjs /tmp/zoryq-autonomous-mvp/proof-pack.json
+          jq -e '.chainId == 5919065' /tmp/zoryq-autonomous-mvp/company.json >/dev/null
+          jq -e '.policy.emergencyStop == false' /tmp/zoryq-autonomous-mvp/company.json >/dev/null
+          jq -e '.receipts | length == 0' /tmp/zoryq-autonomous-mvp/proof-pack.json >/dev/null
+          jq -e '.goalProgress.percent == 0' /tmp/zoryq-autonomous-mvp/proof-pack.json >/dev/null
+          jq -e '.simulation.noTransactionSubmitted == true' /tmp/zoryq-autonomous-mvp/proof-pack.json >/dev/null
+
+      - name: Bind reference evidence to commit
+        run: |
+          set -euo pipefail
+          cd /tmp/zoryq-autonomous-mvp
+          sha256sum *.json | LC_ALL=C sort > SHA256SUMS.txt
+          printf 'commit=%s\nworkflow_run=%s\nmode=simulation-only\nchain_id=5919065\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" > PROVENANCE.txt
+
+      - name: Upload Autonomous MVP evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-autonomous-mvp-${{ github.sha }}
+          path: |
+            /tmp/zoryq-autonomous-mvp/*.json
+            /tmp/zoryq-autonomous-mvp/SHA256SUMS.txt
+            /tmp/zoryq-autonomous-mvp/PROVENANCE.txt
+          if-no-files-found: error
+          retention-days: 30
