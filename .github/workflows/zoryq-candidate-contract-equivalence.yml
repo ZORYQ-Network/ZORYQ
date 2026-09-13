@@ -1,0 +1,84 @@
+name: ZORYQ Candidate Contract State Equivalence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/verification/candidate-scheduler.mjs'
+      - 'zoryq-developer/verification/candidate-contract-equivalence.mjs'
+      - '.github/workflows/zoryq-candidate-contract-equivalence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract-state-equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build identical local ZORYQ node image
+        run: docker build -t zoryq-candidate-contract ./zoryq-evm-node
+      - name: Start candidate and serial reference nodes
+        run: |
+          set -euo pipefail
+          docker volume create zoryq-contract-candidate-db
+          docker volume create zoryq-contract-serial-db
+          docker run -d --name zoryq-contract-candidate -p 8081:8080 -v zoryq-contract-candidate-db:/data -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" zoryq-candidate-contract
+          docker run -d --name zoryq-contract-serial -p 8082:8080 -v zoryq-contract-serial-db:/data -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" zoryq-candidate-contract
+          for port in 8081 8082; do
+            ok=0
+            for i in $(seq 1 120); do
+              if curl -fsS "http://127.0.0.1:${port}/health" >/tmp/health-${port}.json; then
+                test "$(jq -r '.chain.chainId // .chainId' /tmp/health-${port}.json)" = "5919065"
+                ok=1
+                break
+              fi
+              sleep 1
+            done
+            test "$ok" = "1"
+          done
+      - name: Install verification-only dependencies
+        working-directory: zoryq-evm-node
+        run: npm install --no-save --no-audit --no-fund solc@0.8.30
+      - name: Run candidate contract state equivalence experiment
+        env:
+          ZORYQ_CANDIDATE_RPC: http://127.0.0.1:8081/rpc
+          ZORYQ_SERIAL_RPC: http://127.0.0.1:8082/rpc
+          ZORYQ_CANDIDATE_BASE: http://127.0.0.1:8081
+          ZORYQ_SERIAL_BASE: http://127.0.0.1:8082
+          ZORYQ_CANDIDATE_CONTRACT_EQ_OUT: candidate-contract-equivalence.json
+        run: node zoryq-developer/verification/candidate-contract-equivalence.mjs
+      - name: Enforce evidence semantics
+        run: |
+          set -euo pipefail
+          jq -e '.equality.finalState == true' candidate-contract-equivalence.json >/dev/null
+          jq -e '.equality.receiptStatusAndGas == true' candidate-contract-equivalence.json >/dev/null
+          jq -e '.schedulerTelemetry.conflictCount > 0' candidate-contract-equivalence.json >/dev/null
+          jq -e '.schedulerTelemetry.waveCount > 1' candidate-contract-equivalence.json >/dev/null
+          jq -e '.schedulerTelemetry.maxWaveWidth > 1' candidate-contract-equivalence.json >/dev/null
+          jq -e '.failedOrRevertedTransactionCount > 0' candidate-contract-equivalence.json >/dev/null
+          jq -e '.schedulerTelemetry.reexecutionCount == 0' candidate-contract-equivalence.json >/dev/null
+          jq -e '.claimStatus == "CANDIDATE_SCHEDULER_CONTRACT_STATE_EQUIVALENCE_MATRIX"' candidate-contract-equivalence.json >/dev/null
+          jq -e '.claimBoundary | contains("does not prove parallel EVM state execution")' candidate-contract-equivalence.json >/dev/null
+          sha256sum candidate-contract-equivalence.json | tee candidate-contract-equivalence.sha256
+      - name: Capture node logs
+        if: always()
+        run: |
+          docker logs zoryq-contract-candidate > candidate-contract-node.log 2>&1 || true
+          docker logs zoryq-contract-serial > serial-contract-node.log 2>&1 || true
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-candidate-contract-equivalence-${{ github.sha }}
+          path: |
+            candidate-contract-equivalence.json
+            candidate-contract-equivalence.sha256
+            candidate-contract-node.log
+            serial-contract-node.log
+          if-no-files-found: error
+          retention-days: 30
