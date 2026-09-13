@@ -88,7 +88,8 @@ jobs:
           curl --max-time 5 -fsS http://127.0.0.1:8545 \
             -H 'content-type: application/json' \
             --data '{"jsonrpc":"2.0","id":1,"method":"admin_nodeInfo","params":[]}' \
-            | jq -e '.result.enode' > /tmp/nodeinfo.json
+            > /tmp/nodeinfo.json
+          jq -e '.result.enode | type == "string" and startswith("enode://")' /tmp/nodeinfo.json >/dev/null
           ENODE=$(jq -r '.result.enode' /tmp/nodeinfo.json)
           PUBKEY=$(printf '%s' "$ENODE" | sed -nE 's#^enode://([^@]+)@.*#\1#p')
           test ${#PUBKEY} -eq 128
