@@ -17,9 +17,6 @@ jobs:
     timeout-minutes: 30
     env:
       TEST_MNEMONIC: test test test test test test test test test test test junk
-      # First account derived from the canonical test mnemonic. Using the funded
-      # account removes faucet policy/rate-limit behavior from this persistence drill.
-      TEST_ADDRESS: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
       ZORYQ_CHAIN_ID_DEC: '5919065'
     steps:
       - uses: actions/checkout@v4
@@ -51,6 +48,15 @@ jobs:
       - name: Capture deterministic funded state in isolated node
         run: |
           set -euo pipefail
+          TEST_ADDRESS=$(docker exec zoryq-recovery node --input-type=module -e 'import {HDNodeWallet} from "ethers"; console.log(HDNodeWallet.fromPhrase(process.env.ZORYQ_RETH_MNEMONIC,"","m/44'"'"'/60'"'"'/0'"'"'/0/0").address.toLowerCase())')
+          test "$TEST_ADDRESS" != '0x0000000000000000000000000000000000000000'
+          echo "$TEST_ADDRESS" >/tmp/test-address
+          echo "canonical_operator=$TEST_ADDRESS"
+
+          GENESIS_BALANCE=$(docker exec zoryq-recovery node --input-type=module -e 'import fs from "node:fs"; import {HDNodeWallet} from "ethers"; const g=JSON.parse(fs.readFileSync("/data/zoryq-reth-effective-genesis.json","utf8")); const a=HDNodeWallet.fromPhrase(process.env.ZORYQ_RETH_MNEMONIC,"","m/44'"'"'/60'"'"'/0'"'"'/0/0").address; const v=g.alloc[a]||g.alloc[a.toLowerCase()]; if(!v?.balance) process.exit(2); console.log(v.balance)')
+          test "$GENESIS_BALANCE" != '0x0'
+          echo "effective_genesis_balance=$GENESIS_BALANCE"
+
           for i in $(seq 1 60); do
             EXPECTED=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
               -H 'content-type: application/json' \
@@ -60,6 +66,7 @@ jobs:
           done
           test "$EXPECTED" != '0x0'
           test "$EXPECTED" != 'null'
+          test "$EXPECTED" = "$GENESIS_BALANCE"
           echo "$EXPECTED" >/tmp/expected-balance
 
           GENESIS=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
@@ -115,6 +122,7 @@ jobs:
       - name: Verify native state survived crash and restart
         run: |
           set -euo pipefail
+          TEST_ADDRESS=$(cat /tmp/test-address)
           EXPECTED=$(cat /tmp/expected-balance)
           ACTUAL=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
@@ -158,19 +166,21 @@ jobs:
           RECOVERED_DB_ENTRIES=$(docker exec zoryq-recovered sh -lc 'find /data/reth/db -type f 2>/dev/null | wc -l')
           test "$RECOVERED_DB_ENTRIES" -gt 0
           echo "recovered_reth_db_entries=$RECOVERED_DB_ENTRIES"
-          echo "Native Reth DB recovery verified: funded state and genesis survived SIGKILL, recovered Reth DB contains persisted files, and canonical head resumed to the pre-kill height."
+          echo "Native Reth DB recovery verified: canonical funded operator state and genesis survived SIGKILL, recovered Reth DB contains persisted files, and canonical head resumed to the pre-kill height."
 
       - name: Capture recovery diagnostics on failure
         if: failure()
         run: |
           set +e
           mkdir -p zoryq-recovery-evidence
+          cp /tmp/test-address zoryq-recovery-evidence/test-address.txt 2>/dev/null || true
           cp /tmp/expected-balance zoryq-recovery-evidence/expected-balance.txt 2>/dev/null || true
           cp /tmp/genesis-hash zoryq-recovery-evidence/expected-genesis-hash.txt 2>/dev/null || true
           cp /tmp/head-before zoryq-recovery-evidence/head-before.txt 2>/dev/null || true
           cp /tmp/health.json zoryq-recovery-evidence/health-before.json 2>/dev/null || true
           cp /tmp/recovered-health.json zoryq-recovery-evidence/health-after.json 2>/dev/null || true
-          curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" > zoryq-recovery-evidence/balance-after.json || true
+          TEST_ADDRESS=$(cat /tmp/test-address 2>/dev/null || true)
+          if [ -n "$TEST_ADDRESS" ]; then curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" > zoryq-recovery-evidence/balance-after.json || true; fi
           curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":102,"method":"eth_getBlockByNumber","params":["0x0",false]}' > zoryq-recovery-evidence/genesis-after.json || true
           curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":103,"method":"eth_blockNumber","params":[]}' > zoryq-recovery-evidence/head-after.json || true
           curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":104,"method":"eth_chainId","params":[]}' > zoryq-recovery-evidence/chain-id-after.json || true
@@ -178,6 +188,7 @@ jobs:
           docker inspect zoryq-recovered > zoryq-recovery-evidence/recovered-container.json 2>&1 || true
           docker exec zoryq-recovered sh -c 'find /data/reth/db -type f -printf "%p %s bytes\n" | sort' > zoryq-recovery-evidence/reth-db-files.txt 2>&1 || true
           {
+            echo "test_address=$TEST_ADDRESS"
             echo "expected_balance=$(cat /tmp/expected-balance 2>/dev/null)"
             echo "actual_balance=$(jq -r '.result // .error // empty' zoryq-recovery-evidence/balance-after.json 2>/dev/null)"
             echo "expected_genesis=$(cat /tmp/genesis-hash 2>/dev/null)"
