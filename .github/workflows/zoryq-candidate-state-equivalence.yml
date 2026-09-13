@@ -43,7 +43,7 @@ jobs:
           done
       - name: Install dependencies
         working-directory: zoryq-evm-node
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Run candidate scheduler state equivalence experiment
         env:
           ZORYQ_CANDIDATE_RPC: http://127.0.0.1:8081/rpc
