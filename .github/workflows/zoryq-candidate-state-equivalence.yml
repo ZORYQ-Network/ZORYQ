@@ -1,0 +1,83 @@
+name: ZORYQ Candidate Scheduler State Equivalence
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/verification/candidate-scheduler.mjs'
+      - 'zoryq-developer/verification/candidate-state-equivalence.mjs'
+      - '.github/workflows/zoryq-candidate-state-equivalence.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  state-equivalence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_MNEMONIC: test test test test test test test test test test test junk
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build identical local ZORYQ node image
+        run: docker build -t zoryq-candidate-equivalence ./zoryq-evm-node
+      - name: Start candidate and serial reference nodes
+        run: |
+          set -euo pipefail
+          docker volume create zoryq-candidate-eq-db
+          docker volume create zoryq-serial-eq-db
+          docker run -d --name zoryq-candidate-eq -p 8081:8080 -v zoryq-candidate-eq-db:/data -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" zoryq-candidate-equivalence
+          docker run -d --name zoryq-serial-eq -p 8082:8080 -v zoryq-serial-eq-db:/data -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" zoryq-candidate-equivalence
+          for port in 8081 8082; do
+            ok=0
+            for i in $(seq 1 120); do
+              if curl -fsS "http://127.0.0.1:${port}/health" >/tmp/health-${port}.json; then
+                test "$(jq -r '.chain.chainId // .chainId' /tmp/health-${port}.json)" = "5919065"
+                ok=1
+                break
+              fi
+              sleep 1
+            done
+            test "$ok" = "1"
+          done
+      - name: Install dependencies
+        working-directory: zoryq-evm-node
+        run: npm ci
+      - name: Run candidate scheduler state equivalence experiment
+        env:
+          ZORYQ_CANDIDATE_RPC: http://127.0.0.1:8081/rpc
+          ZORYQ_SERIAL_RPC: http://127.0.0.1:8082/rpc
+          ZORYQ_CANDIDATE_BASE: http://127.0.0.1:8081
+          ZORYQ_SERIAL_BASE: http://127.0.0.1:8082
+          ZORYQ_CANDIDATE_EQ_OUT: candidate-state-equivalence.json
+        run: node zoryq-developer/verification/candidate-state-equivalence.mjs
+      - name: Enforce evidence semantics
+        run: |
+          set -euo pipefail
+          jq -e '.equality.accountState == true' candidate-state-equivalence.json >/dev/null
+          jq -e '.equality.receiptStatusAndGas == true' candidate-state-equivalence.json >/dev/null
+          jq -e '.schedulerTelemetry.conflictCount > 0' candidate-state-equivalence.json >/dev/null
+          jq -e '.schedulerTelemetry.waveCount > 1' candidate-state-equivalence.json >/dev/null
+          jq -e '.schedulerTelemetry.maxWaveWidth > 1' candidate-state-equivalence.json >/dev/null
+          jq -e '.schedulerTelemetry.reexecutionCount == 0' candidate-state-equivalence.json >/dev/null
+          jq -e '.claimStatus == "CANDIDATE_SCHEDULER_STATE_EQUIVALENCE_TRANSFER_MATRIX"' candidate-state-equivalence.json >/dev/null
+          jq -e '.claimBoundary | contains("does not prove parallel EVM state execution")' candidate-state-equivalence.json >/dev/null
+          sha256sum candidate-state-equivalence.json | tee candidate-state-equivalence.sha256
+      - name: Capture node logs
+        if: always()
+        run: |
+          docker logs zoryq-candidate-eq > candidate-node.log 2>&1 || true
+          docker logs zoryq-serial-eq > serial-node.log 2>&1 || true
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-candidate-state-equivalence-${{ github.sha }}
+          path: |
+            candidate-state-equivalence.json
+            candidate-state-equivalence.sha256
+            candidate-node.log
+            serial-node.log
+          if-no-files-found: error
+          retention-days: 30
