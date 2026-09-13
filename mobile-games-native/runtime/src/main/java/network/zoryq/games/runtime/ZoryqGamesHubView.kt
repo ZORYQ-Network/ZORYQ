@@ -44,10 +44,10 @@ class ZoryqGamesHubView(
         GameCard(
             ZoryqGameBridge.GAME_ARENA,
             "ZORYQ ARENA",
-            "Combate futurista competitivo com partidas curtas.",
-            "EM DESENVOLVIMENTO",
+            "Combate futurista com movimentação, escudo e disparos.",
+            "ALPHA JOGÁVEL",
             Color.rgb(255, 85, 176),
-            false
+            true
         ),
         GameCard(
             ZoryqGameBridge.GAME_EMPIRE,
@@ -61,8 +61,6 @@ class ZoryqGamesHubView(
 
     private val cardRects = ArrayList<RectF>()
     private var background: Shader? = null
-    private var downX = 0f
-    private var downY = 0f
     private var started = 0L
 
     init {
@@ -178,8 +176,6 @@ class ZoryqGamesHubView(
     override fun onTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                downX = event.x
-                downY = event.y
                 started = SystemClock.uptimeMillis()
                 return true
             }
