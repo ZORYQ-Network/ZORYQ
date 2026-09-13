@@ -18,6 +18,7 @@ jobs:
     env:
       TEST_MNEMONIC: test test test test test test test test test test test junk
       TEST_ADDRESS: '0x1000000000000000000000000000000000000001'
+      ZORYQ_CHAIN_ID_DEC: '5919065'
     steps:
       - uses: actions/checkout@v4
 
@@ -35,7 +36,7 @@ jobs:
             zoryq-recovery
           for i in $(seq 1 120); do
             if curl -fsS http://127.0.0.1:18081/health >/tmp/health.json; then
-              if jq -e '(.chain.chainId // .chainId) == 5919065 and .persistence.mode == "reth-native-db" and .persistence.readyForTraffic == true' /tmp/health.json >/dev/null; then
+              if jq -e --argjson chainId "$ZORYQ_CHAIN_ID_DEC" '(.chain.chainId // .chainId) == $chainId and .persistence.mode == "reth-native-db" and .persistence.readyForTraffic == true' /tmp/health.json >/dev/null; then
                 docker exec zoryq-recovery test -d /data/reth/db
                 exit 0
               fi
@@ -104,7 +105,7 @@ jobs:
           ready=0
           for i in $(seq 1 120); do
             if curl -fsS http://127.0.0.1:18081/health >/tmp/recovered-health.json; then
-              if jq -e '(.chain.chainId // .chainId) == 5919065 and .persistence.mode == "reth-native-db" and .persistence.readyForTraffic == true' /tmp/recovered-health.json >/dev/null; then
+              if jq -e --argjson chainId "$ZORYQ_CHAIN_ID_DEC" '(.chain.chainId // .chainId) == $chainId and .persistence.mode == "reth-native-db" and .persistence.readyForTraffic == true' /tmp/recovered-health.json >/dev/null; then
                 ready=1
                 break
               fi
@@ -155,7 +156,9 @@ jobs:
           CHAIN_ID=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
             -H 'content-type: application/json' \
             -d '{"jsonrpc":"2.0","id":7,"method":"eth_chainId","params":[]}' | jq -r .result)
-          test "$CHAIN_ID" = '0x5a5159'
+          EXPECTED_CHAIN_ID=$(printf '0x%x' "$ZORYQ_CHAIN_ID_DEC")
+          echo "chain_id_expected=$EXPECTED_CHAIN_ID chain_id_actual=$CHAIN_ID"
+          test "$CHAIN_ID" = "$EXPECTED_CHAIN_ID"
 
           docker logs zoryq-recovered > /tmp/recovered.log 2>&1
           docker exec zoryq-recovered test -d /data/reth/db
