@@ -2,6 +2,10 @@ name: Build ZORYQ Android APK
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - 'mobile-games-native/**'
+      - '.github/workflows/android-apk.yml'
   push:
     branches: [main]
     paths:
