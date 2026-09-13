@@ -6,7 +6,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/mobile-source-export.yml'
-      - 'zoryq-src.tgz'
+      - 'mobile-games-native/**'
 
 permissions:
   contents: read
@@ -17,79 +17,62 @@ concurrency:
 
 jobs:
   export-source:
-    name: Validate and export mobile source
+    name: Validate and export canonical mobile source
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
       - name: Checkout current repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
-      - name: Inspect current packaged source
-        id: current
-        shell: bash
+      - name: Verify canonical source tree
         run: |
           set -euo pipefail
-          if tar -tzf zoryq-src.tgz > /tmp/current-mobile-files.txt 2>/tmp/current-tar-error.txt; then
-            echo 'valid=true' >> "$GITHUB_OUTPUT"
-          else
-            echo 'valid=false' >> "$GITHUB_OUTPUT"
-            echo 'Current zoryq-src.tgz is not a valid gzip tar archive.'
-            cat /tmp/current-tar-error.txt
-          fi
+          test -f mobile-games-native/settings.gradle.kts
+          test -f mobile-games-native/wallet-host/build.gradle.kts
+          test -f mobile-games-native/runtime/build.gradle.kts
+          test -f mobile-games-native/demo/build.gradle.kts
 
-      - name: Extract current source
-        if: steps.current.outputs.valid == 'true'
+      - name: Reject private key and keystore material
         run: |
           set -euo pipefail
-          if grep -E '(^|/)\.\./|^/' /tmp/current-mobile-files.txt; then
-            echo 'Unsafe archive path detected' >&2
-            exit 1
-          fi
-          rm -rf mobile-source
-          mkdir -p mobile-source
-          tar -xzf zoryq-src.tgz -C mobile-source
-          test -f mobile-source/package.json
-          test -f mobile-source/app.json
-          printf 'source=current-zoryq-src.tgz\n' > mobile-source/SOURCE_RECOVERY.txt
-
-      - name: Recover source from historical ZIP when current archive is corrupt
-        if: steps.current.outputs.valid != 'true'
-        run: |
-          set -euo pipefail
-          RECOVERY_COMMIT='5f1d23679a972861a04dcd546a870998a719b286'
-          LEGACY_ARCHIVE="ky""vo-source.zip"
-          git show "${RECOVERY_COMMIT}:${LEGACY_ARCHIVE}" > /tmp/zoryq-historical-source.zip
-          unzip -t /tmp/zoryq-historical-source.zip
-          rm -rf mobile-source
-          mkdir -p mobile-source
-          unzip -q /tmp/zoryq-historical-source.zip -d mobile-source
-          test -f mobile-source/package.json
-          test -f mobile-source/app.json
-          printf 'source=historical-mobile-source.zip\nrecovery_commit=%s\n' "$RECOVERY_COMMIT" > mobile-source/SOURCE_RECOVERY.txt
-
-      - name: Reject obvious secret material
-        run: |
-          set -euo pipefail
-          if find mobile-source -type f \( -name '*.pem' -o -name '*.p12' -o -name '*.pfx' -o -name '*.jks' -o -name '*.keystore' \) -print | grep -q .; then
-            echo 'Potential private key/keystore material found in packaged source' >&2
+          if find mobile-games-native -type f \( \
+              -name '*.pem' -o -name '*.key' -o -name '*.p12' -o -name '*.pfx' -o \
+              -name '*.jks' -o -name '*.keystore' \) -print | grep -q .; then
+            echo 'Private key or keystore material found in canonical mobile source' >&2
             exit 1
           fi
 
-      - name: Produce source inventory
+      - name: Reject obvious embedded secrets
         run: |
           set -euo pipefail
-          find mobile-source -type f -printf '%P\n' | LC_ALL=C sort > mobile-source/FILE_INVENTORY.txt
-          sha256sum zoryq-src.tgz > mobile-source/CURRENT_ARCHIVE_SHA256.txt
-          printf 'commit=%s\n' "$GITHUB_SHA" > mobile-source/SOURCE_EXPORT_PROVENANCE.txt
-          printf 'workflow_run=%s\n' "$GITHUB_RUN_ID" >> mobile-source/SOURCE_EXPORT_PROVENANCE.txt
+          if grep -RInE --exclude-dir=build --exclude='*.md' \
+             '(BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|mnemonic[[:space:]]*=[[:space:]]*["'"'][a-z]+( [a-z]+){11,23}["'"']|private[_-]?key[[:space:]]*=[[:space:]]*["'"'][0-9a-fA-F]{64}["'"'])' \
+             mobile-games-native; then
+            echo 'Potential embedded secret detected in canonical mobile source' >&2
+            exit 1
+          fi
+
+      - name: Produce deterministic source export
+        run: |
+          set -euo pipefail
+          rm -rf mobile-source-export
+          mkdir -p mobile-source-export/source
+          cp -R mobile-games-native/. mobile-source-export/source/
+          find mobile-source-export/source -type d -name build -prune -exec rm -rf {} + || true
+          find mobile-source-export/source -type f -printf '%P\n' | LC_ALL=C sort \
+            > mobile-source-export/FILE_INVENTORY.txt
+          (
+            cd mobile-source-export/source
+            find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum
+          ) > mobile-source-export/SHA256SUMS.txt
+          printf 'commit=%s\nworkflow_run=%s\nsource=mobile-games-native\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" > mobile-source-export/SOURCE_EXPORT_PROVENANCE.txt
 
       - name: Upload reviewable source artifact
         uses: actions/upload-artifact@v4
         with:
           name: zoryq-mobile-source-${{ github.sha }}
-          path: mobile-source/
+          path: mobile-source-export/
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 30
