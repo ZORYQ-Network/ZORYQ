@@ -19,6 +19,29 @@ permissions:
   contents: read
 
 jobs:
+  deterministic-harness-integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run deterministic reference harness
+        working-directory: zoryq-evm-node
+        run: node serial-equivalence-runner.mjs
+      - name: Enforce conservative claim boundary
+        working-directory: zoryq-evm-node
+        run: |
+          node -e "const r=JSON.parse(require('fs').readFileSync('serial-equivalence-evidence/report.json')); if(!r.pass) process.exit(1); if(r.candidateMode!=='serial-reference-not-parallel') process.exit(1); if(!r.claimBoundary.includes('does not prove adaptive or parallel execution')) process.exit(1)"
+      - name: Upload harness integrity evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-serial-harness-${{ github.sha }}
+          path: zoryq-evm-node/serial-equivalence-evidence/
+          if-no-files-found: error
+          retention-days: 30
+
   canonical-serial-replay:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -52,16 +75,8 @@ jobs:
           set -euo pipefail
           docker volume create zoryq-concurrent-db
           docker volume create zoryq-serial-db
-          docker run -d --name zoryq-concurrent \
-            -p 8081:8080 \
-            -v zoryq-concurrent-db:/data \
-            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
-            zoryq-serial-equivalence
-          docker run -d --name zoryq-serial-reference \
-            -p 8082:8080 \
-            -v zoryq-serial-db:/data \
-            -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" \
-            zoryq-serial-equivalence
+          docker run -d --name zoryq-concurrent -p 8081:8080 -v zoryq-concurrent-db:/data -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" zoryq-serial-equivalence
+          docker run -d --name zoryq-serial-reference -p 8082:8080 -v zoryq-serial-db:/data -e ZORYQ_RETH_MNEMONIC="$TEST_MNEMONIC" zoryq-serial-equivalence
           for port in 8081 8082; do
             ok=0
             for i in $(seq 1 120); do
@@ -72,11 +87,7 @@ jobs:
               fi
               sleep 1
             done
-            if [ "$ok" != "1" ]; then
-              docker logs zoryq-concurrent || true
-              docker logs zoryq-serial-reference || true
-              exit 1
-            fi
+            test "$ok" = "1"
           done
           cp /tmp/health-8081.json zoryq-evidence/concurrent-health.json
           cp /tmp/health-8082.json zoryq-evidence/serial-reference-health.json
