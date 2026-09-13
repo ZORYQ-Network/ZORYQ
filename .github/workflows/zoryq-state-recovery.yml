@@ -17,7 +17,9 @@ jobs:
     timeout-minutes: 30
     env:
       TEST_MNEMONIC: test test test test test test test test test test test junk
-      TEST_ADDRESS: '0x1000000000000000000000000000000000000001'
+      # First account derived from the canonical test mnemonic. Using the funded
+      # account removes faucet policy/rate-limit behavior from this persistence drill.
+      TEST_ADDRESS: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266'
       ZORYQ_CHAIN_ID_DEC: '5919065'
     steps:
       - uses: actions/checkout@v4
@@ -46,18 +48,9 @@ jobs:
           docker logs zoryq-recovery
           exit 1
 
-      - name: Create deterministic state in isolated node
+      - name: Capture deterministic funded state in isolated node
         run: |
           set -euo pipefail
-          # This faucet call is against the isolated CI container only; it never touches the public testnet faucet.
-          STATUS=$(curl -sS -o /tmp/faucet.json -w '%{http_code}' \
-            -X POST http://127.0.0.1:18081/faucet/claim \
-            -H 'content-type: application/json' \
-            -H 'x-real-ip: 127.0.0.2' \
-            -d "{\"address\":\"$TEST_ADDRESS\"}")
-          test "$STATUS" = '200'
-          jq -e '.ok == true' /tmp/faucet.json >/dev/null
-
           for i in $(seq 1 60); do
             EXPECTED=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
               -H 'content-type: application/json' \
@@ -165,7 +158,7 @@ jobs:
           RECOVERED_DB_ENTRIES=$(docker exec zoryq-recovered sh -lc 'find /data/reth/db -type f 2>/dev/null | wc -l')
           test "$RECOVERED_DB_ENTRIES" -gt 0
           echo "recovered_reth_db_entries=$RECOVERED_DB_ENTRIES"
-          echo "Native Reth DB recovery verified: durable state and genesis survived SIGKILL, recovered Reth DB contains persisted files, and canonical head resumed to the pre-kill height."
+          echo "Native Reth DB recovery verified: funded state and genesis survived SIGKILL, recovered Reth DB contains persisted files, and canonical head resumed to the pre-kill height."
 
       - name: Capture recovery diagnostics on failure
         if: failure()
@@ -177,8 +170,6 @@ jobs:
           cp /tmp/head-before zoryq-recovery-evidence/head-before.txt 2>/dev/null || true
           cp /tmp/health.json zoryq-recovery-evidence/health-before.json 2>/dev/null || true
           cp /tmp/recovered-health.json zoryq-recovery-evidence/health-after.json 2>/dev/null || true
-          cp /tmp/faucet.json zoryq-recovery-evidence/isolated-faucet-response.json 2>/dev/null || true
-
           curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d "{\"jsonrpc\":\"2.0\",\"id\":101,\"method\":\"eth_getBalance\",\"params\":[\"$TEST_ADDRESS\",\"latest\"]}" > zoryq-recovery-evidence/balance-after.json || true
           curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":102,"method":"eth_getBlockByNumber","params":["0x0",false]}' > zoryq-recovery-evidence/genesis-after.json || true
           curl -sS -X POST http://127.0.0.1:18081/rpc -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":103,"method":"eth_blockNumber","params":[]}' > zoryq-recovery-evidence/head-after.json || true
