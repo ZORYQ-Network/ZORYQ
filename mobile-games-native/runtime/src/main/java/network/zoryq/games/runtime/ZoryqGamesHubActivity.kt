@@ -15,6 +15,7 @@ open class ZoryqGamesHubActivity : Activity() {
                 when (gameId) {
                     ZoryqGameBridge.GAME_RUSH -> startActivity(Intent(this, ZoryqRushActivity::class.java))
                     ZoryqGameBridge.GAME_ARENA -> startActivity(Intent(this, ZoryqArenaActivity::class.java))
+                    ZoryqGameBridge.GAME_EMPIRE -> startActivity(Intent(this, ZoryqEmpireActivity::class.java))
                     else -> Unit
                 }
             }
