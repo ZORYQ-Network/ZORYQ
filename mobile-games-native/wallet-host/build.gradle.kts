@@ -29,6 +29,7 @@ android {
             excludes += setOf(
                 "META-INF/INDEX.LIST",
                 "META-INF/DEPENDENCIES",
+                "META-INF/DISCLAIMER",
                 "META-INF/LICENSE",
                 "META-INF/LICENSE.txt",
                 "META-INF/NOTICE",
