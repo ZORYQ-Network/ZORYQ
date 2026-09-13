@@ -14,6 +14,17 @@ function run(script, args) {
   return spawnSync(process.execPath, [script, ...args], { encoding: 'utf8' });
 }
 
+function withPrivateTempFile(prefix, contents, callback) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const file = path.join(dir, 'result.json');
+  try {
+    fs.writeFileSync(file, contents, { flag: 'wx', mode: 0o600 });
+    return callback(file);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 test('external task produces deterministic summary and verifies independently', () => {
   const first = run(compute, [input]);
   const second = run(compute, [input]);
@@ -27,17 +38,13 @@ test('external task produces deterministic summary and verifies independently', 
   assert.equal(result.activeAmountTotal, 78);
   assert.deepEqual(result.categoryTotals, { compute: 17, storage: 42, verification: 19 });
 
-  const tmp = path.join(os.tmpdir(), `zoryq-obep-task-${process.pid}.json`);
-  fs.writeFileSync(tmp, first.stdout);
-  try {
+  withPrivateTempFile('zoryq-obep-task-', first.stdout, (tmp) => {
     const verification = run(verify, [input, tmp]);
     assert.equal(verification.status, 0, verification.stderr);
     const parsed = JSON.parse(verification.stdout);
     assert.equal(parsed.verified, true);
     assert.equal(parsed.outputHash, result.outputHash);
-  } finally {
-    fs.rmSync(tmp, { force: true });
-  }
+  });
 });
 
 test('external task verifier rejects substituted output', () => {
@@ -46,13 +53,9 @@ test('external task verifier rejects substituted output', () => {
   const result = JSON.parse(computed.stdout);
   result.activeAmountTotal += 1;
 
-  const tmp = path.join(os.tmpdir(), `zoryq-obep-task-bad-${process.pid}.json`);
-  fs.writeFileSync(tmp, JSON.stringify(result));
-  try {
+  withPrivateTempFile('zoryq-obep-task-bad-', JSON.stringify(result), (tmp) => {
     const verification = run(verify, [input, tmp]);
     assert.notEqual(verification.status, 0);
     assert.match(verification.stderr, /task result mismatch/);
-  } finally {
-    fs.rmSync(tmp, { force: true });
-  }
+  });
 });
