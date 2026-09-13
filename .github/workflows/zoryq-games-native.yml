@@ -38,9 +38,9 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Test runtime
+      - name: Test runtime and Wallet host
         working-directory: mobile-games-native
-        run: gradle :runtime:testDebugUnitTest --stacktrace
+        run: gradle :runtime:testDebugUnitTest :wallet-host:testDebugUnitTest --stacktrace
 
       - name: Build runtime, games demo and Wallet migration host
         working-directory: mobile-games-native
