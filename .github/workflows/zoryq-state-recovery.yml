@@ -54,8 +54,10 @@ jobs:
           echo "canonical_operator=$TEST_ADDRESS"
 
           GENESIS_BALANCE=$(docker exec zoryq-recovery node --input-type=module -e 'import fs from "node:fs"; import {HDNodeWallet} from "ethers"; const g=JSON.parse(fs.readFileSync("/data/zoryq-reth-effective-genesis.json","utf8")); const a=HDNodeWallet.fromPhrase(process.env.ZORYQ_RETH_MNEMONIC,"","m/44'"'"'/60'"'"'/0'"'"'/0/0").address; const v=g.alloc[a]||g.alloc[a.toLowerCase()]; if(!v?.balance) process.exit(2); console.log(v.balance)')
-          test "$GENESIS_BALANCE" != '0x0'
-          echo "effective_genesis_balance=$GENESIS_BALANCE"
+          GENESIS_BALANCE_HEX=$(node -e 'process.stdout.write("0x"+BigInt(process.argv[1]).toString(16))' "$GENESIS_BALANCE")
+          test "$GENESIS_BALANCE_HEX" != '0x0'
+          echo "effective_genesis_balance_raw=$GENESIS_BALANCE"
+          echo "effective_genesis_balance_hex=$GENESIS_BALANCE_HEX"
 
           for i in $(seq 1 60); do
             EXPECTED=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
@@ -66,7 +68,7 @@ jobs:
           done
           test "$EXPECTED" != '0x0'
           test "$EXPECTED" != 'null'
-          test "$EXPECTED" = "$GENESIS_BALANCE"
+          test "$EXPECTED" = "$GENESIS_BALANCE_HEX"
           echo "$EXPECTED" >/tmp/expected-balance
 
           GENESIS=$(curl -fsS -X POST http://127.0.0.1:18081/rpc \
