@@ -1,0 +1,48 @@
+name: ZORYQ Candidate Scheduler Evidence
+
+on:
+  push:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-developer/verification/candidate-scheduler.mjs'
+      - 'zoryq-developer/verification/candidate-scheduler.test.mjs'
+      - '.github/workflows/zoryq-candidate-scheduler.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scheduler-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify dependency-aware scheduling telemetry
+        run: node zoryq-developer/verification/candidate-scheduler.test.mjs | tee candidate-scheduler-evidence.json
+      - name: Enforce non-fabrication boundary
+        run: |
+          node - <<'NODE'
+          const fs = require('fs');
+          const raw = fs.readFileSync('candidate-scheduler-evidence.json','utf8');
+          const start = raw.indexOf('{');
+          if (start < 0) process.exit(1);
+          const r = JSON.parse(raw.slice(start));
+          if (!(r.conflictCount > 0)) process.exit(1);
+          if (r.reexecutionCount !== 0) process.exit(1);
+          if (!r.claimBoundary.includes('does not prove parallel EVM state execution')) process.exit(1);
+          NODE
+      - name: Hash evidence
+        run: sha256sum candidate-scheduler-evidence.json | tee candidate-scheduler-evidence.sha256
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: zoryq-candidate-scheduler-${{ github.sha }}
+          path: |
+            candidate-scheduler-evidence.json
+            candidate-scheduler-evidence.sha256
+          if-no-files-found: error
+          retention-days: 30
