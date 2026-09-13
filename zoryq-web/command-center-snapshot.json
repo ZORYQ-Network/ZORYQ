@@ -1,0 +1,162 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-09-10T18:22:00Z",
+  "environment": "TESTNET",
+  "dataPolicy": "REAL_DATA_ONLY",
+  "scores": {
+    "health": {
+      "value": null,
+      "reason": "Security, performance, GitHub CI and traction coverage are not yet complete enough for a defensible weighted Health Score."
+    },
+    "momentum": {
+      "value": null,
+      "reason": "Momentum requires at least two comparable historical snapshots. This is the first Command Center snapshot."
+    },
+    "technology": {
+      "value": null,
+      "reason": "Module-by-module evidence mapping is not complete. Live execution and protocol evidence are shown separately."
+    },
+    "github": {
+      "value": null,
+      "reason": "Repository evidence is available, but CI history and weighting are not yet automated enough for a stable score."
+    },
+    "traction": {
+      "value": null,
+      "reason": "Website and social analytics are not connected."
+    }
+  },
+  "github": {
+    "repository": "ZORYQ-Network/ZORYQ",
+    "visibility": "private",
+    "defaultBranch": "main",
+    "activeDevelopmentBranch": "zoryq-evm-testnet-node",
+    "stars": 0,
+    "forks": 0,
+    "watchers": 0,
+    "openIssueSearchCount": 24,
+    "openPullRequestSearchCount": 11,
+    "activeTestnetPullRequest": {
+      "number": 12,
+      "state": "open",
+      "title": "ZORYQ EVM Testnet — agent-native chain, native DeFi & builder intelligence",
+      "head": "zoryq-evm-testnet-node",
+      "base": "main",
+      "updatedAt": "2026-09-10T18:14:49Z"
+    },
+    "latestDevelopmentCommit": {
+      "sha": "27c458144c0cdc5e36939f1d3f0285079570a825",
+      "shortSha": "27c4581",
+      "message": "fix(explorer): serve EIP-3091 routes from Rust gateway",
+      "createdAt": "2026-09-10T18:14:47Z"
+    },
+    "recentActivity": [
+      {
+        "type": "commit",
+        "sha": "27c4581",
+        "message": "fix(explorer): serve EIP-3091 routes from Rust gateway",
+        "createdAt": "2026-09-10T18:14:47Z"
+      },
+      {
+        "type": "commit",
+        "sha": "e3588f7",
+        "message": "docs(research): record first non-empty AEM shadow observation",
+        "createdAt": "2026-09-10T18:09:59Z"
+      },
+      {
+        "type": "commit",
+        "sha": "acbceac",
+        "message": "fix(research): locate non-empty AEM sample through explorer index",
+        "createdAt": "2026-09-10T18:07:43Z"
+      }
+    ],
+    "latestWorkflowObservation": {
+      "name": "ZORYQ Serial Equivalence Evidence",
+      "status": "in_progress",
+      "conclusion": null,
+      "runNumber": 140,
+      "headSha": "27c458144c0cdc5e36939f1d3f0285079570a825",
+      "observedAt": "2026-09-10T18:14:53Z",
+      "note": "Point-in-time observation only; refresh through the connected GitHub data pipeline before treating it as current."
+    }
+  },
+  "priorities": [
+    {
+      "source": "GitHub issue #40",
+      "priority": "P1",
+      "area": "Repository / Mobile",
+      "title": "Move mobile source out of zoryq-src.tgz",
+      "status": "OPEN",
+      "whyItMatters": "Improves code review, dependency visibility, contributor onboarding and reproducibility."
+    },
+    {
+      "source": "GitHub issue #36",
+      "priority": "OPEN BUG",
+      "area": "Autonomous Economy",
+      "title": "Preserve Assigned status before cancel reputation accounting",
+      "status": "OPEN",
+      "whyItMatters": "The current cancellation path can skip worker failure accounting."
+    },
+    {
+      "source": "GitHub issue #26",
+      "priority": "ROADMAP",
+      "area": "Network",
+      "title": "Reproducible independent node + fault-tested multi-node devnet",
+      "status": "OPEN",
+      "whyItMatters": "Required before stronger decentralization claims are defensible."
+    },
+    {
+      "source": "GitHub issue #29",
+      "priority": "ROADMAP",
+      "area": "Security",
+      "title": "Fuzzing, differential testing, audits and permanent bug bounty",
+      "status": "OPEN",
+      "whyItMatters": "Turns security evidence into a release gate."
+    }
+  ],
+  "opportunities": [
+    {
+      "source": "GitHub issue #31",
+      "area": "Product Proof",
+      "title": "Investor-grade Agent Commerce vertical slice",
+      "status": "OPEN",
+      "whyItMatters": "Creates a reproducible end-to-end proof rather than a broad set of unfinished features."
+    },
+    {
+      "source": "GitHub issue #24",
+      "area": "Developer Growth",
+      "title": "Launch public ZORYQ Developer Kit repository",
+      "status": "OPEN",
+      "whyItMatters": "Gives external developers a sanitized public entry point without exposing the private monorepo."
+    }
+  ],
+  "sources": [
+    {
+      "name": "GitHub connected repository snapshot",
+      "kind": "github",
+      "status": "CONNECTED_SNAPSHOT",
+      "lastUpdated": "2026-09-10T18:22:00Z",
+      "confidence": "HIGH"
+    },
+    {
+      "name": "network-maturity.json",
+      "kind": "repository-evidence",
+      "status": "CONNECTED_LIVE_STATIC",
+      "lastUpdated": null,
+      "confidence": "HIGH"
+    },
+    {
+      "name": "ZORYQ public testnet health/RPC",
+      "kind": "runtime",
+      "status": "CONNECTED_LIVE",
+      "lastUpdated": null,
+      "confidence": "HIGH"
+    },
+    {
+      "name": "Website / social traction analytics",
+      "kind": "analytics",
+      "status": "NOT_CONNECTED",
+      "lastUpdated": null,
+      "confidence": "NO_DATA"
+    }
+  ]
+}

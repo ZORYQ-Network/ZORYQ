@@ -1,0 +1,88 @@
+name: ZORYQ Command Center
+
+on:
+  pull_request:
+    branches: [zoryq-evm-testnet-node]
+    paths:
+      - 'zoryq-web/command-center.html'
+      - 'zoryq-web/command-center-snapshot.json'
+      - 'zoryq-web/network-maturity.json'
+      - 'zoryq-developer/COMMAND_CENTER_ARCHITECTURE.md'
+      - '.github/workflows/zoryq-command-center.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: zoryq-command-center-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate JSON evidence
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('zoryq-web/command-center-snapshot.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('zoryq-web/network-maturity.json','utf8'))"
+          node -e "const v=JSON.parse(require('fs').readFileSync('zoryq-web/vercel.json','utf8')); if(v.cleanUrls!==true) process.exit(1)"
+
+      - name: Validate required Command Center surfaces
+        run: |
+          test -f zoryq-web/command-center.html
+          grep -Fq 'ZORYQ Command Center' zoryq-web/command-center.html
+          grep -Fq 'ZORYQ Health Score' zoryq-web/command-center.html
+          grep -Fq 'ZORYQ Momentum' zoryq-web/command-center.html
+          grep -Fq 'REAL DATA ONLY' zoryq-web/command-center.html
+          grep -Fq "getJson('/command-center-snapshot.json')" zoryq-web/command-center.html
+          grep -Fq "getJson('/network-maturity.json')" zoryq-web/command-center.html
+          grep -Fq 'eth_blockNumber' zoryq-web/command-center.html
+
+      - name: Verify evidence guardrails
+        run: node -e "const fs=require('fs');const s=JSON.parse(fs.readFileSync('zoryq-web/command-center-snapshot.json','utf8'));const m=JSON.parse(fs.readFileSync('zoryq-web/network-maturity.json','utf8'));if(s.dataPolicy!=='REAL_DATA_ONLY'||s.scores.momentum.value!==null||s.scores.traction.value!==null||m.network.mainnet!==false)process.exit(1)"
+
+  preview:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: zoryq-web
+    env:
+      VERCEL_ORG_ID: team_2Y0pzJPPode5346QpOXbdFtM
+      VERCEL_PROJECT_ID: prj_SNwO7G3CnGoG7j5kYVtmqevRDmy9
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN || secrets.VERCEL_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Report preview availability
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "Vercel preview skipped: PR context has no VERCEL_TOKEN/VERCEL_ACCESS_TOKEN." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Vercel preview credential available." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Link existing ZORYQ Vercel project
+        if: env.VERCEL_TOKEN != ''
+        run: |
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+
+      - name: Deploy preview only
+        if: env.VERCEL_TOKEN != ''
+        id: deploy
+        run: |
+          url=$(npx --yes vercel@latest deploy --yes --token "$VERCEL_TOKEN" | tail -n 1)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### ZORYQ Command Center Preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url/command-center" >> "$GITHUB_STEP_SUMMARY"
