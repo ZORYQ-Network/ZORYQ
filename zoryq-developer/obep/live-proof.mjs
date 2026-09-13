@@ -22,20 +22,12 @@ const BASE = (process.env.ZORYQ_PUBLIC_BASE_URL || 'https://zoryq-evm-node-live-
 const RPC = `${BASE}/rpc`;
 const CHAIN_ID = 5919065;
 const PAYMENT_WEI = process.env.ZORYQ_OBEP_PAYMENT_WEI || parseEther('1').toString();
-const EVIDENCE_ROOT = path.resolve(process.cwd(), 'zoryq-evidence', 'obep');
-const OUT = resolveEvidenceOutput(process.argv[2] || 'zoryq-evidence/obep/live-proof.json');
+// Security boundary: live network evidence is written only to this repository-local fixed path.
+// No CLI argument or environment variable can select a filesystem destination.
+const OUT = path.resolve(process.cwd(), 'zoryq-evidence', 'obep', 'live-proof.json');
 
 const assert = (condition, message) => { if (!condition) throw new Error(message); };
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-function resolveEvidenceOutput(requested) {
-  const resolved = path.resolve(process.cwd(), requested);
-  const relative = path.relative(EVIDENCE_ROOT, resolved);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) {
-    throw new Error('live OBEP evidence output must stay under zoryq-evidence/obep');
-  }
-  return resolved;
-}
 
 async function waitForBalance(provider, address, minimum, timeoutMs = 120000) {
   const started = Date.now();
@@ -146,7 +138,7 @@ async function main() {
   };
 
   fs.mkdirSync(path.dirname(OUT), { recursive: true });
-  fs.writeFileSync(OUT, JSON.stringify(evidence, null, 2) + '\n', { flag: 'w' });
+  fs.writeFileSync(OUT, JSON.stringify(evidence, null, 2) + '\n', { flag: 'w', mode: 0o600 });
   console.log(JSON.stringify({ ok: true, protocol: evidence.protocol, chainId: CHAIN_ID, intentId: intent.intentId, outcomeId: outcome.outcomeId, txHash: tx.hash, blockNumber: rpcReceipt.blockNumber, commitment, proofPackHash: proofPack.proofPackHash }));
 }
 
