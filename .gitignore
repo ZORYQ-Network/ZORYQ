@@ -1,0 +1,37 @@
+# ZORYQ security: never commit wallet or infrastructure secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.mobileprovision
+*.secret
+*.secrets
+*mnemonic*
+*seed-phrase*
+*seed_phrase*
+*private-key*
+*private_key*
+*.jwt
+jwt.hex
+
+# Local/runtime wallet material
+wallet-secrets/
+secrets/
+keys/
+keystore/
+/data/
+*.sqlite
+*.sqlite3
+
+# Build/dependency output
+node_modules/
+dist/
+build/
+.expo/
+android/.gradle/
+android/app/build/
